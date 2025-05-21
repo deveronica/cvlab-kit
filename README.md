@@ -60,12 +60,14 @@ config/               # YAML 실험 설정
     ...
 cvlabkit/
     core/             # Config, Proxy, Creator
+        agent.py      # 추상 Agent 클래스
     agent/            # 사용자 정의 Agent
-        base/         # 추상 Agent 클래스
         myagent.py
     component/        # 각 카테고리별 컴포넌트
         base/         # 추상 Component 클래스
         model/
+            mymodel.py
+            ...
         optimizer/
         ...
 data/                 # 데이터셋 경로

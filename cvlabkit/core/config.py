@@ -16,14 +16,20 @@ class Config:
 
         self.proxy = ConfigProxy()
 
-    def get(self, key):
+    def __getitem__(self, key):
+        return self.get(key)
+
+    def get(self, key, default=None):
         keys = key.split(".")
         cur = self._data
         for k in keys:
             if isinstance(cur, dict) and k in cur:
                 cur = cur[k]
             else:
-                return self.proxy.resolve_missing(key)
+                if default:
+                    return default
+                else:
+                    return self.proxy.resolve_missing(key)
         return cur
 
     def __getattr__(self, key):

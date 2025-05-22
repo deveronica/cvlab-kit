@@ -9,13 +9,77 @@ class Placeholder:
         self.proxy = proxy
 
     def __getattr__(self, name):
-        return self._resolve()
+        try:
+            return getattr(self._resolve(), name)
+        except Exception:
+            self.proxy.missing[self.key] = None
+            return None
+
+    def __getitem__(self, item):
+        try:
+            return self._resolve()[item]
+        except Exception:
+            self.proxy.missing[self.key] = {}
+            return {}
 
     def __call__(self, *args, **kwargs):
-        return self._resolve()
+        try:
+            return self._resolve()(*args, **kwargs)
+        except Exception:
+            self.proxy.missing[self.key] = lambda *a, **kw: None
+            return self.proxy.missing[self.key]
 
     def __repr__(self):
         return repr(self._resolve())
+
+    def __str__(self):
+        try:
+            return str(self._resolve())
+        except Exception:
+            self.proxy.missing[self.key] = "<missing>"
+            return "<missing>"
+
+    def __int__(self):
+        try:
+            return int(self._resolve())
+        except Exception:
+            self.proxy.missing[self.key] = 1
+            return 1
+
+    def __float__(self):
+        try:
+            return float(self._resolve())
+        except Exception:
+            self.proxy.missing[self.key] = 0.0
+            return 0.0
+
+    def __bool__(self):
+        try:
+            return bool(self._resolve())
+        except Exception:
+            self.proxy.missing[self.key] = False
+            return False
+
+    def __len__(self):
+        try:
+            return len(self._resolve())
+        except Exception:
+            self.proxy.missing[self.key] = []
+            return 0
+
+    def __iter__(self):
+        try:
+            return iter(self._resolve())
+        except Exception:
+            self.proxy.missing[self.key] = []
+            return iter([])
+
+    def __fspath__(self):
+        val = self._resolve()
+        if isinstance(val, (str, bytes, type(Path(".")))):
+            return val
+        self.proxy.missing[self.key] = "/missing/path"
+        return "/missing/path"
 
     def _resolve(self):
         if self.key not in self.proxy.resolved:

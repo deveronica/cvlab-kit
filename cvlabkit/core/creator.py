@@ -1,5 +1,7 @@
 import importlib
 import inspect
+import pkgutil
+from typing import Callable, Any
 
 from cvlabkit.core.config import Config
 
@@ -30,7 +32,8 @@ class _CategoryLoader:
         try:
             base_module = importlib.import_module(base_module_path)
             base_class = next(
-                cls for _, cls in inspect.getmembers(base_module, inspect.isclass)
+                cls
+                for _, cls in inspect.getmembers(base_module, inspect.isclass)
                 if cls.__module__ == base_module.__name__
             )
             self.base_class = base_class
@@ -57,15 +60,30 @@ class _CategoryLoader:
 
             try:
                 module = importlib.import_module(f"{impl_package}.{module_name}")
+
+                candidate = None
+                fallback = None
                 for name, cls in inspect.getmembers(module, inspect.isclass):
                     # Skip if class is defined in a different module (avoid transitive imports)
                     if cls.__module__ != module.__name__:
                         continue
-                    if self.base_class:
-                        if issubclass(cls, self.base_class) and cls is not self.base_class:
-                            self.implementations[module_name] = cls
-                    else:
-                        self.implementations[module_name] = cls
+
+                    if self.base_class and issubclass(cls, self.base_class):
+                        candidate = cls
+                        break
+                    elif fallback is None:
+                        fallback = cls
+
+                if candidate:
+                    self.implementations[module_name] = candidate
+                elif fallback:
+                    self.implementations[module_name] = fallback
+                    print(
+                        f"[Creator] Warning: '{module_name}.py' has no subclass of {self.base_class.__name__}, using '{fallback.__name__}' class instead."
+                    )
+                else:
+                    print(f"[Creator] Skipped '{module_name}': no class found.")
+
             except Exception as e:
                 print(f"[Creator] Skipped '{module_name}': {e}")
 
@@ -77,9 +95,12 @@ class _CategoryLoader:
         # Raise error with suggestions if implementation is invalid and show importable implementations
         if impl_name not in self.implementations:
             available = ", ".join(sorted(self.implementations.keys()))
-            raise ValueError(f"[Creator] No implementation for '{impl_name}' in '{key}'. Available: {available}")
+            raise ValueError(
+                f"[Creator] No implementation for '{impl_name}' in '{key}'. Available: {available}"
+            )
 
         constructor = self.implementations[impl_name]
+
         def _call(**kwargs):
             return constructor(self.cfg, **kwargs)
 
@@ -92,9 +113,9 @@ class _CategoryLoader:
         # Raise error if the value is not one of the discovered implementations
         if impl_name not in self.implementations:
             available = ", ".join(sorted(self.implementations.keys()))
-            raise ValueError(f"[Creator] No implementation for '{impl_name}' in '{self.category}'. Available: {available}")
+            raise ValueError(
+                f"[Creator] No implementation for '{impl_name}' in '{self.category}'. Available: {available}"
+            )
 
         constructor = self.implementations[impl_name]
         return constructor(self.cfg, **kwargs)
-
-    

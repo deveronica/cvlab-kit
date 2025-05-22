@@ -1,17 +1,17 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 
-import torch
+from torch.utils.data import Dataset as TorchDataset
 
 
-class Dataset(ABC):
-    root: str
-    train: bool
-    download: bool
-    transform: Transform | None
+class Dataset(TorchDataset):
+    """Base class for all CVLab-Kit datasets.
 
-    @abstractmethod
-    def __len__(self) -> int: ...
+    Subclasses must implement __getitem__ and __len__.
+    """
 
-    @abstractmethod
-    def __getitem__(self, idx: int) -> Any: ...
+    def __getitem__(self, index):
+        raise NotImplementedError("Subclasses must implement __getitem__()")
+
+    def __len__(self):
+        raise NotImplementedError("Subclasses must implement __len__()")

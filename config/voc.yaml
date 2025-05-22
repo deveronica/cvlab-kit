@@ -1,0 +1,13 @@
+agent: basic
+dataset: voc_detection
+root: data/Official-SSDD-OPEN/BBox_SSDD/voc_style
+split: train
+class_names:
+  - ship
+
+model: faster_rcnn
+num_classes: 1
+
+epochs: 10
+batch_size: 8
+lr: 0.001

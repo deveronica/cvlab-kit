@@ -19,7 +19,7 @@ class Agent:
     def train_epoch(self, epoch: int):
         raise NotImplementedError("train_epoch(epoch) must be implemented by subclass.")
 
-    def evaluate(self, loader):
+    def evaluate(self):
         raise NotImplementedError("evaluate(loader) must be implemented by subclass.")
 
     def dry_run(self) -> None:
@@ -29,8 +29,8 @@ class Agent:
         self.train_step(batch)
 
     def fit(self) -> None:
-        if not hasattr(self.cfg, "epochs"):
-            raise ValueError("Config must define 'epochs' for fit().")
-        for epoch in range(self.cfg.epochs):
+        if not hasattr(self.cfg, "epoch"):
+            raise ValueError("Config must define 'epoch' for fit().")
+        for epoch in range(self.cfg.epoch):
             self.train_epoch(epoch)
-            print(f"[Epoch {epoch}] Eval: {self.evaluate(self.loader)}")
+            print(f"[Epoch {epoch}] Eval: {self.evaluate}")

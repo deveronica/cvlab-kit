@@ -29,12 +29,13 @@ class Agent(BaseAgent):
         losses = self.model(x, y)
         print("[dry_run] loss keys:", list(losses.keys()))
 
-    def fit(self, epochs=1):
+    def fit(self, epochs=10):
         loader = DataLoader(self.dataset, batch_size=2, shuffle=True, collate_fn=collate_fn)
-        self.model.train()
         optimizer = torch.optim.SGD(self.model.parameters(), lr=1e-3, momentum=0.9)
 
         for epoch in range(epochs):
+            self.model.train()
+            
             total_loss = 0.0
             num_batches = 0
 
@@ -55,3 +56,39 @@ class Agent(BaseAgent):
 
             avg_loss = total_loss / num_batches
             print(f"[fit] Epoch {epoch + 1}: Avg Loss = {avg_loss:.4f}")
+            
+            results = self.evaluate()
+            print(f"[fit] Epoch {epoch + 1}: AP@[.50:.95] = {results['AP@[.50:.95]']:.4f}, AP50 = {results['AP50']:.4f}, AP75 = {results['AP75']:.4f}")
+            
+    def evaluate(self):
+        self.model.eval()
+        loader = DataLoader(self.dataset, batch_size=1, collate_fn=collate_fn)
+        
+        metric = Creator(self.cfg).metric()
+
+        with torch.no_grad():
+            for x, y in loader:
+                x = [i.to(self.device) for i in x]
+                y = [
+                    {k: v.to(self.device) if hasattr(v, "to") else v for k, v in t.items()}
+                    for t in y
+                ]
+                outputs = self.model(x)
+
+                for img_tensor, gt, pred in zip(x, y, outputs):
+                    image_id = gt["image_id"].item() if hasattr(gt["image_id"], "item") else gt["image_id"]
+                    boxes = pred["boxes"].detach().cpu().numpy()
+                    scores = pred["scores"].detach().cpu().numpy()
+                    labels = pred["labels"]
+                    labels = labels.tolist() if hasattr(labels, "tolist") else labels
+
+                    label_names = [self.cfg.class_names[idx - 1] for idx in labels]
+
+                    metric.update(
+                        image_id=image_id,
+                        boxes=boxes,
+                        scores=scores,
+                        labels=label_names,
+                    )
+
+        return metric.compute()

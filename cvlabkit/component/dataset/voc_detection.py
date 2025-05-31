@@ -56,7 +56,7 @@ class VOCDetectionDataset(Dataset):
             ymax = float(bbox.find("ymax").text)
 
             boxes.append([xmin, ymin, xmax, ymax])
-            labels.append(self.class_names.index(cls))
+            labels.append(self.class_names.index(cls) + 1)
 
         boxes = torch.tensor(boxes, dtype=torch.float32)
         labels = torch.tensor(labels, dtype=torch.int64)

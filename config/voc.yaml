@@ -1,6 +1,6 @@
 agent: basic
 dataset: voc_detection
-root: data/Official-SSDD-OPEN/BBox_SSDD/voc_style
+root: /home/mark/sfda/Official-SSDD-OPEN/BBox_SSDD/voc_style
 split: train
 class_names:
   - ship
@@ -13,3 +13,7 @@ batch_size: 8
 lr: 0.001
 
 metric: voc_ap
+
+# wandb
+wandb_project: sfda-voc-test
+wandb_run_name: voc-basic-agent-test

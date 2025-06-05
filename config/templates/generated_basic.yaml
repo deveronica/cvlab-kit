@@ -1,0 +1,26 @@
+# Agent (select implementation)
+agent: basic
+# Components: (select implementation)
+dataloader: foggy_cityscapes
+dataset: voc_detection
+loss: ciou
+metric: detmap
+model: faster_rcnn
+optimizer: adam
+scheduler: cosine
+# Other configuration keys (flat, depth=1)
+batch_size: 
+betas: 
+confidence_threshold: 
+epochs: 
+eps: 
+get: 
+lambda_contrast: 
+lr: 
+momentum: 
+num_workers: 
+pretrain_source: 
+root: 
+shuffle: 
+source_ckpt: 
+weight_decay: 

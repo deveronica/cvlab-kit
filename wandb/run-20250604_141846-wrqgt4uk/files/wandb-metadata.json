@@ -1,0 +1,46 @@
+{
+  "os": "Linux-5.15.0-130-generic-x86_64-with-glibc2.31",
+  "python": "CPython 3.9.21",
+  "startedAt": "2025-06-04T05:18:46.151540Z",
+  "args": [
+    "--config",
+    "config/voc.yaml"
+  ],
+  "program": "/home/mark/sfda/0604/cvlab-kit/main.py",
+  "codePath": "main.py",
+  "git": {
+    "remote": "https://github.com/deveronica/cvlab-kit.git",
+    "commit": "dacef10202ab2412bfff29b50a72400ae92a8124"
+  },
+  "email": "har3408@gmail.com",
+  "root": "/home/mark/sfda/0604/cvlab-kit",
+  "host": "mark-Precision-3650-Tower",
+  "executable": "/home/mark/sfda/cvlab-kit/.venv/bin/python3",
+  "codePathLocal": "main.py",
+  "cpu_count": 10,
+  "cpu_count_logical": 20,
+  "gpu": "NVIDIA GeForce RTX 3080",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "502392610816",
+      "used": "351789191168"
+    }
+  },
+  "memory": {
+    "total": "33373425664"
+  },
+  "cpu": {
+    "count": 10,
+    "countLogical": 20
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA GeForce RTX 3080",
+      "memoryTotal": "10737418240",
+      "cudaCores": 8704,
+      "architecture": "Ampere"
+    }
+  ],
+  "cudaVersion": "12.2"
+}

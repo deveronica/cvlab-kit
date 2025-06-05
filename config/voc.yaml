@@ -14,6 +14,6 @@ lr: 0.001
 
 metric: voc_ap
 
-# wandb
-wandb_project: sfda-voc-test
-wandb_run_name: voc-basic-agent-test
+logger : wandb
+wandb_project : sfda-detection-00000
+wandb_run_name : basic-agent-run-00000

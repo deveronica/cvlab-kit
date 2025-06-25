@@ -1,23 +1,8 @@
-# CVLab‑Kit (🚀 Simplified FlexTorch)
+# CVLab-Kit
 
-PyTorch 프로젝트를 **에이전트(Agent) 중심**으로 손쉽게 확장·실험할 수 있도록 설계된 경량 프레임워크입니다.
-Component들을 “레고 블록”처럼 끼워 넣기 위해, `create = Creator(cfg)`로 생성자를 마련하여, `create.<category>.<key>()` 의 형식으로 `cfg.category.key`를 참조하여, component들을 동적 로딩하여 학습 파이프라인을 구성합니다.
+이 프로젝트는 PyTorch 기반 Computer Vision Laboratory를 위한 에이전트(Agent) 중심 프레임워크입니다. 학습 파이프라인을 구성하기 위해 Agent와 Component들을 동적으로 로딩합니다.
 
----
-
-## 🔑 Key Feature
-
-| 기능 | 설명 |
-|------|------|
-| **Agent‑centric Workflow** | `create = Creator(cfg)`를 통해 원하는 에이전트를 즉시 인스턴스화.<br>`create.agent.<key>()` |
-| **Component Factory** | 모델·옵티마이저·데이터셋 등 모든 요소를 Component 단위로 <br>`create.<component>.<key>()` 호출 한 줄로 동적 로딩 |
-| **Dry‑run Validation** | 1 iteration씩 그래프 검증 → 누락 Config 자동 템플릿 생성 |
-| **Grid Search** | YAML 안의 리스트로 설정된 값들이 자동으로 조합으로 확장되어 실험 반복 |
-| **Zero‑Boilerplate** | 신규 컴포넌트 구현체는 추상 클래스 상속 후 적합한 폴더에 넣기만 하면 자동으로 탐색 진행 |
-
----
-
-## ⚙️ Installation
+## 설치 가이드
 
 ### 1. uv 설치
 ```bash
@@ -26,58 +11,44 @@ pip install uv
 
 ### 2. 프로젝트 클론
 ```bash
-git clone https://github.com/deveronica/cvlabkit.git
-cd cvlabkit
+git clone https://github.com/deveronica/cvlab-kit.git && cd cvlab-kit
 ```
 
-### 3. 의존성 설치 및 자동 실행
-```bash
-uv run main.py --config config/example.yaml
-```
-
-> **uv**는 Poetry·pip‑tools와 비슷한 UX를 제공하면서도 의존성 해석과 빌드를 Rust로 가속화한 도구입니다.
-
-## 🚀 Quick Start
-
-### 1. Dry-run
-구성이 완전하지 않으면 templates/generated.yaml 생성
-
-```bash
-python main.py --config config/cls_resnet.yaml
-```
+## 빠른 시작 가이드
+### 1. Dry-run or Generate template
+구성이 완전하지 않으면 `templates/generated.yaml` 자동 생성 또는  `python3 config/generate_template.py`를 통해, `config/templates` 폴더에 `generated_basic.yaml` 파일 생성
 
 ### 2. 모든 키를 채운 후, 실제 학습 실행
+
+프로젝트를 실행하려면 다음 명령어를 사용합니다:
+(uv 환경 아직 미구현)
 ```bash
-python main.py --config config/cls_resnet.yaml --fast
+uv run main.py --config config/voc.yaml --fast
 ```
 
-## 📂 Project Architecture
+## 주요 특징
 
-```text
-config/               # YAML 실험 설정
-    cls_resnet.yaml
-    ...
-cvlabkit/
-    core/             # Config, Proxy, Creator
-        agent.py      # 추상 Agent 클래스
-    agent/            # 사용자 정의 Agent
-        myagent.py
-    component/        # 각 카테고리별 컴포넌트
-        base/         # 추상 Component 클래스
-        model/
-            mymodel.py
-            ...
-        optimizer/
-        ...
-data/                 # 데이터셋 경로
-logs/                 # 학습 로그 & 체크포인트
-main.py               # Start Point
-README.md
-```
+* **Agent-centric Workflow**: `create = Creator(cfg)`를 통해 원하는 에이전트를 즉시 인스턴스화.
+  ```text
+  create.agent.<key>()
+  ```
+* **Component Factory**: 모델·옵티마이저·데이터셋 등 모든 요소를 Component 단위로 동적 로딩.
+  ```text
+  create.<component>.<key>()
+  ```
 
-## 🛠️ Add New Component
+## 기술 스펙
+
+### Grid Search
+- YAML 안의 리스트로 설정된 값들이 자동으로 조합되어 반복 실험을 수행합니다.
+
+### Zero-Boilerplate
+- 신규 컴포넌트 구현체는 component/base 내부의 클래스를 상속하고, 적합한 폴더에 넣기만 하면 자동으로 탐색됩니다. 공통된 라이브러리 의존성은 이곳에서 해결됩니다.
+
+## 새로운 컴포넌트 추가 방법
 
 ### 1. **추상 인터페이스 상속**
+- `cvlabkit/component/base` 모듈에서 템플릿 클래스를 상속하고, 필요한 메서드를 구현합니다.
 
 ```python
 # cvlabkit/component/optimizer/adamw.py
@@ -92,7 +63,8 @@ class Optimizer(Optimizer):
         self.opt = optim.AdamW(params, lr=cfg.get("lr", 1e-3))
 ```
 
-### 2. **YAML 지정**
+### 2. **YAML 설정 추가**
+- YAML 파일에 구현한 컴포넌트명을 값으로 등록합니다.
 
 ```yaml
 optimizer: adamw
@@ -105,26 +77,20 @@ optimizer: adamw
 opt = create.optimizer(model.parameters())
 ```
 
-## 📚 Additional Library (Example)
+### 4. **자동 로딩 테스트**
+- `main.py`을 수행하여 새로운 컴포넌트가 올바르게 로드되는지 확인합니다.
 
-| Component  | 대표 라이브러리                                                             |
-| ---------- | -------------------------------------------------------------------- |
-| Transform  | `torchvision.transforms`, `albumentations`, `kornia`                 |
-| Dataset    | `torchvision.datasets`, `HF datasets`, `webdataset`                  |
-| Model      | `torchvision.models`, `timm`, `transformers`                         |
-| Loss       | `torch.nn`, `segmentation_models_pytorch`, `pytorch‑metric‑learning` |
-| Optimizer  | `torch.optim`, `timm.optim`                                          |
-| Scheduler  | `torch.optim.lr_scheduler`, `timm.scheduler`                         |
-| Metrics    | `torchmetrics`, `sklearn.metrics`                                    |
-| Checkpoint | `torch.save/load`, `safetensors`                                     |
-| Logger     | `tensorboardX`, `wandb`, `mlflow`                                    |
+## 라이브러리 및 의존성
 
----
+프로젝트는 다음과 같은 주요 라이브러리를 사용하고 있습니다:
 
-## ✨ Contribution
-
-1. 새로운 Agent/Component는 **base 추상 클래스**를 상속합니다.
-2. 모듈 파일명을 YAML에서 참조할 키와 동일하게 설정합니다.
-3. Pull Request 전에 `main.py --config tests/dry_run.yaml` 로 Dry‑run을 통과해야 합니다.
-
----
+| Component  | 대표 라이브러리                                 |
+| ---------- | --------------------------------------------|
+| Transform  | torch, albumentations, kornia               |
+| Dataset    | torchvision.datasets, webdataset            |
+| Model      | timm, transformers                          |
+| Loss       | torch.nn, segmentation_models_pytorch     |
+| Optimizer  | torch.optim                                 |
+| Scheduler  | torch.optim.lr_scheduler                    |
+| Metrics    | torchmetrics                                |
+| Logger     | wandb, tensorboard                          |

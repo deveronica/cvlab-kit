@@ -50,15 +50,35 @@ uv sync
 
 ### 2. Write YAML Configuration
 
-YAML 설정 파일을 작성합니다
+YAML 설정 파일을 작성합니다.
 
 ### 3. Run Experiment
 
-설정을 검증하고 실험을 진행합니다 (현재 generate_template.py를 통한 수동 생성 후 --fast 옵션으로 진행).
+설정을 검증하고 실험을 진행합니다. (현재 generate_template.py를 통한 수동 생성 후 --fast 옵션으로 진행)
 
 ```python
 uv run main.py --config config/example.yaml --fast
 ```
+
+## Working Process
+
+1. 진입점 (`main.py`): 사용자가 python main.py --config config/main.yaml과 같이 실행하면, main.py는 지정된 설정 파일을 읽어옵니다.
+
+2. 설정 파싱 (`cvlabkit/core/config.py`): Config 클래스가 YAML 파일을 읽고 파싱하여 파이썬 객체처럼 점(.)으로 접근할 수 있는 형태로 변환합니다. (예: config.model.name)
+
+3. 생성자 생성 (`cvlabkit/core/creator.py`): Creator 클래스는 설정(Config) 객체를 받아 필요한 모든 "부품"들을 동적으로 생성하는 팩토리(Factory) 역할을 합니다. 일반적으로 create 변수에 할당하여, create.model(), create.optimizer() 등의 메서드를 사용하여 필요한 컴포넌트 들을 생성할 수 있습니다.
+    - 대표적인 예시로, config.model 섹션을 보고 `cvlabkit/component/model` 폴더에서 FasterRCNN 같은 모델 클래스를 찾아 인스턴스화합니다.
+    - optimizer, loss, dataset 등 다른 모든 구성 요소도 같은 방식으로 생성합니다.
+
+4. 에이전트 실행 (`cvlabkit/agent/`): Creator가 설정 파일에 명시된 에이전트(예: BasicAgent)를 생성합니다. 이 에이전트는 생성된 모델, 데이터 로더, 손실 함수 등을 조합하여 실제 학습, 평가, 테스트의 전체 과정을 조율하고 실행하는 주체입니다.
+    - BasicAgent: 일반적인 학습/평가 파이프라인을 담당합니다.
+
+5. 모듈형 컴포넌트 (`cvlabkit/component/`): 이 프로젝트의 가장 큰 특징은 각 기능이 독립적인 부품(컴포넌트)으로 분리되어 있다는 점입니다.
+    - model: Faster R-CNN과 같은 딥러닝 모델
+    - loss: Cross-Entropy, Focal Loss 등 손실 함수
+    - dataset, dataloader: VOC, Cityscapes 등 데이터셋과 데이터를 공급하는 로더
+    - optimizer, scheduler: Adam, SGD 등 최적화 도구 및 학습률 스케줄러
+    - 이러한 구조 덕분에 새로운 모델이나 손실 함수를 추가하고 싶을 때, 해당 폴더에 새로운 파이썬 파일만 추가하고 YAML 파일에서 이름을 지정해주면 되므로 확장이 매우 용이합니다.
 
 ## Development Philosophy
 
@@ -68,9 +88,9 @@ PyTorch의 자유로운 모듈 작성 방식은 실험 구성 간 인터페이�
 
 - YAML 안의 리스트 타입으로 설정된 값들이 자동으로 조합되어 반복 실험을 수행합니다.
 
-### 2. Abstract Component
+### 2. Component Interface
 
-component/base에 추상 컴포넌트를 정의함으로써, 모든 하위 클래스가 동일한 인터페이스를 가지도록 합니다. 이는 코드 일관성을 유지하고 확장성을 높입니다.
+- `cvlabkit/component/base` 디렉토리에 컴포넌트의 추상 클래스를 정의함으로써, 모든 하위 클래스가 동일한 인터페이스를 가지도록 합니다. 이는 코드 일관성을 유지하고 확장성을 높입니다.
 
 ### 3. Dependency Resolution
 
@@ -84,9 +104,9 @@ component/base에 추상 컴포넌트를 정의함으로써, 모든 하위 클�
 
 ### 4. Dynamic Loading
 
-- 모든 컴포넌트는 component/base의 추상 컴포넌트 클래스를 상속하여 핵심 메서드와 속성을 일관되게 유지하며, 모든 구현체는 component/`component 명` 디렉토리에 위치해야 합니다.
+- 모든 컴포넌트는 component/base의 추상 컴포넌트 클래스를 상속하여 핵심 메서드와 속성을 일관되게 유지하며, 모든 구현체는 cvlabkit/component/`componentName` 디렉토리에 위치해야 합니다.
 
-- Creator는 **YAML 설정값**과 component/`component 명` 디렉토리에 있는 **파일명**과 일치하는 파일을 찾아 해당 추상 컴포넌트를 상속 받은 클래스의 인스턴스를 동적으로 생성합니다. 만약, 컴포넌트가 여러 가지 사용 되었을 경우를 대비하여, create.`component 명`.`key`의 형태로 호출되었을 경우, cfg.`component 명`.`key` 값을 설정값으로 전달합니다.
+- Creator는 YAML에서 **컴포넌트의 설정값**이 cvlabkit/component/`componentName` 디렉토리에 있는 **파일명**과 일치하는 파일을 찾아 해당 추상 컴포넌트를 상속 받은 클래스의 인스턴스를 동적으로 생성합니다. 만약, 컴포넌트가 여러 가지 사용 되었을 경우를 대비하여, create.`componentName`.`key`의 형태로 호출되었을 경우, cfg.`componentName`.`key` 값을 설정값으로 전달합니다.
 
 따라서 사용자는 YAML 설정만으로도 불필요한 import 없이 가볍게 컴포넌트를 로드해 실험 코드를 간결하게 유지합니다.
 
@@ -120,7 +140,8 @@ optimizer: adamw
 ```
 
 ### 3. **자동 로딩**
-학습 스크립트에서는 별도 import 없이 YAML 수정만으로, 기존에 구성된 구조를 유지하며 새로운 컴포넌트를 자동으로 로드할 수 있습니다. 예를 들어, `create.optimizer` 함수를 통해 새로운 `AdamW`에 해당하는 `Optimizer` 구현체를 생성할 수 있습니다. 예시 코드:
+- 학습 스크립트에서는 별도 import 없이 YAML 수정만으로, 기존에 구성된 구조를 유지하며 새로운 컴포넌트를 자동으로 로드할 수 있습니다.
+- 예를 들어, `create.optimizer` 함수를 유지해도, yaml의 optimizer에 해당하는 값이 수정되었으므로, `AdamW`에 해당하는 `Optimizer` 구현체를 생성할 수 있습니다.
 
 ```python
 opt = create.optimizer(model.parameters())

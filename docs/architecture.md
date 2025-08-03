@@ -22,3 +22,48 @@
     - `optimizer`, `scheduler`: Adam, SGD와 같은 최적화 도구 및 학습률 스케줄러.
 
 이러한 구조는 확장을 매우 용이하게 합니다. 새로운 컴포넌트 구현을 추가하려면 해당 폴더에 새 Python 파일만 추가하고 YAML 파일에 이름을 지정하면 됩니다.
+
+## 컴포넌트 설계 철학: InterfaceMeta를 통한 유연성
+
+CVLab-Kit의 모든 컴포넌트(Model, Loss, Optimizer 등)는 `InterfaceMeta`라는 커스텀 메타클래스를 기반으로 설계되어 유연성과 재사용성을 극대화합니다. 이 메타클래스는 개발자가 컴포넌트를 정의할 때 다음 세 가지 패턴을 지원합니다:
+
+1.  **직접 구현 (Direct Implementation)**
+    *   **설명:** 완전히 새로운 기능을 구현할 때 사용합니다. 컴포넌트 추상 클래스(예: `Model`, `Loss`)를 상속받고, `@abstractmethod`로 정의된 모든 필수 메서드를 직접 구현합니다.
+    *   **예시:**
+        ```python
+        from cvlabkit.component.base import Model
+        import torch.nn as nn
+
+        class MyCustomModel(Model):
+            def __init__(self, cfg):
+                super().__init__()
+                self.linear = nn.Linear(10, cfg.num_classes)
+
+            def forward(self, x):
+                return self.linear(x)
+        ```
+
+2.  **위임 (Delegation / Composition)**
+    *   **설명:** `torch.nn.Module`이나 `torch.optim.Optimizer`와 같은 기존 라이브러리 구현체를 재사용하면서, 일부 동작만 변경하거나 확장하고 싶을 때 사용합니다. 컴포넌트 클래스의 `__init__` 메서드 안에서 기존 라이브러리 객체를 `self`의 속성으로 할당하면, `InterfaceMeta`가 자동으로 해당 객체로 메서드 호출을 위임합니다. 사용자가 오버라이드한 메서드는 위임보다 우선합니다.
+    *   **예시:**
+        ```python
+        from cvlabkit.component.base import Optimizer
+        import torch.optim as optim
+
+        class CustomAdam(Optimizer):
+            def __init__(self, cfg, parameters):
+                # 기존 Adam 옵티마이저를 위임 대상으로 지정
+                self.optimizer = optim.Adam(parameters, lr=cfg.lr)
+
+            def step(self):
+                # step 메서드는 직접 오버라이드하여 추가 로직 구현
+                print("Custom step logic before Adam step")
+                self.optimizer.step()
+
+            # zero_grad()와 같은 다른 메서드는 자동으로 self.optimizer로 위임됩니다.
+        ```
+
+3.  **순수 인터페이스 (Pure Interface)**
+    *   **설명:** 실제 구현 없이, 여러 컴포넌트가 따라야 할 메서드 시그니처만 정의하고 싶을 때 사용합니다. 추상 클래스를 정의하기만 하고, 인스턴스화하지 않으면 됩니다. 이 인터페이스를 상속받는 모든 자식 클래스는 위 1번 또는 2번 방식으로 구현해야 합니다.
+
+이 `InterfaceMeta` 시스템 덕분에, 개발자는 보일러플레이트 코드 없이 상황에 가장 적합한 방식으로 컴포넌트를 구현하는 데만 집중할 수 있으며, PyTorch의 유연성을 최대한 활용할 수 있습니다.

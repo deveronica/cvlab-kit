@@ -1,11 +1,11 @@
-import torch
 import torch.nn as nn
 from cvlabkit.component.base import Loss
 
 
-class CrossEntropyLoss(Loss, nn.Module):
-    def __init__(self):
+class CrossEntropy(Loss):
+    def __init__(self, cfg):
         super().__init__()
+        self.loss = nn.CrossEntropyLoss()
 
-    def __call__(self, preds, targets): 
-        return torch.nn.functional.cross_entropy(preds, targets)
+    def forward(self, preds, targets):
+        return self.loss(preds, targets)

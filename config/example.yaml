@@ -1,0 +1,35 @@
+# config/example.yaml
+# CIFAR-10 Image Classification with ResNet18
+# via Adam Optimizer and Cross Entropy Loss and Accuracy Metrics
+
+agent: classification
+
+# Model
+model: resnet18
+num_classes: 10  # CIFAR-10 has 10 classes
+
+# Data
+transform: to_tensor
+dataset:
+  train: cifar10(split=train)
+  val: cifar10(split=val)
+dataloader:
+  train: basic(split=train, shuffle=true)
+  val: basic(split=val, shuffle=false)
+data_root: ./data/cifar10 # Directory to download/load data
+download: true
+
+# Optimizer and Loss
+optimizer: adam
+betas: !!python/tuple [0.9, 0.999]
+eps: 0.00000001
+weight_decay: 0
+loss: cross_entropy
+
+# Metric
+metric: accuracy
+
+# Training Hyperparameters
+epochs: 1
+batch_size: 128
+lr: 0.001

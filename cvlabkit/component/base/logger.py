@@ -1,26 +1,33 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator
+from abc import abstractmethod
+from typing import Any, Dict
+from cvlabkit.core.interface_meta import InterfaceMeta
 
-import torch
 
+class Logger(metaclass=InterfaceMeta):
+    """Abstract base class for all loggers.
+    """
+    @abstractmethod
+    def log_metrics(self, metrics: Dict[str, float], step: int) -> None:
+        """Logs a dictionary of metrics at a given step.
 
-class Logger(ABC):
-    name: str
-    version: str
-    uri: str
+        Args:
+            metrics (Dict[str, float]): A dictionary of metric names and their values.
+            step (int): The current step or epoch number.
+        """
+        pass
 
     @abstractmethod
-    def log_metrics(self, metrics: Dict[str, float], step: int) -> None: ...
+    def log_hyperparams(self, params: Dict[str, Any]) -> None:
+        """Logs a dictionary of hyperparameters.
 
-    # @abstractmethod
-    # def log_hyperparams(self, params: Dict[str, Any]) -> None: ...
-
-    # @abstractmethod
-    # def log_graph(self, model: Model, sample: torch.Tensor) -> None: ...
-
-    # @abstractmethod
-    # def save(self) -> None: ...
+        Args:
+            params (Dict[str, Any]): A dictionary of hyperparameter names and their values.
+        """
+        pass
 
     @abstractmethod
-    def finalize(self) -> None: ...
+    def finalize(self) -> None:
+        """Finalizes the logging process, e.g., closes connections or saves data.
+        """
+        pass

@@ -1,36 +1,151 @@
 from __future__ import annotations
+from abc import ABC, abstractmethod
+from typing import Any
+
+from tqdm import tqdm
+import torch
 
 from cvlabkit.core.config import Config
 
 
-class Agent:
-    """
-    Base class for experiment agents.
-    Subclasses must implement train_step, train_epoch, and evaluate.
-    Optional: override dry_run() or fit() for custom behavior.
+class Agent(ABC):
+    """Abstract base class for experiment agents.
+
+    User must implement the following methods:
+        - setup()
+        - train_step(batch)
+        - validate_step(batch)
+
+    User may optionally override:
+        - fit() to customize the training loop.
+        - train_epoch(epoch) to customize per-epoch training logic.
+        - evaluate() to customize evaluation logic.
+        - save(path): Save model & state
+        - load(path): Load model & state
+
+    Attributes:
+        cfg: Configuration object.
+        create: Component creator instance.
+        current_epoch: Index of the current training epoch.
+        current_step: Cumulative training step counter.
     """
 
-    def __init__(self, cfg: Config):
+    def __init__(self, cfg: Config, component_creator: 'ComponentCreator'):
+        """Initializes the Agent with configuration and component creator.
+        Args:
+            cfg (Config): Configuration object containing parameters.
+            component_creator (ComponentCreator): Creator instance for components.
+        """
         self.cfg = cfg
+        self.create = component_creator
+        self.current_epoch: int = 0
+        self.current_step: int = 0
 
-    def train_step(self, batch):
-        raise NotImplementedError("train_step(batch) must be implemented by subclass.")
+        self.train_loader = None
+        self.val_loader = None
 
-    def train_epoch(self, epoch: int):
-        raise NotImplementedError("train_epoch(epoch) must be implemented by subclass.")
+        self.setup()
 
-    def evaluate(self):
-        raise NotImplementedError("evaluate(loader) must be implemented by subclass.")
+    def setup(self) -> None:
+        """Set up all components (model, dataloaders, optimizer, etc.)."""
+        pass
 
-    def dry_run(self) -> None:
-        if not hasattr(self, "loader"):
-            raise RuntimeError("dry_run() requires self.loader to be defined in __init__.")
-        batch = next(iter(self.loader))
-        self.train_step(batch)
+    @abstractmethod
+    def train_step(self, batch: Any) -> None:
+        """Perform a single training step.
+        Args:
+            batch (Any): A batch of data from the training dataloader.
+        """
+        pass
+
+    def validate_step(self, batch: Any) -> None:
+        """Perform a single validation step.
+        Args:
+            batch (Any): A batch of data from the validation dataloader.
+        """
+        pass
+
+    def save(self, path: str) -> None:
+        """Save the model and training state to the specified path.
+        Args:
+            path (str): Path to save the model and state.
+        """
+        raise NotImplementedError(
+            "The save method must be implemented by the subclass."
+        )
+
+    def load(self, path: str) -> None:
+        """Load the model and training state from the specified path.
+        Args:
+            path (str): Path to load the model and state from.
+        """
+        raise NotImplementedError(
+            "The load method must be implemented by the subclass."
+        )
 
     def fit(self) -> None:
-        if not hasattr(self.cfg, "epoch"):
-            raise ValueError("Config must define 'epoch' for fit().")
-        for epoch in range(self.cfg.epoch):
-            self.train_epoch(epoch)
-            print(f"[Epoch {epoch}] Eval: {self.evaluate}")
+        """Fitting the model from the current state for cfg.epochs additional epochs.
+
+        If 'checkpoint_path' is specified in the configuration, the checkpoint is loaded.
+        If 'checkpoint_dir' and 'checkpoint_interval' are specified, the agent state is saved.
+        """
+
+        if hasattr(self.cfg, "checkpoint_path") and self.cfg.checkpoint_path:
+            self.load(self.cfg.checkpoint_path)
+
+        if not hasattr(self.cfg, "epochs"):
+            raise ValueError("cfg.epochs must be defined for fit().")
+
+        train_epochs = self.cfg.get("epochs", 1)
+        target_epochs = self.current_epoch + train_epochs
+
+        while self.current_epoch < target_epochs:
+            print(f"Starting epoch {self.current_epoch + 1}/{target_epochs}...")
+            self.train_epoch()
+            self.evaluate()
+            self.current_epoch += 1
+
+            should_save = (
+                hasattr(self.cfg, "checkpoint_dir") and
+                hasattr(self.cfg, "checkpoint_interval") and
+                self.cfg.checkpoint_interval > 0 and
+                self.current_epoch % self.cfg.checkpoint_interval == 0
+            )
+            if should_save:
+                import os
+                save_path = os.path.join(
+                    self.cfg.checkpoint_dir,
+                    f"checkpoint_{self.current_epoch}.pt"
+                )
+                if not os.path.exists(self.cfg.checkpoint_dir):
+                    os.makedirs(self.cfg.checkpoint_dir)
+
+                print(f"Saving checkpoint to {save_path}...")
+                # Assuming self.save() handles saving the agent and state
+                self.save(checkpoint_path)
+                print(f"Checkpoint saved to {save_path}")
+
+    def train_epoch(self) -> None:
+        """Agent train for one epoch."""
+        if self.train_loader is None:
+            raise ValueError("train_loader must be set before training.")
+
+        self.model.train()
+        for batch in tqdm(self.train_loader, 
+                          desc=f"Epoch {self.current_epoch + 1} Training"):
+            self.train_step(batch)
+            self.current_step += 1
+
+    def evaluate(self) -> None:
+        """Evaluate the model on the validation set.
+        
+        Raises:
+            ValueError: If val_loader is not defined.
+        """
+        if self.val_loader is None:
+            raise ValueError("val_loader must be set before evaluation.")
+
+        self.model.eval()
+        with torch.no_grad():
+            for batch in self.val_loader:
+                self.validate_step(batch)

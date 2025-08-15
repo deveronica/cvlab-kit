@@ -13,14 +13,14 @@ PyTorch 기반 간단하게 확장 가능한 프로토타이핑 프레임워크
 |------|------|
 | **Agent‑Centric Workflow** | 학습, 검증, 평가 루프를 에이전트 중심으로 관리 |
 | **Dynamic Component Factory** | `create.<component>.<key>()`의 형태로<br>모델·옵티마이저·데이터셋 등의 구성 요소를 동적으로 로딩 및 생성 |
-| **Dry‑run Validation** | 학습 전에 구성이 올바른지 검증하여, 학습 도중 중단 문제를 사전에 방지 |
+| **Dry‑run Validation** | 학습 전에 구성이 올바른지 검증하여, 학습 도중 중단 문제를 사전에 방지합니다. (단, 구성이 완전하지 않을 때 자동으로 템플릿을 생성하는 기능은 현재 미구현입니다.) |
 | **Grid Search** | YAML에 구성된 다중 값들이 자동으로 실험 조합으로 확장되어 반복 실험 |
 | **Zero‑Boilerplate** | 컴포넌트 구현 시 반복 코드 없이 InterfaceMeta로 구조 자동 통일 |
 
 
 ## Component Interface System: Based on metaclass
 
-모든 컴포넌트(Optimizer, Model, Loss 등)는 `InterfaceMeta`라는 커스텀 메타클래스를 사용하는 공통 추상 클래스를 기반으로 구현됩니다. 개발자가 세 가지 다른 방식의 컴포넌트를 통일성 있게 구현할 수 있도록 지원합니다.
+모든 컴포넌트(Optimizer, Model, Loss 등)는 `InterfaceMeta`라는 커스텀 메타클래스를 사용하는 공통 추상 클래스를 기반으로 구현됩니다. 개발자가 세 가지 다른 방식의 컴포넌트들을 통일성 있게 구현할 수 있도록 지원합니다.
 
 ### InterfaceMeta 핵심 동작
 
@@ -50,19 +50,22 @@ PyTorch 기반 간단하게 확장 가능한 프로토타이핑 프레임워크
         from cvlabkit.component.base import Optimizer
 
         class AdamWithLogging(Optimizer):
-            def __init__(self, params, lr):
-                self.optimizer = optim.Adam(params, lr)
+            def __init__(self, cfg, parameters):
+                # `cfg` 객체에서 lr 값을 가져옵니다.
+                lr = cfg.get("lr", 1e-3)
+                # 무한 재귀를 피하기 위해 self.opt 와 같이 다른 이름으로 할당합니다.
+                self.opt = optim.Adam(parameters, lr=lr)
 
             def step(self):
                 # step 메서드는 직접 오버라이드하여 기능 변경
                 print("Performing an optimization step...")
-                self.optimizer.step()
+                self.opt.step()
         ```
-        *    위 예시에서 `AdamWithLogging`의 `step`은 직접 구현한 코드가 실행되고, `zero_grad`와 같은 다른 모든 메서드는 `self.optimizer`의 것이 자동으로 호출됩니다.
+        *    위 예시에서 `AdamWithLogging`의 `step`은 직접 구현한 코드가 실행되고, `zero_grad`와 같은 다른 모든 메서드는 `self.opt`의 것이 자동으로 호출됩니다.
 
 3.  **순수 인터페이스 (Pure Interface)**
     *   **언제 사용하나요?** 실제 구현 없이, 여러 컴포넌트가 따라야 할 메서드 시그니처만 정의하고 싶을 때.
-    *   **어떻게 하나요?** 추상 클래스를 정의하기만 하고, 인스턴스화하지 않으면 됩니다. 이 인터페이스를 상속받는 모든 자식 클래스는 위 1번 또는 2번 방식으로 구현해야 합니다.
+    *   **어떻게 하나요?** 추상 클래스를 정의하되, 별도의 PyTorch API 상속없이 인터페이스만을 정의합니다. 이 인터페이스를 상속받는 모든 자식 클래스는 위 1번 또는 2번 방식으로 구현해야 합니다.
 
 이 시스템 덕분에, 개발자는 보일러플레이트 코드 없이 상황에 가장 적합한 방식으로 컴포넌트를 구현하는 데만 집중할 수 있습니다.
 
@@ -164,8 +167,7 @@ uv sync
 
 ### 1. Dry-run or Generate Template
 
-- ~~구성이 완전하지 않으면 Dry-run 과정에서 자동으로 `templates/generated.yaml` 생성~~(미구현)
-- `python3 config/generate_template.py`를 통해, `config/templates` 폴더에 `generated_basic.yaml` 파일 생성
+- `python3 config/generate_template.py`를 통해, `config/templates` 폴더에 `generated_basic.yaml` 파일을 생성할 수 있습니다. (참고: 구성이 완전하지 않을 때 Dry-run 과정에서 자동으로 템플릿을 생성하는 기능은 현재 미구현입니다.)
 
 ### 2. Write YAML Configuration
 

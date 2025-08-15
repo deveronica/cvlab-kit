@@ -12,8 +12,8 @@
     - 예를 들어, `config.model` 섹션을 기반으로 `cvlabkit/component/model` 폴더에서 `FasterRCNN`과 같은 모델 클래스를 찾아 인스턴스화합니다.
     - 옵티마이저, 손실 함수, 데이터셋 등 다른 모든 컴포넌트도 동일한 방식으로 생성됩니다.
 
-4. **에이전트 실행 (`cvlabkit/agent/`)**: `Creator`는 설정 파일에 지정된 에이전트(예: `BasicAgent`)를 인스턴스화합니다. 이 에이전트는 생성된 모델, 데이터 로더, 손실 함수 및 기타 컴포넌트를 결합하여 학습, 평가, 테스트의 전체 프로세스를 조정하고 실행하는 주요 엔티티입니다.
-    - `BasicAgent`: 일반적인 학습/평가 파이프라인을 처리합니다.
+4. **에이전트 실행 (`cvlabkit/agent/`)**: `Creator`는 설정 파일에 지정된 에이전트(예: `ClassificationAgent`)를 인스턴스화합니다. 이 에이전트는 생성된 모델, 데이터 로더, 손실 함수 및 기타 컴포넌트를 결합하여 학습, 평가, 테스트의 전체 프로세스를 조정하고 실행하는 주요 엔티티입니다.
+    - `ClassificationAgent`: 일반적인 학습/평가 파이프라인을 처리합니다.
 
 5. **모듈형 컴포넌트 (`cvlabkit/component/`)**: 이 프로젝트의 핵심 기능은 각 기능이 독립적인 "부품"(컴포넌트)으로 분리되어 있다는 점입니다.
     - `model`: Faster R-CNN과 같은 딥러닝 모델.
@@ -53,14 +53,15 @@ CVLab-Kit의 모든 컴포넌트(Model, Loss, Optimizer 등)는 `InterfaceMeta`�
         class CustomAdam(Optimizer):
             def __init__(self, cfg, parameters):
                 # 기존 Adam 옵티마이저를 위임 대상으로 지정
-                self.optimizer = optim.Adam(parameters, lr=cfg.lr)
+                # 무한 재귀를 피하기 위해 self.opt 와 같이 다른 이름으로 할당합니다.
+                self.opt = optim.Adam(parameters, lr=cfg.get("lr", 1e-3))
 
             def step(self):
                 # step 메서드는 직접 오버라이드하여 추가 로직 구현
                 print("Custom step logic before Adam step")
-                self.optimizer.step()
+                self.opt.step()
 
-            # zero_grad()와 같은 다른 메서드는 자동으로 self.optimizer로 위임됩니다.
+            # zero_grad()와 같은 다른 메서드는 자동으로 self.opt로 위임됩니다.
         ```
 
 3.  **순수 인터페이스 (Pure Interface)**

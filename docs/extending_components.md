@@ -23,7 +23,7 @@ cvlabkit/
 import torch.optim as optim
 from cvlabkit.component.base import Optimizer
 
-class Optimizer(Optimizer):
+class AdamW(Optimizer):
     def __init__(self, cfg, parameters):
         super().__init__()
         self.opt = optim.AdamW(parameters, lr=cfg.get("lr", 1e-3))

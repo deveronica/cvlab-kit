@@ -99,6 +99,7 @@ ipython_config.py
 #   This is especially recommended for binary packages to ensure reproducibility, and is more
 #   commonly ignored for libraries.
 #uv.lock
+.python-version
 
 # poetry
 #   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
@@ -173,8 +174,19 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+# macOS
+#  macOS creates .DS_Store files in directories to store custom attributes of a folder
+#  such as the position of icons or the choice of a background image. These files are
+#  not needed for version control and can be safely ignored.
+#  More information can be found at https://en.wikipedia.org/wiki/.DS_Store
+.DS_Store
+
 # Project Directory
 data/
 logs/
 tests/
 wandb/
+legacy_code/
+
+# Documentation
+GEMINI.md

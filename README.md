@@ -1,73 +1,124 @@
 # CVLab-Kit
 
-PyTorch 기반 간단하게 확장 가능한 프로토타이핑 프레임워크
+PyTorch 기반의 경량 모듈형 프로토타이핑 프레임워크
 
 
 ## Overview
 
 이 프로젝트는 PyTorch 기반의 경량 모듈형 실험 프레임워크로, **에이전트(Agent) 중심 구조**를 바탕으로 실험 구성 요소(Component)들을 **Creator 클래스를 통해 동적으로 생성**하며, 설정 파일(YAML)을 기반으로 재현성과 구성 유연성을 모두 갖춘 실험 환경을 제공합니다.
 
-## Key Feature
+
+## Design Philosophy
+
+CVLab-Kit은 실험의 **목적(Why)** 과 그것을 구현하는 **방법(How)** 을 명확하게 분리하는 것을 핵심 설계 철학으로 삼습니다.
+
+-   **Agent (The "Why")**: 실험의 **목적**과 **전체 시나리오**를 정의합니다. `ClassificationAgent`는 '분류를 하겠다'는 목적을, `FixMatchAgent`는 'FixMatch 기법으로 학습하겠다'는 목적을 나타냅니다. 학습, 평가, 데이터 처리의 모든 흐름은 Agent가 지휘합니다.
+-   **Component (The "How")**: 실험에 필요한 **재사용 가능한 도구**입니다. `resnet18` 모델, `Adam` 옵티마이저, `mstar` 데이터셋 등은 모두 특정 목적을 달성하기 위한 구체적인 '방법'에 해당합니다.
+-   **Config (The Bridge)**: YAML 설정 파일은 이 둘을 연결하는 **설계도**입니다. Agent에게 어떤 도구(Component)들을 주입하여 시나리오를 완성할지 결정합니다.
+
+이러한 구조 덕분에, 사용자는 새로운 '방법(Component)'을 추가하더라도 기존의 '목적(Agent)' 코드를 수정할 필요가 없으며, 반대로 새로운 '목적(Agent)'을 설계할 때 기존의 검증된 '도구(Component)'들을 재사용할 수 있습니다.
+
+
+## Key Features
 
 | 기능 | 설명 |
-|------|------|
-| **Agent‑Centric Workflow** | 학습, 검증, 평가 루프를 에이전트 중심으로 관리 |
-| **Dynamic Component Factory** | `create.<component>.<key>()`의 형태로<br>모델·옵티마이저·데이터셋 등의 구성 요소를 동적으로 로딩 및 생성 |
-| **Dry‑run Validation** | 학습 전에 구성이 올바른지 검증하여, 학습 도중 중단 문제를 사전에 방지합니다. (단, 구성이 완전하지 않을 때 자동으로 템플릿을 생성하는 기능은 현재 미구현입니다.) |
-| **Grid Search** | YAML에 구성된 다중 값들이 자동으로 실험 조합으로 확장되어 반복 실험 |
-| **Zero‑Boilerplate** | 컴포넌트 구현 시 반복 코드 없이 InterfaceMeta로 구조 자동 통일 |
+| --- | --- |
+| **Agent-Centric Workflow** | 학습, 검증, 평가 루프를 에이전트 중심으로 관리합니다. |
+| **Dynamic Component Factory** | `create.<component>.<key>()` 형태로 컴포넌트를 동적으로 로딩 및 생성합니다. |
+| **Dry-run & Template Generation** | 학습 시작 전, 설정 파일의 유효성을 검증합니다. 누락된 키가 있을 경우, 필요한 항목이 포함된 설정 템플릿(`generated_basic.yaml`)을 자동으로 생성하여 오류를 방지합니다. |
+| **Grid Search** | YAML에 리스트 형태로 정의된 하이퍼파라미터 조합을 자동으로 확장하여 실험을 수행합니다. |
+| **Zero-Boilerplate Components** | `InterfaceMeta`를 통해 컴포넌트 구현 시 반복적인 코드를 제거하고 구조를 자동으로 통일합니다. |
 
 
-## Component Interface System: Based on metaclass
+## Component Interface System
 
-모든 컴포넌트(Optimizer, Model, Loss 등)는 `InterfaceMeta`라는 커스텀 메타클래스를 사용하는 공통 추상 클래스를 기반으로 구현됩니다. 개발자가 세 가지 다른 방식의 컴포넌트들을 통일성 있게 구현할 수 있도록 지원합니다.
+모든 컴포넌트(Optimizer, Model, Loss 등)는 `InterfaceMeta`라는 커스텀 메타클래스를 통해 구현됩니다. 이 시스템은 개발자가 최소한의 코드로 컴포넌트를 구현할 수 있도록 두 가지 주요 패턴을 지원합니다.
 
-### InterfaceMeta 핵심 동작
+### 1. 직접 구현 (Direct Implementation)
 
-- 컴포넌트 추상 클래스는 PyTorch 클래스(e.g., torch.optim.Optimizer)를 상속할 수 있음.
-- 구현체에서 직접 해당 추상 클래스를 상속하거나, 내부에 기 구현체를 통해, 위임 대상 객체를 지정하면 자동으로 메서드 위임
-- 최종적으로 Creator는 사용자 구현 방식에 관계없이 동일한 방식으로 해당 객체를 사용할 수 있음
+- **설명**: `torch.nn.Module`와 같은 클래스를 상속받고, 필요한 모든 기능을 처음부터 직접 구현하는 방식입니다.
+- **예시**:
+    ```python
+    from cvlabkit.component.base import Loss
+    import torch.nn.functional as F
 
-### 지원하는 3가지 구현 패턴
+    class MyCustomLoss(Loss):
+        def __init__(self, cfg):
+            super().__init__()
+            self.alpha = cfg.get("alpha", 0.25)
 
-1.  **직접 구현 (Direct Implementation)**
-    *   **언제 사용하나요?** 완전히 새로운 기능을 만들거나, PyTorch의 `nn.Module`와 같은 클래스를 상속받고, 필요한 메서드를 직접 구현하여 기능을 확장할 때.
-    *   **어떻게 하나요?** 컴포넌트 추상 클래스(예: `Model`, `Optimizer`, `Dataset`, `DataLoader`, `Scheduler`, `Loss`, `Transform` 등)를 상속받고, `@abstractmethod`로 정의된 모든 필수 메서드를 직접 구현합니다. 이 때, `base`의 추상 클래스 자체가 이미 PyTorch의 관련 클래스를 상속하고 있을 수 있으므로, 해당 PyTorch 클래스의 메서드 시그니처를 따르는 것이 중요합니다.
-    *   **예시 (Optimizer):**
-        ```python
-        class MyCustomOptimizer(Optimizer):
-            def step(self):
-                # custom step
-                ...
+        def forward(self, predictions, targets):
+            # 직접 정의한 손실 계산 로직
+            example = F.binary_cross_entropy(predictions, targets) * self.alpha
+            return example
+    ```
+
+### 2. 위임 / 합성 (Delegation / Composition)
+
+- **설명**: `torch.optim.Adam`과 같은 기존 라이브러리 객체를 내부적으로 생성하고, 구현하지 않은 나머지 기능들은 해당 객체에 자동으로 위임하는 방식입니다. 일부 기능만 선택적으로 변경(오버라이드)할 수도 있어 매우 효율적입니다.
+- **예시**:
+    ```python
+    import torch.optim as optim
+    from cvlabkit.component.base import Optimizer
+
+    class AdamWithLogging(Optimizer):
+        def __init__(self, cfg, parameters):
+            lr = cfg.get("lr", 1e-3)
+            # 무한 재귀를 피하기 위해 self.opt 와 같이 다른 이름으로 할당
+            self.opt = optim.Adam(parameters, lr=lr)
+
+        def step(self):
+            # step 메서드는 직접 오버라이드하여 기능 변경
+            print("Performing an optimization step...")
+            self.opt.step()
+    ```
+    *위 예시에서 `step`은 직접 구현한 코드가 실행되고, `InterfaceMeta`의 작동 원리에 의해, `zero_grad`와 같은 다른 모든 메서드는 `self.opt`의 것이 자동으로 호출됩니다.*
+
+
+## Installation
+
+### 1. uv 설치
+
+```bash
+pip install uv
+```
+
+### 2. 프로젝트 클론
+
+```bash
+git clone https://github.com/deveronica/cvlab-kit.git && cd cvlab-kit
+```
+
+### 3. 의존성 설치
+
+```bash
+uv sync
+```
+
+## Quick Start
+
+### 1. 설정 파일 준비
+
+- **방법 A (추천): Dry-run으로 템플릿 생성**
+    - 사용하려는 Agent와 Component들을 지정하여 `main.py`를 실행합니다.
+    - `--fast` 옵션 없이 실행하면, `Creator`가 필요한 모든 설정을 자동으로 추적하여 `config/templates/generated_basic.yaml` 파일을 생성해줍니다.
+        ```bash
+        uv run main.py --config config/minimal_config.yaml
         ```
+- **방법 B: 기본 템플릿 스크립트 사용**
+    - `python3 config/generate_template.py`를 실행하여 가장 기본적인 `generated_basic.yaml` 파일을 생성할 수 있습니다. 모든 Agent와 Component의 cfg 변수가 담겨있어, 사용에 주의가 필요합니다.
 
-2.  **구현체 합성 (Composition / Delegation)**
-    *   **언제 사용하나요?** `torch.optim.Adam`과 같은 기존 라이브러리 구현을 재사용하거나 일부 동작만 바꾸고 싶을 때.
-    *   **어떻게 하나요?** 우리 컴포넌트(`Optimizer` 등)를 상속받은 클래스의 `__init__` 메서드 안에서, 재사용할 라이브러리 객체를 `self`의 속성으로 할당합니다. (예: `self.optimizer = torch.optim.Adam(...)`). 직접 구현하지 않은 메서드는 `self.optimizer`로 자동 위임되고, 추가 구현한 메서드는 오버라이딩 됨.
-    *   **예시:**
-        ```python
-        import torch.optim as optim
-        from cvlabkit.component.base import Optimizer
+### 2. 설정 파일 수정
 
-        class AdamWithLogging(Optimizer):
-            def __init__(self, cfg, parameters):
-                # `cfg` 객체에서 lr 값을 가져옵니다.
-                lr = cfg.get("lr", 1e-3)
-                # 무한 재귀를 피하기 위해 self.opt 와 같이 다른 이름으로 할당합니다.
-                self.opt = optim.Adam(parameters, lr=lr)
+생성된 템플릿이나 `config/example.yaml`을 참고하여 원하는 실험 구성을 작성합니다.
 
-            def step(self):
-                # step 메서드는 직접 오버라이드하여 기능 변경
-                print("Performing an optimization step...")
-                self.opt.step()
-        ```
-        *    위 예시에서 `AdamWithLogging`의 `step`은 직접 구현한 코드가 실행되고, `zero_grad`와 같은 다른 모든 메서드는 `self.opt`의 것이 자동으로 호출됩니다.
+### 3. 실험 실행
 
-3.  **순수 인터페이스 (Pure Interface)**
-    *   **언제 사용하나요?** 실제 구현 없이, 여러 컴포넌트가 따라야 할 메서드 시그니처만 정의하고 싶을 때.
-    *   **어떻게 하나요?** 추상 클래스를 정의하되, 별도의 PyTorch API 상속없이 인터페이스만을 정의합니다. 이 인터페이스를 상속받는 모든 자식 클래스는 위 1번 또는 2번 방식으로 구현해야 합니다.
+`--fast` 옵션을 사용하여 설정 검증을 건너뛰고 바로 실험을 시작합니다.
 
-이 시스템 덕분에, 개발자는 보일러플레이트 코드 없이 상황에 가장 적합한 방식으로 컴포넌트를 구현하는 데만 집중할 수 있습니다.
+```bash
+uv run main.py --config config/example.yaml --fast
+```
 
 
 ## Component Dependency Diagram
@@ -76,25 +127,20 @@ PyTorch 기반 간단하게 확장 가능한 프로토타이핑 프레임워크
 
 ```mermaid
 classDiagram
-    direction TD
+    direction LR
 
     class Model {
         +forward(x)
     }
 
     class Loss {
-        +forward(preds, targets)
+        +forward(preds, targets, *)
     }
 
     class Metric {
-        +update(preds, targets)
+        +update(preds, targets, *)
         +compute()
         +reset()
-    }
-
-    class DataLoader {
-        +\_\_iter\_\_()
-        +\_\_len\_\_()
     }
 
     class Dataset {
@@ -102,13 +148,18 @@ classDiagram
         +\_\_getitem\_\_(index)
     }
 
-    class Sampler {
+    class Transform {
+        +\_\_call\_\_(sample)
+    }
+
+    class DataLoader {
         +\_\_iter\_\_()
         +\_\_len\_\_()
     }
 
-    class Transform {
-        +\_\_call\_\_(sample)
+    class Sampler {
+        +\_\_iter\_\_()
+        +\_\_len\_\_()
     }
 
     class Optimizer {
@@ -136,57 +187,18 @@ classDiagram
     Scheduler ..> Optimizer : optimizer
     DataLoader ..> Dataset : dataset
     DataLoader ..> Sampler : sampler
-    Dataset ..> Transform : transform
+    Dataset ..> Transform : (transform)
     Sampler ..> Dataset : dataset
 ```
 
-
-## Installation
-
-### 1. uv 설치
-
-```bash
-pip install uv
-```
-
-### 2. 프로젝트 클론
-
-```bash
-git clone https://github.com/deveronica/cvlab-kit.git && cd cvlab-kit
-```
-
-### 3. 의존성 설치
-
-```bash
-uv sync
-```
-
-> **uv**는 Poetry·pip‑tools와 비슷한 UX를 제공하면서도 의존성 해석과 빌드를 Rust로 가속화한 도구입니다.
-
-## Quick Start
-
-### 1. Dry-run or Generate Template
-
-- `python3 config/generate_template.py`를 통해, `config/templates` 폴더에 `generated_basic.yaml` 파일을 생성할 수 있습니다. (참고: 구성이 완전하지 않을 때 Dry-run 과정에서 자동으로 템플릿을 생성하는 기능은 현재 미구현입니다.)
-
-### 2. Write YAML Configuration
-
-YAML 설정 파일을 작성합니다.
-
-### 3. Run Experiment
-
-설정을 검증하고 실험을 진행합니다. (현재 generate_template.py를 통한 수동 생성 후 --fast 옵션으로 진행)
-
-```python
-uv run main.py --config config/example.yaml --fast
-```
 
 ## Documentation
 
 더 자세한 내용은 다음 문서를 참조하세요:
 
-*   [아키텍처 개요](docs/architecture.md)
-*   [개발 철학](docs/development_philosophy.md)
-*   [설정 가이드](docs/config_guide.md)
-*   [컴포넌트 확장](docs/extending_components.md)
-*   [추가 라이브러리](docs/additional_libraries.md)
+- [아키텍처 개요](docs/architecture.md)
+- [개발 철학](docs/development_philosophy.md)
+- [설정 가이드](docs/config_guide.md)
+- [Creator 동작 방식](docs/creator_workflow.md)
+- [컴포넌트 확장](docs/extending_components.md)
+- [추가 라이브러리](docs/additional_libraries.md)

@@ -98,3 +98,33 @@
             shuffle = cfg.get("shuffle", False)
             # ... 데이터로더 설정 ...
     ```
+
+## **규칙 5: `|`를 이용한 컴포넌트 파이프라인 구성**
+
+여러 컴포넌트를 순차적으로 실행하는 파이프라인을 구성할 때 `|` (파이프) 문자를 사용할 수 있습니다. 이 DSL(Domain-Specific Language) 구문은 주로 `transform`이나 `metric`과 같이 여러 단계를 조합해야 하는 경우에 유용합니다.
+
+`Creator`는 `|`로 연결된 문자열을 파싱하여 각 컴포넌트의 인스턴스를 생성한 뒤, 이들을 `cvlabkit/component/{컴포넌트_타입}/compose.py`에 정의된 `Compose` 컴포넌트로 감싸서 최종 객체를 반환합니다.
+
+- **`config.yaml` 예시:**
+    ```yaml
+    transform:
+      # 여러 트랜스폼을 파이프로 연결
+      strong: "resize(size=128) | adaptive_rand_augment(magnitude_min=0, magnitude_max=15) | to_tensor | normalize"
+
+    metric:
+      # 여러 메트릭을 파이프로 연결
+      val: "accuracy | f1(average=macro)"
+    ```
+
+- **Agent 코드:**
+    ```python
+    # resize, adaptive_rand_augment, to_tensor, normalize 인스턴스가 담긴
+    # Compose 객체가 생성됨
+    strong_transform = create.transform.strong()
+
+    # accuracy, f1 인스턴스가 담긴 Compose 객체가 생성됨
+    val_metric = create.metric.val()
+    ```
+
+- **전제 조건:**
+  이 기능을 사용하려면 해당 컴포넌트 타입 디렉토리(예: `cvlabkit/component/transform/`, `cvlabkit/component/metric/`) 내에 `compose.py` 파일과 `Compose` 클래스가 반드시 구현되어 있어야 합니다. `Compose` 클래스는 컴포넌트 인스턴스 리스트를 받아 순차적으로 실행하는 로직을 담당합니다.

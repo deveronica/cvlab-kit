@@ -1,3 +1,11 @@
+"""Defines the abstract base class for all experiment agents.
+
+This module provides the `Agent` class, which serves as the skeleton for
+all training, evaluation, and experiment-running logic. Users must subclass
+`Agent` and implement its abstract methods to define the specific behavior
+of their experiment.
+"""
+
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
@@ -11,23 +19,21 @@ from cvlabkit.core.config import Config
 class Agent(ABC):
     """Abstract base class for experiment agents.
 
-    User must implement the following methods:
-        - setup()
-        - train_step(batch)
-        - validate_step(batch)
+    This class provides the main structure for running an experiment. Users must
+    subclass it and implement the abstract methods to define the core logic
+    for training and validation.
 
-    User may optionally override:
-        - fit() to customize the training loop.
-        - train_epoch(epoch) to customize per-epoch training logic.
-        - evaluate() to customize evaluation logic.
-        - save(path): Save model & state
-        - load(path): Load model & state
+    The agent orchestrates the entire experiment lifecycle, from setting up
+    components (models, data, etc.) to running the training loop and evaluating
+    the results.
 
     Attributes:
-        cfg: Configuration object.
-        create: Component creator instance.
-        current_epoch: Index of the current training epoch.
-        current_step: Cumulative training step counter.
+        cfg (Config): The configuration object for the experiment.
+        create (ComponentCreator): The factory object for creating components.
+        current_epoch (int): The current epoch number (0-indexed).
+        current_step (int): The total number of training steps taken.
+        train_loader: The data loader for the training set.
+        val_loader: The data loader for the validation set.
     """
 
     def __init__(self, cfg: Config, component_creator: 'ComponentCreator'):
@@ -47,7 +53,12 @@ class Agent(ABC):
         self.setup()
 
     def setup(self) -> None:
-        """Set up all components (model, dataloaders, optimizer, etc.)."""
+        """Initializes and sets up all components required for the agent.
+
+        This method is called by the agent's `__init__` and should be used to
+        create and configure the model, data loaders, optimizer, loss functions,
+        and any other components needed for the experiment, using `self.create`.
+        """
         pass
 
     @abstractmethod
@@ -90,6 +101,7 @@ class Agent(ABC):
         If 'checkpoint_dir' and 'checkpoint_interval' are specified, the agent state is saved.
         """
 
+        # Load a checkpoint if a specific path is provided in the config.
         if hasattr(self.cfg, "checkpoint_path") and self.cfg.checkpoint_path:
             self.load(self.cfg.checkpoint_path)
 
@@ -105,6 +117,7 @@ class Agent(ABC):
             self.evaluate()
             self.current_epoch += 1
 
+            # Check if checkpointing is enabled and if it's time to save.
             should_save = (
                 hasattr(self.cfg, "checkpoint_dir") and
                 hasattr(self.cfg, "checkpoint_interval") and
@@ -122,7 +135,7 @@ class Agent(ABC):
 
                 print(f"Saving checkpoint to {save_path}...")
                 # Assuming self.save() handles saving the agent and state
-                self.save(checkpoint_path)
+                self.save(save_path)
                 print(f"Checkpoint saved to {save_path}")
 
     def train_epoch(self) -> None:

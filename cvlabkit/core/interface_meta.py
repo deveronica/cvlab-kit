@@ -1,7 +1,15 @@
-# TODO: The current implementation replaces the instance's class with a dynamically
-#       generated one for delegation. This is clever but can be confusing and might
-#       have side effects with type checking or serialization. A more explicit
-#       approach using `__getattr__` on the instance itself could be considered.
+"""Provides a metaclass for creating flexible, delegation-based components.
+
+This module defines `InterfaceMeta`, a metaclass that allows component classes
+to be defined in a highly flexible way. Instead of requiring full implementation
+of all abstract methods, a class can simply instantiate a standard library object
+(like a PyTorch model or optimizer) in its `__init__`. `InterfaceMeta` will
+automatically delegate any unimplemented method calls to that object.
+
+This promotes a "wrapper" or "composition over inheritance" style of programming,
+reducing boilerplate code and making it easy to integrate existing libraries
+into the cvlab-kit framework.
+"""
 
 from abc import ABCMeta, abstractmethod
 
@@ -23,7 +31,7 @@ class InterfaceMeta(ABCMeta):
         metaclass will automatically delegate any unimplemented method calls
         from the wrapper class to the contained library object.
 
-    3.  **How it works:**
+    **How it works:**
         - When a class using this metaclass is instantiated, `__call__` is invoked.
         - It first creates the instance, temporarily bypassing the standard ABC
           abstract method checks.
@@ -35,7 +43,7 @@ class InterfaceMeta(ABCMeta):
           on the fly. This new class inherits from that pre-existing delegation target
           and overrides the methods that were implemented in the original class.
         - Finally, it "swaps" the instance's original class to be this delegating class,
-          allowing method calls to be automatically delegated to the target object.
+          allowing method calls to be automatically delegated to the target object,
           except for those methods that were explicitly implemented in the original class.
         - If no delegation target is found, it enforces the standard ABC rule,
           raising a `TypeError` if any abstract methods are not implemented.

@@ -6,7 +6,7 @@ import importlib
 import inspect
 import pkgutil
 import re
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple, List
 import ast
 import os
 
@@ -138,84 +138,45 @@ class _BaseLoader:
         self.category = category
         self.implementations: Dict[str, type] = {}
 
-    def _get_component_info(self, config_value: Any) -> Tuple[Optional[str], Config]:
-        """Parses a configuration value to extract the implementation name and
-        its specific parameters.
-        
-        Supports two main syntaxes:
-        1. A string with parameters: "name(key1=val1, key2='val2')"
-
-        Args:
-            config_value: The configuration value to parse, which can be a string or a dictionary.
-
-        Returns:
-            A tuple containing:
-                - The implementation name (str) or None if not specified.
-                - A Config object with the parameters for this component.
+    def _get_component_info(self, config_value: Any) -> Tuple[str, Config]:
         """
-
-        PARAM_PATTERN = re.compile(r'^\s*([A-Za-z_]\w*)\s*(?:\((.*)\))?\s*$')
-
-        def _coerce(node: ast.AST) -> Any:
-            # Fast path: safe literal evaluation
+        Parses a configuration value to extract the implementation name and
+        its specific parameters using abstract syntax trees (AST).
+        This handles simple names, function-call syntax, and dictionary-based configs.
+        """
+        def _safe_eval_node(node):
+            """
+            Safely evaluates an AST node to a Python literal,
+            treating unquoted names as strings.
+            """
             try:
+                # Handles numbers, strings, lists, dicts, tuples, True, False, None
                 return ast.literal_eval(node)
-            except Exception:
-                pass
-            # Bare identifiers: map booleans/none, otherwise treat as string
-            if isinstance(node, ast.Name):
-                name = node.id
-                low = name.lower()
-                if low == "true":
-                    return True
-                if low == "false":
-                    return False
-                if low in ("none", "null"):
-                    return None
-                return name
-            # Attribute chains: a.b.c -> "a.b.c"
-            if isinstance(node, ast.Attribute):
-                parts = []
-                cur = node
-                while isinstance(cur, ast.Attribute):
-                    parts.append(cur.attr)
-                    cur = cur.value
-                if isinstance(cur, ast.Name):
-                    parts.append(cur.id)
-                    return ".".join(reversed(parts))
-            # Containers: recurse
-            if isinstance(node, ast.List):
-                return [_coerce(e) for e in node.elts]
-            if isinstance(node, ast.Tuple):
-                return tuple(_coerce(e) for e in node.elts)
-            if isinstance(node, ast.Set):
-                return set(_coerce(e) for e in node.elts)
-            if isinstance(node, ast.Dict):
-                return {_coerce(k): _coerce(v) for k, v in zip(node.keys, node.values)}
-            raise ValueError(f"Unsupported expression in config: {ast.dump(node, include_attributes=False)}")
-
-        def _parse_kwargs(params: str) -> Dict[str, Any]:
-            call = ast.parse(f"f({params})", mode="eval").body
-            if not isinstance(call, ast.Call):
-                raise ValueError("Invalid parameter string")
-            if call.args:
-                raise ValueError("Positional arguments are not supported")
-            out: Dict[str, Any] = {}
-            for kw in call.keywords:
-                if kw.arg is None:
-                    raise ValueError("**kwargs expansion is not supported")
-                out[kw.arg] = _coerce(kw.value)
-            return out
+            except ValueError:
+                # If literal_eval fails, it might be an unquoted string like 'train'
+                if isinstance(node, ast.Name):
+                    # Return the name's ID as a string.
+                    # e.g., for `split=train`, node.id will be 'train'.
+                    return node.id
+                # If it's not a simple name, it's an unsupported expression.
+                raise ValueError(f"Unsupported expression in config DSL: {ast.dump(node)}")
 
         if isinstance(config_value, str):
-            m = PARAM_PATTERN.match(config_value)
-            if not m:
-                return config_value.strip(), Config({})
-            name, params_str = m.group(1), m.group(2)
-            if not params_str or params_str.strip() == "":
-                return name, Config({})
-            return name, Config(_parse_kwargs(params_str))
-        return None, self.cfg
+            tree = ast.parse(config_value, mode='eval')
+            if isinstance(tree.body, ast.Call):  # e.g., "resize(size=128)"
+                impl_name = tree.body.func.id
+                kwargs = {kw.arg: _safe_eval_node(kw.value) for kw in tree.body.keywords}
+                return impl_name, Config(kwargs)
+            elif isinstance(tree.body, ast.Name):  # e.g., "resnet18"
+                return tree.body.id, Config({})
+
+        elif isinstance(config_value, dict):  # e.g., { _type: "resnet18", ... }
+            if "_type" not in config_value:
+                raise ValueError("Dictionary-based config must have a '_type' key.")
+            impl_name = config_value.pop("_type")
+            return impl_name, Config(config_value)
+
+        raise TypeError(f"Unsupported config format for '{self.category}': {type(config_value)}")
 
     def _create_instance(
         self, constructor: Callable, component_cfg: Config, *args: Any, **kwargs: Any
@@ -260,35 +221,13 @@ class _ComponentCategoryLoader(_BaseLoader):
     """Loads implementations for a specific component category (e.g., 'model')."""
 
     def __init__(self, cfg: Config, category: str, base_class: type):
-        """Initializes the loader for a specific component category.
-
-        Prepares for lazy discovery of implementations for this category.
-
-        Args:
-            category: The component category name.
-            cfg: The configuration object.
-            base_class: The base class for this component category.
-        """
         super().__init__(cfg, category)
         self.base_class = base_class
         self.implementations: Dict[Tuple[str, str], type] = {}
 
     def _load_implementation(self, impl_name: str) -> type:
-        """Lazily loads and returns the class for a given implementation name.
-
-        Applies smart loading logic: prefers base_class subclass, falls back to
-        single class with a warning.
-
-        Args:
-            impl_name: The name of the implementation to load.
-
-        Returns:
-            The loaded class constructor.
-
-        Raises:
-            ValueError: If the module is not found, or if multiple suitable classes
-                        are found without a clear base class inheritance.
-        """
+        # This method is correct and does not need changes.
+        # Keep your original _load_implementation method here.
         cache_key = (self.category, impl_name)
         if cache_key in self.implementations:
             return self.implementations[cache_key]
@@ -346,63 +285,77 @@ class _ComponentCategoryLoader(_BaseLoader):
         except Exception as e:
             raise ValueError(f"Failed to load component '{impl_name}' from '{module_full_name}': {e}")
 
+    def _create_from_dsl(self, dsl_string: str, *args, **kwargs) -> Any:
+        """
+        Parses a pipeline DSL string, creates a list of component instances,
+        and wraps them in a 'Compose' component for that category.
+        """
+        component_instances = []
+        component_dsls = [s.strip() for s in dsl_string.split('|')]
+
+        for component_dsl in component_dsls:
+            impl_name, component_cfg = self._get_component_info(component_dsl)
+            constructor = self._load_implementation(impl_name)
+            # Pass runtime args only if the component's constructor accepts them
+            sig = inspect.signature(constructor)
+            if 'params' in sig.parameters or 'model' in sig.parameters: # A bit of a hack for optimizer
+                 instance = self._create_instance(constructor, component_cfg, *args, **kwargs)
+            else:
+                 instance = self._create_instance(constructor, component_cfg)
+
+            component_instances.append(instance)
+
+        # Dynamically find and instantiate the 'Compose' class for the category
+        try:
+            compose_constructor = self._load_implementation("compose")
+            # The 'Compose' component's __init__ should accept the list of components
+            return compose_constructor(self.cfg, component_instances)
+        except ValueError as e:
+            raise ValueError(
+                f"Failed to create a composite component for category '{self.category}'. "
+                f"A 'compose' implementation is required for DSL pipelines. Details: {e}"
+            )
+
     def __getattr__(self, option: str) -> Callable[..., Any]:
-        """Handles calls for named components, e.g., `create.model.generator()`.
-
-        This method is used when the config groups multiple components under one category.
-
-        Args:
-            option: The specific named option for the component.
-
-        Returns:
-            A callable that, when invoked, creates an instance of the component.
-
-        Raises:
-            ValueError: If configuration is missing or implementation cannot be determined.
+        """
+        Handles calls for named components, e.g., `create.transform.weak()`.
+        This returns a callable that can accept runtime arguments like `model.parameters()`.
         """
         key = f"{self.category}.{option}"
         config_value = self.cfg.get(key)
         if not config_value:
             raise ValueError(f"Missing configuration for '{key}'.")
 
-        impl_name, component_cfg = self._get_component_info(config_value)
-        if not impl_name:
-            raise ValueError(f"Could not determine implementation for '{key}'.")
+        # This lambda ensures that any runtime arguments (*a, **kw) are passed along.
+        def creator_lambda(*args, **kwargs):
+            if isinstance(config_value, str) and '|' in config_value:
+                # DSL pipelines do not accept runtime args.
+                return self._create_from_dsl(config_value)
 
-        constructor = self._load_implementation(impl_name)
-        
-        return lambda *a, **kw: self._create_instance(constructor, component_cfg, *a, **kw)
+            # For single components, pass the runtime args through.
+            impl_name, component_cfg = self._get_component_info(config_value)
+            constructor = self._load_implementation(impl_name)
+            return self._create_instance(constructor, component_cfg, *args, **kwargs)
+
+        return creator_lambda
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        """Handles calls for a single component, e.g., `create.model()`.
-
-        This method is used when the config specifies a single implementation for the category.
-
-        Args:
-            *args: Positional arguments to pass to the component's constructor.
-            **kwargs: Keyword arguments to pass to the component's constructor.
-
-        Returns:
-            An instance of the component.
-
-        Raises:
-            ValueError: If configuration is invalid or implementation cannot be determined.
+        """
+        Handles calls for a single top-level component, e.g., `create.optimizer()`.
+        This method correctly passes runtime arguments.
         """
         config_value = self.cfg.get(self.category)
-        if not isinstance(config_value, (str, dict)):
-            raise ValueError(
-                f"Cannot create '{self.category}' directly. "
-                f"Configuration must be a string or a dictionary."
-            )
+        if not config_value:
+             raise ValueError(f"Missing configuration for top-level category '{self.category}'.")
+
+        if isinstance(config_value, str) and '|' in config_value:
+            return self._create_from_dsl(config_value)
 
         impl_name, component_cfg = self._get_component_info(config_value)
-        if not impl_name:
-            raise ValueError(f"Could not determine implementation for '{self.category}'.")
-
         constructor = self._load_implementation(impl_name)
         
         return self._create_instance(constructor, component_cfg, *args, **kwargs)
-
+        
 
 class _AgentLoader(_BaseLoader):
     """Specialized loader for Agent classes."""

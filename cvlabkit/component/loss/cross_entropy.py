@@ -13,7 +13,8 @@ class CrossEntropy(Loss):
         Initializes the CrossEntropy loss function.
         """
         super().__init__()
-        self.loss_fn = nn.CrossEntropyLoss()
+        reduction = cfg.get("reduction", "mean")
+        self.loss_fn = nn.CrossEntropyLoss(reduction=reduction)
 
     def forward(self, preds, targets):
         """

@@ -1,0 +1,47 @@
+# config/ssl/supervised.yaml
+# Configuration for the Supervised baseline agent.
+# === General Configuration ===
+run_name: run_{{date}}_{{num_labeled}}_supervised
+description: Supervised Baseline Configuration
+author: Hyunseo Choung
+date: "2025-08-22"
+
+agent: supervised
+
+# === Global Hyperparameters ===
+epochs: 100
+batch_size: 64
+num_workers: 4
+data_root: "./data/mstar"
+num_classes: 10
+pretrained: true
+lr: 0.002
+weight_decay: 0.0005
+log_dir: "./logs/supervised"
+
+# === Grid Search & Agent-specific Hyperparameters ===
+num_labeled:
+  - 50
+  - 100
+  - 200
+  - 500
+
+# === Component Selections ===
+
+model: resnet18
+optimizer: adam
+dataset:
+  train: mstar(split="TRAIN")
+  val: mstar(split="TEST")
+dataloader:
+  train: basic(shuffle=True)
+  val: basic(shuffle=False)
+sampler: subset_random
+
+# Define separate transforms for training and validation for consistency
+transform:
+  train: "resize(size=128) | random_flip | to_tensor | normalize"
+  val: "resize(size=128) | to_tensor | normalize"
+loss: cross_entropy
+metric: accuracy
+logger: csv

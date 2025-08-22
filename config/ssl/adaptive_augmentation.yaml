@@ -1,0 +1,58 @@
+# config/ssl/adaptive_augmentation.yaml
+# This configuration file is for the Adaptive Augmentation FixMatch agent.
+# It defines the hyperparameters, dataset, model, and other components needed for training.
+# === General Configuration ===
+run_name: run_{{date}}_{{num_labeled}}_adaptive_augmentation_fixmatch
+description: Adaptive Augmentation FixMatch Configuration
+author: Hyunseo Choung
+date: "2025-08-22"
+
+agent: adaptive_augmentation_fixmatch
+
+# === Global Hyperparameters ===
+epochs: 20
+batch_size: 16
+num_workers: 4
+data_root: "./data/mstar"
+num_classes: 10
+pretrained: false
+lr: 0.003
+weight_decay: 0
+log_dir: "./logs/adaptive_fixmatch"
+
+# === Grid Search & Agent-specific Hyperparameters ===
+steps_per_epoch: 1024
+num_labeled:
+  - 200
+  - 100
+  - 50
+
+mu: 7
+lambda_fixmatch: 1.0
+lambda_contrastive: 0.5
+confidence_threshold: 0.95
+
+# === Component Selections ===
+
+model: resnet18
+optimizer: adam
+dataset:
+  train: mstar(split="TRAIN")
+  val: mstar(split="TEST")
+dataloader:
+  labeled: basic
+  unlabeled: basic
+  val: basic
+sampler:
+  labeled: subset_random
+  unlabeled: subset_random
+transform:
+  weak: "resize(size=128) | random_flip | to_tensor | normalize"
+  strong: "resize(size=128) | random_flip | adaptive_rand_augment(magnitude_min=0, magnitude_max=15) | to_tensor | normalize"
+loss:
+  supervised: cross_entropy(reduction="mean")
+  unsupervised: cross_entropy(reduction="none")
+  contrastive: kl_div(reduction="batchmean")
+logger: csv
+metric:
+  val: accuracy

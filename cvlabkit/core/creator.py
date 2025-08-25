@@ -178,6 +178,32 @@ class _BaseLoader:
 
         raise TypeError(f"Unsupported config format for '{self.category}': {type(config_value)}")
 
+    def _resolve_placeholders_recursive(self, value: Any) -> Any:
+        """
+        Recursively traverses a data structure and resolves placeholders
+        like {{key}} using values from the main configuration.
+        """
+        if isinstance(value, str):
+            if '{{' not in value:
+                return value
+            
+            # Handle cases where the entire string is a placeholder,
+            # which might resolve to a non-string value (e.g., a list or dict).
+            match = re.fullmatch(r"\s*{{s*(.*?)s*}}\s*", value)
+            if match:
+                key = match.group(1).strip()
+                return self.cfg.get(key) # Return the raw value
+
+            # Otherwise, substitute placeholders within the string.
+            return re.sub(r"{{s*(.*?)s*}}", lambda m: str(self.cfg.get(m.group(1).strip())), value)
+
+        elif isinstance(value, dict):
+            return {k: self._resolve_placeholders_recursive(v) for k, v in value.items()}
+        elif isinstance(value, list):
+            return [self._resolve_placeholders_recursive(v) for v in value]
+        else:
+            return value
+
     def _create_instance(
         self, constructor: Callable, component_cfg: Config, *args: Any, **kwargs: Any
         ) -> Any:
@@ -198,21 +224,28 @@ class _BaseLoader:
         runtime_kwargs = dict(kwargs)
         component_creator_instance = runtime_kwargs.pop("component_creator", None)
 
+        # 1. Merge all configurations
         final_params = self.cfg.to_dict()
         final_params.update(component_cfg.to_dict())
         final_params.update(runtime_kwargs)
-        final_cfg = Config(final_params, proxy=self.cfg.proxy)
+        
+        # 2. Resolve all placeholders recursively
+        resolved_params = self._resolve_placeholders_recursive(final_params)
+
+        # 3. Create the final config object from the resolved parameters
+        final_cfg = Config(resolved_params, proxy=self.cfg.proxy)
 
         sig = inspect.signature(constructor)
         constructor_kwargs = dict(kwargs)
 
+        # 4. Prepare constructor arguments, injecting dependencies as needed
         for param_name in sig.parameters:
             if param_name == "self":
                 continue
             elif param_name == "component_creator":
                 constructor_kwargs["component_creator"] = component_creator_instance
-            elif param_name in final_params:
-                constructor_kwargs[param_name] = final_params[param_name]
+            elif param_name in resolved_params:
+                constructor_kwargs[param_name] = resolved_params[param_name]
 
         return constructor(final_cfg, *args, **constructor_kwargs)
 

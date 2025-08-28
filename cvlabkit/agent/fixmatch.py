@@ -19,7 +19,11 @@ class Fixmatch(Agent):
     """
     def setup(self):
         """Creates and initializes all necessary components for the agent."""
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device_id = self.cfg.get("device", 0)
+        if torch.cuda.is_available():
+            self.device = torch.device(f"cuda:{device_id}")
+        else:
+            self.device = torch.device("cpu")
         self.current_epoch = 0
 
         # --- Create Components using the Creator ---

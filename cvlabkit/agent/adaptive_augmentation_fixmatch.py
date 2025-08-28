@@ -197,16 +197,17 @@ class AdaptiveAugmentationFixmatch(Agent):
 
     def fit(self):
         """The main training loop, driven by a fixed number of steps per epoch."""
-        total_epochs = self.cfg.get("epochs", 1)
+        train_epochs = self.cfg.get("epochs", 1)
+        target_epochs = self.current_epoch + train_epochs
         steps_per_epoch = self.cfg.get("steps_per_epoch", 1024)
 
         labeled_iter = iter(self.labeled_loader)
         unlabeled_iter = iter(self.unlabeled_loader)
 
-        for epoch in range(total_epochs):
-            self.current_epoch = epoch
+        while self.current_epoch < target_epochs:
+            epoch_losses = defaultdict(float)
             
-            progress_bar = tqdm(range(steps_per_epoch), desc=f"Epoch [{epoch+1}/{total_epochs}]")
+            progress_bar = tqdm(range(steps_per_epoch), desc=f"Epoch [{self.current_epoch+1}/{target_epochs}]")
             for step in progress_bar:
                 try:
                     labeled_batch = next(labeled_iter)
@@ -221,23 +222,48 @@ class AdaptiveAugmentationFixmatch(Agent):
                     unlabeled_batch = next(unlabeled_iter)
                 
                 loss_dict = self.train_step(labeled_batch, unlabeled_batch)
+                
+                for key, value in loss_dict.items():
+                    epoch_losses[key] += value
+                
                 progress_bar.set_postfix(loss=f"{loss_dict['total_loss']:.4f}")
+
+            if hasattr(self, 'logger') and self.logger is not None:
+                log_data = {}
+                for key, value in epoch_losses.items():
+                    # Rename 'total_loss' to 'train_loss' for logging
+                    log_key = "train_loss" if key == "total_loss" else f"train_{key}"
+                    log_data[log_key] = value / steps_per_epoch
+                self.logger.log_metrics(metrics=log_data, step=self.current_epoch + 1)
             
             self.evaluate()
+            self.current_epoch += 1
 
     def evaluate(self):
         """Evaluates the model on the validation set."""
         self.model.eval()
         self.metric.reset()
         
+        total_val_loss = 0
+        
         with torch.no_grad():
             for images_pil, labels in self.val_loader:
                 images = torch.stack([self.weak_transform(img) for img in images_pil]).to(self.device)
                 labels = labels.to(self.device)
                 preds = self.model(images)
+                
+                # Calculate validation loss
+                val_loss = self.sup_loss_fn(preds, labels)
+                total_val_loss += val_loss.item()
+                
                 self.metric.update(preds=preds, targets=labels)
         
+        # Calculate average validation loss
+        avg_val_loss = total_val_loss / len(self.val_loader)
+        
         metrics = self.metric.compute()
+        metrics['val_loss'] = avg_val_loss
+        
         print(f"Epoch {self.current_epoch+1} Validation Metrics: {metrics}")
 
         if hasattr(self, 'logger') and self.logger is not None:

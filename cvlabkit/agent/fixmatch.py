@@ -11,6 +11,13 @@ from tqdm import tqdm
 from cvlabkit.core.agent import Agent
 
 
+def pil_collate(batch):
+    """Custom collate function to handle PIL Images."""
+    images = [item[0] for item in batch]
+    labels = torch.tensor([item[1] for item in batch])
+    return images, labels
+
+
 class Fixmatch(Agent):
     """
     An agent that implements the standard FixMatch algorithm for semi-supervised
@@ -80,15 +87,18 @@ class Fixmatch(Agent):
         self.labeled_loader = self.create.dataloader.labeled(
             dataset=train_dataset,
             sampler=labeled_sampler,
+            collate_fn=pil_collate,
             batch_size=labeled_batch_size
         )
         self.unlabeled_loader = self.create.dataloader.unlabeled(
             dataset=train_dataset,
             sampler=unlabeled_sampler,
+            collate_fn=pil_collate,
             batch_size=unlabeled_batch_size
         )
         self.val_loader = self.create.dataloader.val(
-            dataset=val_dataset
+            dataset=val_dataset,
+            collate_fn=pil_collate
         )
 
     def _stratified_split(self, targets: np.ndarray, num_labeled: int):
@@ -117,13 +127,15 @@ class Fixmatch(Agent):
         """Performs a single training step of FixMatch."""
         self.model.train()
         
-        labeled_images, labels = labeled_batch
-        unlabeled_images_weak, unlabeled_images_strong = unlabeled_batch
+        labeled_images_pil, labels = labeled_batch
+        unlabeled_images_pil, _ = unlabeled_batch
 
-        labeled_images = labeled_images.to(self.device)
+        # Apply weak transform to labeled data
+        labeled_images = torch.stack([self.weak_transform(img) for img in labeled_images_pil]).to(self.device)
         labels = labels.to(self.device)
-        unlabeled_images_weak = unlabeled_images_weak.to(self.device)
-        unlabeled_images_strong = unlabeled_images_strong.to(self.device)
+        
+        # Apply weak/strong transforms to unlabeled data
+        unlabeled_images_weak = torch.stack([self.weak_transform(img) for img in unlabeled_images_pil]).to(self.device)
         
         # 1. Supervised loss
         sup_preds = self.model(labeled_images)
@@ -133,16 +145,22 @@ class Fixmatch(Agent):
         with torch.no_grad():
             teacher_preds = self.model(unlabeled_images_weak)
         
-        probs = torch.softmax(teacher_preds, dim=1)
-        max_probs, pseudo_labels = torch.max(probs, dim=1)
-        mask = max_probs.ge(self.cfg.get("confidence_threshold", 0.95)).float()
+            probs = torch.softmax(teacher_preds, dim=1)
+            max_probs, pseudo_labels = torch.max(probs, dim=1)
+            mask = max_probs.ge(self.cfg.get("confidence_threshold", 0.95)).float()
         
+        strong_aug_images = []
+        for i, img in enumerate(unlabeled_images_pil):
+            aug_img = self.strong_transform(img, difficulty_score=0)
+            strong_aug_images.append(aug_img)
+        strong_aug_images = torch.stack(strong_aug_images).to(self.device)
+
         student_preds = self.model(unlabeled_images_strong)
-        loss_unsup = self.unsup_loss_fn(student_preds, pseudo_labels)
-        loss_unsup = (loss_unsup * mask).mean()
+        loss_fixmatch = self.unsup_loss_fn(student_preds, pseudo_labels)
+        loss_fixmatch = (loss_fixmatch * mask).mean()
 
         # 3. Total Loss
-        total_loss = loss_sup + self.cfg.get("lambda_fixmatch", 1.0) * loss_unsup
+        total_loss = loss_sup + self.cfg.get("lambda_fixmatch", 1.0) * loss_fixmatch
 
         self.optimizer.zero_grad()
         total_loss.backward()
@@ -151,7 +169,7 @@ class Fixmatch(Agent):
         return {
             "total_loss": total_loss.item(),
             "sup_loss": loss_sup.item(),
-            "unsup_loss": loss_unsup.item()
+            "unsup_loss": loss_fixmatch.item()
         }
 
     def fit(self):
@@ -205,7 +223,8 @@ class Fixmatch(Agent):
         total_val_loss = 0
         
         with torch.no_grad():
-            for images, labels in self.val_loader:
+            for images_pil, labels in self.val_loader:
+                images = torch.stack([self.weak_transform(img) for img in images_pil]).to(self.device)
                 images = images.to(self.device)
                 labels = labels.to(self.device)
                 preds = self.model(images)

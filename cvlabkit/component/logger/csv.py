@@ -26,20 +26,7 @@ class Csv(Logger):
                                               Defaults to "experiment".
         """
         log_dir = cfg.get("log_dir", "./logs")
-        run_name_template = cfg.get("run_name", "experiment")
-
-        # Resolve placeholders like {{key}} in the run_name using values from the config
-        def resolve_placeholders(template, config):
-            placeholders = re.findall(r"\{\{(.*?)\}\}", template)
-            resolved_name = template
-            for placeholder in placeholders:
-                # Use cfg.get() to handle nested keys if necessary
-                value = config.get(placeholder.strip())
-                if value is not None:
-                    resolved_name = resolved_name.replace(f"{{{{{{placeholder}}}}}}", str(value))
-            return resolved_name
-
-        run_name = resolve_placeholders(run_name_template, cfg)
+        run_name = cfg.get("run_name", "experiment")
         
         os.makedirs(log_dir, exist_ok=True)
         self.log_path = os.path.join(log_dir, f"{run_name}.csv")

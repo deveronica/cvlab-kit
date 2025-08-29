@@ -1,6 +1,5 @@
-import csv
 import os
-import re
+import pandas as pd
 from typing import Dict, Any
 
 from cvlabkit.component.base import Logger
@@ -9,10 +8,8 @@ from cvlabkit.core.config import Config
 
 class Csv(Logger):
     """
-    A logger that saves experiment metrics to a CSV file.
-
-    Upon the first call to `log_metrics`, it creates a CSV file and writes a
-    header row. Subsequent calls append new rows for each step.
+    A logger that saves experiment metrics to a CSV file using pandas.
+    This version handles dynamic addition of new metrics during the run.
     """
     def __init__(self, cfg: Config):
         """
@@ -22,7 +19,6 @@ class Csv(Logger):
             cfg (Config): The configuration object. Expected keys:
                 - "log_dir" (str, optional): Directory to save log files. Defaults to "./logs".
                 - "run_name" (str, optional): A name for the run, used as the CSV filename.
-                                              Supports placeholders like {{key}}.
                                               Defaults to "experiment".
         """
         log_dir = cfg.get("log_dir", "./logs")
@@ -30,16 +26,19 @@ class Csv(Logger):
         
         os.makedirs(log_dir, exist_ok=True)
         self.log_path = os.path.join(log_dir, f"{run_name}.csv")
-        
-        self.file = open(self.log_path, 'w', newline='')
-        self.writer = None
-        
+
+        if os.path.exists(self.log_path):
+            self.df = pd.read_csv(self.log_path, index_col='step')
+        else:
+            self.df = pd.DataFrame()
+
         # Save the config alongside the log file for reproducibility
         self.log_hyperparams(cfg.to_dict())
 
     def log_metrics(self, metrics: Dict[str, float], step: int) -> None:
         """
         Logs a dictionary of metrics for a given step.
+        Updates the CSV file, adding new columns if necessary.
 
         Args:
             metrics (Dict[str, float]): A dictionary of metric names and their values.
@@ -48,17 +47,11 @@ class Csv(Logger):
         if not metrics:
             return
 
-        # Prepare a flat dictionary including the step
-        log_row = {'step': step, **metrics}
-
-        # On the first call, create the writer and write the header
-        if self.writer is None:
-            self.fieldnames = log_row.keys()
-            self.writer = csv.DictWriter(self.file, fieldnames=self.fieldnames)
-            self.writer.writeheader()
+        for key, value in metrics.items():
+            self.df.loc[step, key] = value
         
-        self.writer.writerow(log_row)
-        self.file.flush() # Ensure data is written to disk immediately
+        self.df.sort_index(inplace=True)
+        self.df.to_csv(self.log_path, index_label='step')
 
     def log_hyperparams(self, params: Dict[str, Any]) -> None:
         """Saves the hyperparameter configuration to a YAML file."""
@@ -68,6 +61,5 @@ class Csv(Logger):
             yaml.dump(params, f, default_flow_style=False)
 
     def finalize(self) -> None:
-        """Closes the CSV file."""
-        if self.file:
-            self.file.close()
+        """Saves the final DataFrame to the CSV file."""
+        self.df.to_csv(self.log_path, index_label='step')

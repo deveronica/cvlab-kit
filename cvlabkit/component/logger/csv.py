@@ -27,7 +27,7 @@ class Csv(Logger):
         os.makedirs(log_dir, exist_ok=True)
         self.log_path = os.path.join(log_dir, f"{run_name}.csv")
 
-        if os.path.exists(self.log_path):
+        if os.path.exists(self.log_path) and os.path.getsize(self.log_path) > 0:
             self.df = pd.read_csv(self.log_path, index_col='step')
         else:
             self.df = pd.DataFrame()

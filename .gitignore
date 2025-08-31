@@ -190,3 +190,7 @@ legacy_code/
 
 # Documentation
 GEMINI.md
+
+# Web Helper
+web/launch_configs/*
+web/web_helper.db

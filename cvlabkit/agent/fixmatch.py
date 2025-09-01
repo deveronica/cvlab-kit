@@ -151,7 +151,7 @@ class Fixmatch(Agent):
         
         strong_aug_images = []
         for i, img in enumerate(unlabeled_images_pil):
-            aug_img = self.strong_transform(img, difficulty_score=torch.randint(0, 30).item())
+            aug_img = self.strong_transform(img, difficulty_score=torch.randint(0, 31).item() / 31)
             strong_aug_images.append(aug_img)
         strong_aug_images = torch.stack(strong_aug_images).to(self.device)
 

@@ -7,6 +7,7 @@ requires-python = ">=3.9"
 dependencies = [
     "fastapi>=0.116.1",
     "numpy>=2.0.2",
+    "pandas>=2.3.2",
     "pillow>=11.3.0",
     "psutil>=7.0.0",
     "pyyaml>=6.0.2",

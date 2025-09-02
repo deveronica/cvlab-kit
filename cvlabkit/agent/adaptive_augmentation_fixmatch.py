@@ -41,6 +41,7 @@ class AdaptiveAugmentationFixmatch(Agent):
         # based on the YAML structure (list vs. single item).
         self.weak_transform = self.create.transform.weak()
         self.strong_transform = self.create.transform.strong()
+        self.val_transform = self.create.transform.val()
 
         self.sup_loss_fn = self.create.loss.supervised()
         self.unsup_loss_fn = self.create.loss.unsupervised()
@@ -252,7 +253,7 @@ class AdaptiveAugmentationFixmatch(Agent):
         
         with torch.no_grad():
             for images_pil, labels in self.val_loader:
-                images = torch.stack([self.weak_transform(img) for img in images_pil]).to(self.device)
+                images = torch.stack([self.val_transform(img) for img in images_pil]).to(self.device)
                 labels = labels.to(self.device)
                 preds = self.model(images)
                 

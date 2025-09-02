@@ -39,6 +39,7 @@ class Fixmatch(Agent):
         
         self.weak_transform = self.create.transform.weak()
         self.strong_transform = self.create.transform.strong()
+        self.val_transform = self.create.transform.val()
 
         self.sup_loss_fn = self.create.loss.supervised()
         self.unsup_loss_fn = self.create.loss.unsupervised()
@@ -149,11 +150,11 @@ class Fixmatch(Agent):
             max_probs, pseudo_labels = torch.max(probs, dim=1)
             mask = max_probs.ge(self.cfg.get("confidence_threshold", 0.95)).float()
         
-        strong_aug_images = []
+        unlabeled_images_strong = []
         for i, img in enumerate(unlabeled_images_pil):
             aug_img = self.strong_transform(img, difficulty_score=torch.randint(0, 31, (1,)).item() / 31)
-            strong_aug_images.append(aug_img)
-        strong_aug_images = torch.stack(strong_aug_images).to(self.device)
+            unlabeled_images_strong.append(aug_img)
+        unlabeled_images_strong = torch.stack(unlabeled_images_strong).to(self.device)
 
         student_preds = self.model(unlabeled_images_strong)
         loss_fixmatch = self.unsup_loss_fn(student_preds, pseudo_labels)
@@ -224,7 +225,7 @@ class Fixmatch(Agent):
         
         with torch.no_grad():
             for images_pil, labels in self.val_loader:
-                images = torch.stack([self.weak_transform(img) for img in images_pil]).to(self.device)
+                images = torch.stack([self.val_transform(img) for img in images_pil]).to(self.device)
                 images = images.to(self.device)
                 labels = labels.to(self.device)
                 preds = self.model(images)

@@ -161,8 +161,8 @@ class AdaptiveAugmentationFixmatch(Agent):
             mask = max_probs.ge(self.cfg.get("confidence_threshold", 0.95)).float()
         
             entropy = -torch.sum(probs * torch.log(probs + 1e-7), dim=1)
-            min_e, max_e = entropy.min(), entropy.max()
-            difficulty_scores = (entropy - min_e) / (max_e - min_e + 1e-8) if max_e > min_e else torch.zeros_like(entropy)
+            C = probs.size(1)
+            difficulty_scores = entropy / torch.log(torch.tensor(C, dtype=entropy.dtype, device=entropy.device))
         
         strong_aug_images = []
         for i, img in enumerate(unlabeled_images_pil):

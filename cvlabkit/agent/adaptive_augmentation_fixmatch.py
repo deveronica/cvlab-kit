@@ -45,12 +45,11 @@ class AdaptiveAugmentationFixmatch(Agent):
 
         self.sup_loss_fn = self.create.loss.supervised()
         self.unsup_loss_fn = self.create.loss.unsupervised()
-        # Add the new contrastive loss
         self.contrastive_loss_fn = self.create.loss.contrastive()
         
         # The Agent requests the validation metric. It receives a single, ready-to-use
         # object, which could be a simple metric or a composed one.
-        self.metric = self.create.metric.val()
+        self.metric = self.create.metric()
         
         if self.cfg.get("logger"):
             self.logger = self.create.logger()
@@ -63,7 +62,7 @@ class AdaptiveAugmentationFixmatch(Agent):
         targets = np.array(train_dataset.targets)
         
         # Load or create labeled indices for reproducibility
-        log_dir = self.cfg.get("log_dir", ".")
+        log_dir = self.cfg.get("log_dir", "./logs")
         dataset_name = self.cfg.dataset.train.split('(')[0]
         os.makedirs(log_dir, exist_ok=True)
         index_file_path = os.path.join(log_dir, f"{dataset_name}_labeled_indices_{num_labeled}.json")
@@ -161,8 +160,12 @@ class AdaptiveAugmentationFixmatch(Agent):
             mask = max_probs.ge(self.cfg.get("confidence_threshold", 0.95)).float()
         
             entropy = -torch.sum(probs * torch.log(probs + 1e-7), dim=1)
-            C = probs.size(1)
-            difficulty_scores = entropy / torch.log(torch.tensor(C, dtype=entropy.dtype, device=entropy.device))
+            # Exponential mapping f(H) with C-classes and slope 'a'
+            C = self.cfg.get("num_classes", 10)
+            a = float(self.cfg.get("scale_a", 10.0))
+            Ca = (float(C) ** a)
+            difficulty_scores = ((Ca * torch.exp(-a * entropy)) - 1.0) / (Ca - 1.0 + 1e-12)
+            difficulty_scores = difficulty_scores.clamp(0.0, 1.0)
         
         strong_aug_images = []
         for i, img in enumerate(unlabeled_images_pil):

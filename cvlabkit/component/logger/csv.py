@@ -20,10 +20,12 @@ class Csv(Logger):
                 - "log_dir" (str, optional): Directory to save log files. Defaults to "./logs".
                 - "run_name" (str, optional): A name for the run, used as the CSV filename.
                                               Defaults to "experiment".
+                - "run_uid" (str, optional): Unique run identifier. If provided, takes precedence over run_name.
         """
         log_dir = cfg.get("log_dir", "./logs")
-        run_name = cfg.get("run_name", "experiment")
-        
+        # Prefer run_uid over run_name for web_helper compatibility
+        run_name = cfg.get("run_uid") or cfg.get("run_name", "experiment")
+
         os.makedirs(log_dir, exist_ok=True)
         self.log_path = os.path.join(log_dir, f"{run_name}.csv")
 

@@ -11,7 +11,7 @@ date: "2025-10-23"
 agent: generative_augmentation_fixmatch
 
 # === Global Hyperparameters ===
-epochs: 256
+epochs: 2
 batch_size: 16
 num_workers: 4
 data_root: "./data/mstar"
@@ -61,7 +61,7 @@ ode_steps: 100  # ODE integration steps for sampling
 # Models: Classifier & Generator
 model:
   classifier: resnet18
-  generator: unet_rectified_flow(channels=3, dim=64, dim_mults=[1,2,4,8], dropout=0.1, cond_drop_prob=0.1, num_residual_streams=2)
+  generator: conditional_unet(channels=3, dim=64, dim_mults=[1,2,4,8], dropout=0.1, num_residual_streams=2)
 
 # Optimizers
 optimizer:
@@ -124,4 +124,4 @@ logger: csv
 # 5. Masking: PL uses m_cond*m_conf, Consistency uses m_cond only
 # 6. All losses normalized by batch size B
 # 7. Loss-driven variation: L_ratio, L_lpips, L_id, L_diff_eq create subtle deviations from identity
-# 8. CFG amplifies variations during sampling
+# 8. Null conditioning (difficulty=0) for unconditional generation

@@ -187,12 +187,16 @@ class GenerativeAugmentationFixmatch(Agent):
         )
         return difficulty.clamp(0.0, 1.0)
 
-    def ode_sample(self, x_weak, difficulty):
+    def ode_sample(self, x_weak, difficulty=None):
         """Generate augmented image using ODE solver.
 
         Identity mapping: x_0 = x_1 = x_weak
         Difficulty conditions deviation from identity.
         """
+        # Null conditioning: use zeros for unconditional generation
+        if difficulty is None:
+            difficulty = torch.zeros(x_weak.shape[0], device=self.device)
+
         times = torch.linspace(0.0, 1.0, self.ode_steps, device=self.device)
 
         def ode_fn(t, x_t):
@@ -265,7 +269,9 @@ class GenerativeAugmentationFixmatch(Agent):
         time_uncond_broadcast = time_uncond.view(-1, 1, 1, 1)
         interpolated_uncond = (1 - time_uncond_broadcast) * weak_aug_images_uncond + time_uncond_broadcast * weak_aug_images_uncond
         target_velocity_uncond = weak_aug_images_uncond - weak_aug_images_uncond  # Zero velocity (identity)
-        predicted_velocity_uncond = self.generator(interpolated_uncond, time_uncond, difficulty=None)
+        # Null conditioning: pass None for cond
+        null_cond = torch.zeros(batch_size - split_idx, device=self.device)
+        predicted_velocity_uncond = self.generator(interpolated_uncond, time_uncond, null_cond)
         loss_rf_uncond = F.mse_loss(predicted_velocity_uncond, target_velocity_uncond, reduction="none").mean(dim=[1,2,3])
 
         loss_rf = (loss_rf_cond.sum() + loss_rf_uncond.sum()) / batch_size

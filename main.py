@@ -12,6 +12,8 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--config", "-c", required=True)
     p.add_argument("--fast", "-f", action="store_true")
+    p.add_argument("--run_uid", help="Unique run identifier for spec-compliant logging")
+    p.add_argument("--device", help="Device to run on (e.g., cuda:0, cpu)")
     return p.parse_args()
 
 
@@ -62,6 +64,12 @@ def main():
     # Step 3: Run training if all configurations are valid
     print(f"Training {len(approved_trials)} configuration(s).")
     for cfg in approved_trials:
+        # Apply command line overrides to config
+        if args.run_uid:
+            cfg.set("run_uid", args.run_uid)
+        if args.device:
+            cfg.set("device", args.device)
+
         create = Creator(cfg)
         agent = create.agent()
         agent.fit()

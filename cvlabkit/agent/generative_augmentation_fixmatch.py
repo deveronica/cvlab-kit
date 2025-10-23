@@ -91,7 +91,7 @@ class GenerativeAugmentationFixmatch(Agent):
         self.lambda_identity = self.cfg.get("lambda_identity", 1.0)
 
         # Difficulty constraints
-        self.ode_steps = self.cfg.get("ode_steps", 10)
+        self.ode_steps = self.cfg.get("ode_steps", 16)  # Legacy default
 
         # ODE Solver
         self.solver = self.create.solver()
@@ -187,6 +187,7 @@ class GenerativeAugmentationFixmatch(Agent):
         )
         return difficulty.clamp(0.0, 1.0)
 
+    @torch.no_grad()
     def ode_sample(self, x_weak, difficulty=None):
         """Generate augmented image using ODE solver.
 
@@ -277,6 +278,7 @@ class GenerativeAugmentationFixmatch(Agent):
         loss_rf = (loss_rf_cond.sum() + loss_rf_uncond.sum()) / batch_size
 
         # 4. Generate strong augmentations (conditional) and identity (unconditional)
+        # ode_sample has @torch.no_grad() decorator (like legacy)
         strong_aug_images_cond = self.ode_sample(weak_aug_images_cond, difficulty_scores_cond)
         strong_logits_cond = self.model(strong_aug_images_cond)
         strong_difficulty_cond = self.compute_difficulty(strong_logits_cond)
@@ -294,14 +296,16 @@ class GenerativeAugmentationFixmatch(Agent):
 
         # LPIPS upper bound: Apply only when lower bound is satisfied
         # Use LPIPS distance directly as penalty (no threshold)
-        lpips_distance = self.loss_cond_upper(strong_aug_images_cond, weak_aug_images_cond, reduction="none")
+        # Detach generated images since they're from no_grad sampling
+        lpips_distance = self.loss_cond_upper(strong_aug_images_cond.detach(), weak_aug_images_cond, reduction="none")
         # Mask: 1 if lower bound satisfied, 0 otherwise
         lpips_mask = (log_ratio >= lower_bound).float().detach()
         loss_lpips = (lpips_mask * lpips_distance).sum() / batch_size
 
         # 6. Unconditional constraint losses (identity & difficulty equality)
         # Identity preservation: ||x_identity - x_weak||^2
-        loss_identity = F.mse_loss(identity_images_uncond, weak_aug_images_uncond, reduction="none").mean(dim=[1,2,3]).sum() / batch_size
+        # Detach generated images since they're from no_grad sampling
+        loss_identity = F.mse_loss(identity_images_uncond.detach(), weak_aug_images_uncond, reduction="none").mean(dim=[1,2,3]).sum() / batch_size
 
         # Difficulty equality: (s_identity - s_weak)^2
         loss_diff_eq = (identity_difficulty_uncond - difficulty_scores_uncond.detach()).pow(2).sum() / batch_size

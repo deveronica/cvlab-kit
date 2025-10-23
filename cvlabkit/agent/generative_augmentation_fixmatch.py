@@ -187,7 +187,6 @@ class GenerativeAugmentationFixmatch(Agent):
         )
         return difficulty.clamp(0.0, 1.0)
 
-    @torch.no_grad()
     def ode_sample(self, x_weak, difficulty=None):
         """Generate augmented image using ODE solver.
 
@@ -221,23 +220,14 @@ class GenerativeAugmentationFixmatch(Agent):
         weak_aug_images = torch.stack([self.weak_transform(img) for img in unlabeled_images_pil]).to(self.device)
 
         # ========================================
-        # Stage 1: Generator Training
+        # All Forward Passes (No redundant computation)
         # ========================================
         self.generator.train()
-        self.model.eval()
+        self.model.train()
 
         # 1. Compute difficulty scores from weak augmentation predictions
-        with torch.no_grad():
-            weak_logits = self.model(weak_aug_images)
-            weak_probs = torch.softmax(weak_logits, dim=1)
-
-            # Exponential scaling difficulty: s = ((C^a * exp(-a*H)) - 1) / (C^a - 1)
-            entropy = -torch.sum(weak_probs * torch.log(weak_probs + 1e-7), dim=1)
-            C = self.num_classes
-            a = self.scale_a
-            Ca = (float(C) ** a)
-            difficulty_scores = ((Ca * torch.exp(-a * entropy)) - 1.0) / (Ca - 1.0 + 1e-12)
-            difficulty_scores = difficulty_scores.clamp(0.0, 1.0)
+        weak_logits = self.model(weak_aug_images)
+        difficulty_scores = self.compute_difficulty(weak_logits.detach())
 
         # 2. Split batch into conditional (first half) and unconditional (second half)
         batch_size = weak_aug_images.shape[0]
@@ -256,61 +246,51 @@ class GenerativeAugmentationFixmatch(Agent):
         weak_aug_images_uncond = weak_aug_images[split_idx:]
         difficulty_scores_uncond = difficulty_scores[split_idx:]
 
-        # 3. Rectified Flow Loss (identity mapping: x_0 = x_1 = weak_aug_images)
-        # For conditional samples: use difficulty conditioning
-        time_cond = torch.rand(split_idx, device=self.device)
-        time_cond_broadcast = time_cond.view(-1, 1, 1, 1)
-        interpolated_cond = (1 - time_cond_broadcast) * weak_aug_images_cond + time_cond_broadcast * weak_aug_images_cond
-        target_velocity_cond = weak_aug_images_cond - weak_aug_images_cond  # Zero velocity (identity)
-        predicted_velocity_cond = self.generator(interpolated_cond, time_cond, difficulty_scores_cond)
-        loss_rf_cond = F.mse_loss(predicted_velocity_cond, target_velocity_cond, reduction="none").mean(dim=[1,2,3])
+        # 3. Generate strong augmentations (conditional) and identity (unconditional)
+        strong_aug_images_cond = self.ode_sample(weak_aug_images_cond, difficulty_scores_cond)
+        identity_images_uncond = self.ode_sample(weak_aug_images_uncond, difficulty=None)
 
-        # For unconditional samples: use null conditioning
+        # 4. All classifier forwards (1x each)
+        sup_preds = self.model(labeled_images)
+        generated_images = torch.cat([strong_aug_images_cond, identity_images_uncond], dim=0)
+        generated_logits = self.model(generated_images)
+
+        # Split generated logits
+        strong_logits_cond = generated_logits[:split_idx]
+        identity_logits_uncond = generated_logits[split_idx:]
+
+        strong_difficulty_cond = self.compute_difficulty(strong_logits_cond.detach())
+        identity_difficulty_uncond = self.compute_difficulty(identity_logits_uncond.detach())
+
+        # ========================================
+        # Generator Loss Computation
+        # ========================================
+
+        # RF Loss (UNCONDITIONAL ONLY - Identity mapping)
         time_uncond = torch.rand(batch_size - split_idx, device=self.device)
         time_uncond_broadcast = time_uncond.view(-1, 1, 1, 1)
         interpolated_uncond = (1 - time_uncond_broadcast) * weak_aug_images_uncond + time_uncond_broadcast * weak_aug_images_uncond
         target_velocity_uncond = weak_aug_images_uncond - weak_aug_images_uncond  # Zero velocity (identity)
-        # Null conditioning: pass None for cond
+
         null_cond = torch.zeros(batch_size - split_idx, device=self.device)
         predicted_velocity_uncond = self.generator(interpolated_uncond, time_uncond, null_cond)
         loss_rf_uncond = F.mse_loss(predicted_velocity_uncond, target_velocity_uncond, reduction="none").mean(dim=[1,2,3])
+        loss_rf = loss_rf_uncond.sum() / batch_size
 
-        loss_rf = (loss_rf_cond.sum() + loss_rf_uncond.sum()) / batch_size
-
-        # 4. Generate strong augmentations (conditional) and identity (unconditional)
-        # ode_sample has @torch.no_grad() decorator (like legacy)
-        strong_aug_images_cond = self.ode_sample(weak_aug_images_cond, difficulty_scores_cond)
-        strong_logits_cond = self.model(strong_aug_images_cond)
-        strong_difficulty_cond = self.compute_difficulty(strong_logits_cond)
-
-        identity_images_uncond = self.ode_sample(weak_aug_images_uncond, difficulty=None)
-        identity_logits_uncond = self.model(identity_images_uncond)
-        identity_difficulty_uncond = self.compute_difficulty(identity_logits_uncond)
-
-        # 5. Conditional constraint losses (ratio lower bound & LPIPS upper bound)
-        # Difficulty ratio lower bound: log(s_strong / s_weak) >= 1/C
-        # Target: s_strong / s_weak >= e^(1/C)
+        # Conditional constraint losses (ratio lower bound & LPIPS upper bound)
         lower_bound = 1.0 / self.num_classes  # 1/C in log space
         log_ratio = torch.log((strong_difficulty_cond + 1e-7) / (difficulty_scores_cond.detach() + 1e-7))
         loss_ratio = F.relu(lower_bound - log_ratio).pow(2).sum() / batch_size
 
-        # LPIPS upper bound: Apply only when lower bound is satisfied
-        # Use LPIPS distance directly as penalty (no threshold)
-        # Detach generated images since they're from no_grad sampling
-        lpips_distance = self.loss_cond_upper(strong_aug_images_cond.detach(), weak_aug_images_cond, reduction="none")
-        # Mask: 1 if lower bound satisfied, 0 otherwise
+        lpips_distance = self.loss_cond_upper(strong_aug_images_cond, weak_aug_images_cond, reduction="none")
         lpips_mask = (log_ratio >= lower_bound).float().detach()
         loss_lpips = (lpips_mask * lpips_distance).sum() / batch_size
 
-        # 6. Unconditional constraint losses (identity & difficulty equality)
-        # Identity preservation: ||x_identity - x_weak||^2
-        # Detach generated images since they're from no_grad sampling
-        loss_identity = F.mse_loss(identity_images_uncond.detach(), weak_aug_images_uncond, reduction="none").mean(dim=[1,2,3]).sum() / batch_size
-
-        # Difficulty equality: (s_identity - s_weak)^2
+        # Unconditional constraint losses (identity & difficulty equality)
+        loss_identity = F.mse_loss(identity_images_uncond, weak_aug_images_uncond, reduction="none").mean(dim=[1,2,3]).sum() / batch_size
         loss_diff_eq = (identity_difficulty_uncond - difficulty_scores_uncond.detach()).pow(2).sum() / batch_size
 
-        # 7. Total generator loss
+        # Total generator loss
         loss_gen = (
             self.lambda_rf * loss_rf
             + self.lambda_ratio * loss_ratio
@@ -318,64 +298,46 @@ class GenerativeAugmentationFixmatch(Agent):
             + self.lambda_identity * (loss_identity + loss_diff_eq)
         )
 
-        self.optimizer_gen.zero_grad()
-        loss_gen.backward()
-        self.optimizer_gen.step()
-
         # ========================================
-        # Stage 2: Classifier Training
+        # Classifier Loss Computation
         # ========================================
-        self.model.train()
-        self.generator.eval()
 
-        # 1. Supervised loss on labeled data
-        sup_preds = self.model(labeled_images)
+        # Supervised loss
         loss_sup = self.loss_supervised(sup_preds, labels)
 
-        # 2. Generate pseudo-labels from weak augmentation predictions (teacher)
-        with torch.no_grad():
-            teacher_preds = self.model(weak_aug_images)
-            teacher_probs = torch.softmax(teacher_preds, dim=1)
-            max_probs, pseudo_labels = torch.max(teacher_probs, dim=1)
+        # Teacher predictions (detached from weak_logits)
+        teacher_probs = torch.softmax(weak_logits.detach(), dim=1)
+        max_probs, pseudo_labels = torch.max(teacher_probs, dim=1)
+        mask_conf = max_probs.ge(self.confidence_threshold).float()
 
-            # Confidence mask (only for pseudo-label loss)
-            mask_conf = max_probs.ge(self.confidence_threshold).float()
-
-            # Compute difficulty for generation
-            teacher_difficulty = self.compute_difficulty(teacher_preds).detach()
-
-        # 3. Generate augmented images using the generator
-        with torch.no_grad():
-            # Conditional samples: strong augmentation with difficulty
-            generated_strong_cond = self.ode_sample(weak_aug_images[:split_idx], teacher_difficulty[:split_idx])
-
-            # Unconditional samples: identity mapping with null conditioning
-            generated_identity_uncond = self.ode_sample(weak_aug_images[split_idx:], difficulty=None)
-
-            # Concatenate: [strong_cond; identity_uncond]
-            generated_images = torch.cat([generated_strong_cond, generated_identity_uncond], dim=0)
-
-        # 4. Get student predictions on generated images
-        student_preds = self.model(generated_images)
-
-        # 5. Pseudo-label loss (conditional & high confidence only)
+        # Pseudo-label loss (conditional & high confidence only)
         mask_pl = mask_cond * mask_conf
-        loss_pl_per_sample = F.cross_entropy(student_preds, pseudo_labels, reduction="none")
+        loss_pl_per_sample = F.cross_entropy(generated_logits, pseudo_labels, reduction="none")
         loss_pl = (loss_pl_per_sample * mask_pl).sum() / batch_size
 
-        # 6. Consistency loss (conditional only, no confidence filtering)
+        # Consistency loss (conditional only, no confidence filtering)
         kl_per_sample = F.kl_div(
-            F.log_softmax(student_preds, dim=1),
-            teacher_probs.detach(),
+            F.log_softmax(generated_logits, dim=1),
+            teacher_probs,
             reduction="none",
         ).sum(dim=1)
         loss_cons = (kl_per_sample * mask_cond).sum() / batch_size
 
-        # 7. Total classifier loss
+        # Total classifier loss
         loss_model = loss_sup + self.lambda_pl * loss_pl + self.lambda_cons * loss_cons
 
+        # ========================================
+        # Optimized Backward (retain_graph)
+        # ========================================
+
+        # Step 1: Update Generator only
+        self.optimizer_gen.zero_grad()
+        loss_gen.backward(retain_graph=True)  # Keep graph for Classifier backward
+        self.optimizer_gen.step()
+
+        # Step 2: Update Classifier only (zero_grad clears gradients from Step 1)
         self.optimizer.zero_grad()
-        loss_model.backward()
+        loss_model.backward()  # Reuse computational graph
         self.optimizer.step()
 
         return {

@@ -1,23 +1,21 @@
 # cvlabkit/agent/generative_augmentation_fixmatch.py
-"""FixMatch with Rectified Flow generator for difficulty-conditioned augmentation.
+"""FixMatch with difficulty-conditioned generator for adaptive augmentation.
 
 Architecture:
     - Classifier M: ResNet18 for classification
-    - Generator: Rectified Flow U-Net with difficulty conditioning
+    - Generator G: Conditional U-Net (time + difficulty conditioning)
     - Difficulty: Computed from weak predictions (exponential scaling)
 
 Training Strategy:
-    - Two-stage: Generator → Classifier
+    - Two-stage: Generator → Classifier (single graph, retain_graph backward)
     - Batch split: First half (conditional), Second half (unconditional)
-    - Identity mapping: x_0 = x_1 = weak, difficulty conditions deviation
+    - Direct forward at t=1.0 (no ODE during training)
 
 Losses:
     Generator:
-        - L_RF: Rectified Flow velocity matching (identity mapping)
         - L_ratio: Difficulty ratio lower bound (conditional only)
-        - L_lpips: LPIPS upper bound (conditional only)
-        - L_id: Identity preservation (unconditional only)
-        - L_diff_eq: Difficulty equality (unconditional only)
+        - L_lpips: LPIPS perceptual upper bound (conditional only)
+        - L_identity: Identity preservation + difficulty equality (unconditional only)
 
     Classifier:
         - L_sup: Supervised CE (labeled data)
@@ -85,7 +83,6 @@ class GenerativeAugmentationFixmatch(Agent):
         # Loss weights
         self.lambda_pl = self.cfg.get("lambda_pl", 1.0)
         self.lambda_cons = self.cfg.get("lambda_cons", 0.5)
-        self.lambda_rf = self.cfg.get("lambda_rf", 1.0)
         self.lambda_ratio = self.cfg.get("lambda_ratio", 1.0)
         self.lambda_lpips = self.cfg.get("lambda_lpips", 1.0)
         self.lambda_identity = self.cfg.get("lambda_identity", 1.0)
@@ -220,14 +217,18 @@ class GenerativeAugmentationFixmatch(Agent):
         weak_aug_images = torch.stack([self.weak_transform(img) for img in unlabeled_images_pil]).to(self.device)
 
         # ========================================
-        # All Forward Passes (No redundant computation)
+        # Optimized Forward Passes
         # ========================================
         self.generator.train()
         self.model.train()
 
-        # 1. Compute difficulty scores from weak augmentation predictions
-        weak_logits = self.model(weak_aug_images)
-        difficulty_scores = self.compute_difficulty(weak_logits.detach())
+        # 1. NO_GRAD: Weak forward → Difficulty → Pseudo-labels (no grad needed)
+        with torch.no_grad():
+            weak_logits = self.model(weak_aug_images)
+            difficulty_scores = self.compute_difficulty(weak_logits)
+            teacher_probs = torch.softmax(weak_logits, dim=1)
+            max_probs, pseudo_labels = torch.max(teacher_probs, dim=1)
+            mask_conf = max_probs.ge(self.confidence_threshold).float()
 
         # 2. Split batch into conditional (first half) and unconditional (second half)
         batch_size = weak_aug_images.shape[0]
@@ -236,64 +237,62 @@ class GenerativeAugmentationFixmatch(Agent):
         # Create masks for conditional and unconditional samples
         mask_cond = torch.zeros(batch_size, device=self.device)
         mask_cond[:split_idx] = 1.0
-        mask_uncond = 1.0 - mask_cond
 
         # Conditional samples (with difficulty)
-        weak_aug_images_cond = weak_aug_images[:split_idx]
-        difficulty_scores_cond = difficulty_scores[:split_idx]
-
         # Unconditional samples (without difficulty)
+        weak_aug_images_cond = weak_aug_images[:split_idx]
         weak_aug_images_uncond = weak_aug_images[split_idx:]
+        difficulty_scores_cond = difficulty_scores[:split_idx]
         difficulty_scores_uncond = difficulty_scores[split_idx:]
 
-        # 3. Generate strong augmentations (conditional) and identity (unconditional)
-        strong_aug_images_cond = self.ode_sample(weak_aug_images_cond, difficulty_scores_cond)
-        identity_images_uncond = self.ode_sample(weak_aug_images_uncond, difficulty=None)
+        # 3. GRAD: Generate strong augmentations (conditional) and identity (unconditional)
+        # Training: Direct forward at t=1.0 (no ODE needed for image-to-image RF)
+        t_final_cond = torch.ones(split_idx, device=self.device)
+        t_final_uncond = torch.ones(batch_size - split_idx, device=self.device)
+        null_scores_uncond = torch.zeros(batch_size - split_idx, device=self.device)
+        strong_aug_images_cond = self.generator(weak_aug_images_cond, t_final_cond, difficulty_scores_cond)
+        identity_images_uncond = self.generator(weak_aug_images_uncond, t_final_uncond, null_scores_uncond)
 
-        # 4. All classifier forwards (1x each)
+        # 4. GRAD: Classifier forwards
         sup_preds = self.model(labeled_images)
-        generated_images = torch.cat([strong_aug_images_cond, identity_images_uncond], dim=0)
-        generated_logits = self.model(generated_images)
 
-        # Split generated logits
-        strong_logits_cond = generated_logits[:split_idx]
-        identity_logits_uncond = generated_logits[split_idx:]
+        # For Generator training: use grad-enabled generated images
+        generated_images_gen = torch.cat([strong_aug_images_cond, identity_images_uncond], dim=0)
+        generated_logits_gen = self.model(generated_images_gen)
 
-        strong_difficulty_cond = self.compute_difficulty(strong_logits_cond.detach())
-        identity_difficulty_uncond = self.compute_difficulty(identity_logits_uncond.detach())
+        # For Classifier training: detach to prevent graph issues with retain_graph
+        generated_images_cls = generated_images_gen.detach()
+        generated_logits_cls = self.model(generated_images_cls)
+
+        # Split logits for Generator training (constraint losses)
+        strong_logits_cond_gen = generated_logits_gen[:split_idx]
+        identity_logits_uncond_gen = generated_logits_gen[split_idx:]
+
+        # Difficulty from generated images (detach for stability)
+        strong_difficulty_cond = self.compute_difficulty(strong_logits_cond_gen)
+        identity_difficulty_uncond = self.compute_difficulty(identity_logits_uncond_gen)
 
         # ========================================
         # Generator Loss Computation
         # ========================================
 
-        # RF Loss (UNCONDITIONAL ONLY - Identity mapping)
-        time_uncond = torch.rand(batch_size - split_idx, device=self.device)
-        time_uncond_broadcast = time_uncond.view(-1, 1, 1, 1)
-        interpolated_uncond = (1 - time_uncond_broadcast) * weak_aug_images_uncond + time_uncond_broadcast * weak_aug_images_uncond
-        target_velocity_uncond = weak_aug_images_uncond - weak_aug_images_uncond  # Zero velocity (identity)
-
-        null_cond = torch.zeros(batch_size - split_idx, device=self.device)
-        predicted_velocity_uncond = self.generator(interpolated_uncond, time_uncond, null_cond)
-        loss_rf_uncond = F.mse_loss(predicted_velocity_uncond, target_velocity_uncond, reduction="none").mean(dim=[1,2,3])
-        loss_rf = loss_rf_uncond.sum() / batch_size
-
         # Conditional constraint losses (ratio lower bound & LPIPS upper bound)
         lower_bound = 1.0 / self.num_classes  # 1/C in log space
         log_ratio = torch.log((strong_difficulty_cond + 1e-7) / (difficulty_scores_cond.detach() + 1e-7))
-        loss_ratio = F.relu(lower_bound - log_ratio).pow(2).sum() / batch_size
+        loss_ratio = (lower_bound - log_ratio).pow(2).sum() / batch_size
 
-        lpips_distance = self.loss_cond_upper(strong_aug_images_cond, weak_aug_images_cond, reduction="none")
+        lpips_distance = self.loss_cond_upper(strong_aug_images_cond, weak_aug_images_cond.detach(), reduction="none")
         lpips_mask = (log_ratio >= lower_bound).float().detach()
         loss_lpips = (lpips_mask * lpips_distance).sum() / batch_size
 
         # Unconditional constraint losses (identity & difficulty equality)
+        # Identity: d=0 should output weak (clear signal at t=1.0)
         loss_identity = F.mse_loss(identity_images_uncond, weak_aug_images_uncond, reduction="none").mean(dim=[1,2,3]).sum() / batch_size
         loss_diff_eq = (identity_difficulty_uncond - difficulty_scores_uncond.detach()).pow(2).sum() / batch_size
 
         # Total generator loss
         loss_gen = (
-            self.lambda_rf * loss_rf
-            + self.lambda_ratio * loss_ratio
+            self.lambda_ratio * loss_ratio
             + self.lambda_lpips * loss_lpips
             + self.lambda_identity * (loss_identity + loss_diff_eq)
         )
@@ -305,19 +304,14 @@ class GenerativeAugmentationFixmatch(Agent):
         # Supervised loss
         loss_sup = self.loss_supervised(sup_preds, labels)
 
-        # Teacher predictions (detached from weak_logits)
-        teacher_probs = torch.softmax(weak_logits.detach(), dim=1)
-        max_probs, pseudo_labels = torch.max(teacher_probs, dim=1)
-        mask_conf = max_probs.ge(self.confidence_threshold).float()
-
         # Pseudo-label loss (conditional & high confidence only)
-        mask_pl = mask_cond * mask_conf
-        loss_pl_per_sample = F.cross_entropy(generated_logits, pseudo_labels, reduction="none")
-        loss_pl = (loss_pl_per_sample * mask_pl).sum() / batch_size
+        # Use detached logits for Classifier training
+        loss_pl_per_sample = F.cross_entropy(generated_logits_cls, pseudo_labels, reduction="none")
+        loss_pl = (loss_pl_per_sample * mask_conf).sum() / batch_size
 
         # Consistency loss (conditional only, no confidence filtering)
         kl_per_sample = F.kl_div(
-            F.log_softmax(generated_logits, dim=1),
+            F.log_softmax(generated_logits_cls, dim=1),
             teacher_probs,
             reduction="none",
         ).sum(dim=1)
@@ -335,8 +329,10 @@ class GenerativeAugmentationFixmatch(Agent):
         loss_gen.backward(retain_graph=True)  # Keep graph for Classifier backward
         self.optimizer_gen.step()
 
-        # Step 2: Update Classifier only (zero_grad clears gradients from Step 1)
-        self.optimizer.zero_grad()
+        # Step 2: Clear Classifier gradients (accumulated from Generator backward via constraint losses)
+        self.model.zero_grad()
+
+        # Step 3: Update Classifier only (optimizer.zero_grad is redundant after model.zero_grad)
         loss_model.backward()  # Reuse computational graph
         self.optimizer.step()
 
@@ -347,7 +343,6 @@ class GenerativeAugmentationFixmatch(Agent):
             "pl_loss": loss_pl.item(),
             "cons_loss": loss_cons.item(),
             "gen_total": loss_gen.item(),
-            "rf_loss": loss_rf.item(),
             "ratio_loss": loss_ratio.item(),
             "lpips_loss": loss_lpips.item(),
             "identity_loss": loss_identity.item(),

@@ -250,8 +250,12 @@ class GenerativeAugmentationFixmatch(Agent):
         t_final_cond = torch.ones(split_idx, device=self.device)
         t_final_uncond = torch.ones(batch_size - split_idx, device=self.device)
         null_scores_uncond = torch.zeros(batch_size - split_idx, device=self.device)
+
         strong_aug_images_cond = self.generator(weak_aug_images_cond, t_final_cond, difficulty_scores_cond)
+        strong_aug_images_cond = strong_aug_images_cond.clamp(0, 1)  # Prevent explosion
+
         identity_images_uncond = self.generator(weak_aug_images_uncond, t_final_uncond, null_scores_uncond)
+        identity_images_uncond = identity_images_uncond.clamp(0, 1)  # Prevent explosion
 
         # 4. GRAD: Classifier forwards
         sup_preds = self.model(labeled_images)
@@ -278,7 +282,13 @@ class GenerativeAugmentationFixmatch(Agent):
 
         # Conditional constraint losses (ratio lower bound & LPIPS upper bound)
         lower_bound = 1.0 / self.num_classes  # 1/C in log space
-        log_ratio = torch.log((strong_difficulty_cond + 1e-7) / (difficulty_scores_cond.detach() + 1e-7))
+
+        # Prevent log explosion by clamping difficulties
+        strong_diff_safe = strong_difficulty_cond.clamp(1e-3, 1.0 - 1e-3)
+        weak_diff_safe = difficulty_scores_cond.detach().clamp(1e-3, 1.0 - 1e-3)
+        log_ratio = torch.log((strong_diff_safe + 1e-7) / (weak_diff_safe + 1e-7))
+        log_ratio = log_ratio.clamp(-5, 5)  # Prevent extreme values
+
         loss_ratio = (lower_bound - log_ratio).pow(2).sum() / batch_size
 
         lpips_distance = self.loss_cond_upper(strong_aug_images_cond, weak_aug_images_cond.detach(), reduction="none")
@@ -327,6 +337,10 @@ class GenerativeAugmentationFixmatch(Agent):
         # Step 1: Update Generator only
         self.optimizer_gen.zero_grad()
         loss_gen.backward(retain_graph=True)  # Keep graph for Classifier backward
+
+        # Gradient clipping to prevent explosion
+        torch.nn.utils.clip_grad_norm_(self.generator.parameters(), max_norm=1.0)
+
         self.optimizer_gen.step()
 
         # Step 2: Clear Classifier gradients (accumulated from Generator backward via constraint losses)
@@ -334,6 +348,10 @@ class GenerativeAugmentationFixmatch(Agent):
 
         # Step 3: Update Classifier only (optimizer.zero_grad is redundant after model.zero_grad)
         loss_model.backward()  # Reuse computational graph
+
+        # Gradient clipping for Classifier
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+
         self.optimizer.step()
 
         return {

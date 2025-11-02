@@ -19,7 +19,7 @@ padding: 16
 padding_mode: reflect
 
 transform:
-  base: "resize | random_crop | random_flip | to_tensor | normalize"
+  base: "resize | random_flip | random_crop | to_tensor | normalize"
 
 # Data loaders
 num_labeled: 100  # 10 per class for MSTAR (10 classes)

@@ -1,30 +1,42 @@
 # FixMatch with Pretrained Flow Generator
+
+# === General Configuration ===
+log_dir: ./logs/paper_fixmatch_flow
+run_name: run_{{date}}_{{num_labeled}}
+description: Paper Implementation - FixMatch with Pretrained Flow Generator
+author: CVLab
+date: "2025-11-02"
+
 agent: paper_fixmatch_pretrained_flow
 
-# Pretrained flow model
+# === Pretrained Flow Model ===
 flow_checkpoint: checkpoints/adaptive_augflow/latest.pt
 flow_steps: 10
 
-# Dataset
+# === Dataset ===
 data_root: ./data/mstar
 dataset:
   train: mstar(split="train")
   test: mstar(split="test")
 
-# Transforms
+# === Image Processing ===
 size: 128
 mean: [0.1414, 0.1414, 0.1414]
 std: [0.1258, 0.1258, 0.1258]
 padding: 16
 padding_mode: reflect
 
+# === Transforms ===
 transform:
   base: "resize | random_flip | random_crop | to_tensor | normalize"
 
-# Data loaders
+# === Global Hyperparameters ===
+steps_per_epoch: 128
 num_labeled: 100  # 10 per class for MSTAR (10 classes)
-batch_size: 4
-mu: 2  # unlabeled_batch = 4 * 2 = 8
+batch_size: 16
+mu: 7  # unlabeled_batch = 16 * 7 = 112
+num_workers: 4
+pretrained: false
 
 dataloader:
   labeled: basic(shuffle=True, drop_last=True)
@@ -35,42 +47,41 @@ sampler:
   labeled: subset_random
   unlabeled: subset_random
 
-# Models
-model: wideresnet(depth=28, widen_factor=2, num_classes=10, dropout_rate=0.0)
+# === Models ===
+model: resnet18
 generator: unet
+num_classes: 10
 
-# Optimizer
+# === Optimizer ===
 optimizer: adam
-lr: 0.0003
-weight_decay: 0.0005
+lr: 0.003
+weight_decay: 0
 
-# Loss
+# === Loss ===
 loss:
-  cross_entropy: cross_entropy
+  supervised: cross_entropy(reduction="mean")
+  unsupervised: cross_entropy(reduction="none")
 
-# Metrics
+# === Metrics ===
 metric:
-  accuracy: accuracy
+  val: accuracy
 
-# Logger
+# === Logger ===
 logger: csv
 
-# FixMatch parameters
-threshold: 0.95
+# === FixMatch Parameters ===
+confidence_threshold: 0.95
 lambda_pl: 1.0      # Pseudo-labeling loss weight (Eq. 7)
 lambda_cons: 0.5    # Consistency loss weight (Eq. 8)
 
-# Adaptive augmentation difficulty range
+# === Adaptive Augmentation ===
 min_difficulty: 0.0
 max_difficulty: 1.0
 
-# Training
-epochs: 1
-device: cpu
+# === Training ===
+epochs: 256
+device: 0
 
-# Early stopping
-early_stopping_patience: 100
-
-# Random seed
+# === Random Seed ===
 seed: 42
 n_gpu: 1

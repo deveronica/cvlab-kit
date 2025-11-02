@@ -171,6 +171,11 @@ class AdaptiveAugmentationFlow(Agent):
         else:
             self.logger = None
 
+        # Epoch-level loss tracking
+        self.epoch_losses = []
+        self.epoch_loss_sum = 0.0
+        self.epoch_step_count = 0
+
         print(f"AugmentationFlow Agent initialized")
         print(f"  Device: {self.device}")
         print(f"  Predict mode: {self.predict}")
@@ -291,9 +296,14 @@ class AdaptiveAugmentationFlow(Agent):
         if self.use_ema:
             self.ema_model.update()
 
-        # Log metrics
+        # Accumulate epoch loss
+        loss_value = loss.item()
+        self.epoch_loss_sum += loss_value
+        self.epoch_step_count += 1
+
+        # Log metrics (step-level, optional)
         if self.logger:
-            self.logger.log({"loss": loss.item()}, step=self.current_step)
+            self.logger.log({"loss": loss_value}, step=self.current_step)
 
         # Periodic sampling
         if self.current_step % self.save_results_every == 0:
@@ -305,6 +315,24 @@ class AdaptiveAugmentationFlow(Agent):
                 self._save_checkpoint_component(f"checkpoint_step_{self.current_step}.pt")
             else:
                 self.save_checkpoint(f"checkpoint_step_{self.current_step}.pt")
+
+    def train_epoch(self):
+        """Override train_epoch to add epoch-end logging."""
+        # Reset epoch metrics
+        self.epoch_loss_sum = 0.0
+        self.epoch_step_count = 0
+
+        # Run standard training
+        super().train_epoch()
+
+        # Compute epoch average loss
+        if self.epoch_step_count > 0:
+            avg_loss = self.epoch_loss_sum / self.epoch_step_count
+            print(f"Epoch {self.current_epoch + 1} - Average Loss: {avg_loss:.6f}")
+
+            # Log to CSV with epoch as step
+            if self.logger:
+                self.logger.log_metrics({"epoch_loss": avg_loss}, step=self.current_epoch)
 
     def validate_step(self, batch):
         """Perform validation (generate samples from validation data).

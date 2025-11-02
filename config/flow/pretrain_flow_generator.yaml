@@ -1,25 +1,42 @@
-# AdaptiveAugmentationFlow - Original to Adaptive Strength
-# Learn: no augmentation → adaptive RandAugment (strength controlled by t)
+# Flow Generator Pretraining
+# Learn: weak augmentation → strong augmentation (RandAugment)
+
+# === General Configuration ===
+run_name: run_flow_{{date}}
+description: Flow Generator Pretraining (Weak → Strong Augmentation)
+author: CVLab
+date: "2025-11-02"
 
 agent: pretrain_flow_generator
 
-data_root: "./data/mstar"
+# === Dataset ===
+data_root: ./data/mstar
+dataset: mstar(split="train")
+
+# === Data Loading ===
+dataloader: basic
+batch_size: 4
+num_workers: 4
+
+# === Training ===
+epochs: 100
+device: 0
+log_dir: ./logs/flow_pretrain
+
+# === Image Processing ===
 size: 128
-mean: !!python/tuple [0.1414, 0.1414, 0.1414]
-std: !!python/tuple [0.1258, 0.1258, 0.1258]
+mean: [0.1414, 0.1414, 0.1414]
+std: [0.1258, 0.1258, 0.1258]
 padding: 16
 padding_mode: reflect
 
-dataset: mstar(split="train")
-dataloader: basic
-batch_size: 4
-num_workers: 0
-epochs: 1
-
+# === Model & Optimization ===
 model: unet
 optimizer: adam
-lr: 0.0001
+lr: 0.003
+weight_decay: 0
 
+# === Transforms ===
 transform:
   base_pil: "resize | random_flip | random_crop"
   base_tensor: "to_tensor | normalize"
@@ -29,28 +46,32 @@ transform:
     magnitude_max: 30
     num_ops: 2
 
+# === Flow Training ===
 predict: flow
 max_grad_norm: 1.0
 
-# Conditioning - disabled
+# === Logger ===
+logger: csv
+
+# === Conditioning ===
 use_conditioning: false
 
-# EMA - enabled
+# === EMA ===
 use_ema: true
 ema_kwargs:
-  beta: 0.995
+  beta: 0.999
   update_every: 10
 
-# === Checkpoint Directories ===
+# === Checkpointing & Results ===
 checkpoint_dir: checkpoints/adaptive_augflow
 results_dir: results/adaptive_augflow
+save_checkpoint_every: 500
+save_results_every: 100
 
-# Step-based saving
-save_checkpoint_every: 50
-save_results_every: 25
-
-# Sampling
-sample_steps: 10
+# === Sampling ===
+sample_steps: 16
 num_samples: 4
 
-device: 0
+# === Random Seed ===
+seed: 42
+n_gpu: 1

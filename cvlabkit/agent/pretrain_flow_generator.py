@@ -15,6 +15,7 @@ import torch
 import torch.nn.functional as F
 from einops import rearrange
 from ema_pytorch import EMA
+from tqdm import tqdm
 from torchvision.utils import save_image
 
 from cvlabkit.core.agent import Agent
@@ -171,11 +172,6 @@ class AdaptiveAugmentationFlow(Agent):
         else:
             self.logger = None
 
-        # Epoch-level loss tracking
-        self.epoch_losses = []
-        self.epoch_loss_sum = 0.0
-        self.epoch_step_count = 0
-
         print(f"AugmentationFlow Agent initialized")
         print(f"  Device: {self.device}")
         print(f"  Predict mode: {self.predict}")
@@ -296,37 +292,38 @@ class AdaptiveAugmentationFlow(Agent):
         if self.use_ema:
             self.ema_model.update()
 
-        # Accumulate epoch loss
-        loss_value = loss.item()
-        self.epoch_loss_sum += loss_value
-        self.epoch_step_count += 1
-
         # Periodic sampling
         if self.current_step % self.save_results_every == 0:
-            self.sample_and_save(f"step_{self.current_step}")
+            self._sample_and_save(f"step_{self.current_step}")
 
         # Periodic checkpointing
         if self.current_step % self.save_checkpoint_every == 0:
             if self.model_checkpoint is not None:
                 self._save_checkpoint_component(f"checkpoint_step_{self.current_step}.pt")
             else:
-                self.save_checkpoint(f"checkpoint_step_{self.current_step}.pt")
+                self._save_checkpoint(f"checkpoint_step_{self.current_step}.pt")
+
+        return loss.item()
 
     def train_epoch(self):
-        """Override train_epoch to add epoch-end logging."""
-        # Reset epoch metrics
-        self.epoch_loss_sum = 0.0
-        self.epoch_step_count = 0
+        """Override train_epoch to add epoch-level loss logging."""
+        if self.train_loader is None:
+            raise ValueError("train_loader must be set before training.")
 
-        # Run standard training
-        super().train_epoch()
+        self.model.train()
+        epoch_loss_sum = 0.0
+        num_steps = 0
 
-        # Compute epoch average loss
-        if self.epoch_step_count > 0:
-            avg_loss = self.epoch_loss_sum / self.epoch_step_count
+        for batch in tqdm(self.train_loader, desc=f"Epoch {self.current_epoch + 1} Training"):
+            loss = self.train_step(batch)
+            epoch_loss_sum += loss
+            num_steps += 1
+            self.current_step += 1
+
+        # Log epoch average loss
+        if num_steps > 0:
+            avg_loss = epoch_loss_sum / num_steps
             print(f"Epoch {self.current_epoch + 1} - Average Loss: {avg_loss:.6f}")
-
-            # Log to CSV with epoch as step
             if self.logger:
                 self.logger.log_metrics({"epoch_loss": avg_loss}, step=self.current_epoch)
 
@@ -507,7 +504,7 @@ class AdaptiveAugmentationFlow(Agent):
                 ext="png"
             )
 
-    def sample_and_save(self, fname):
+    def _sample_and_save(self, fname):
         """Sample transformations from weak to strong and save visualizations.
 
         Args:
@@ -613,9 +610,6 @@ class AdaptiveAugmentationFlow(Agent):
             save_image(comparison, save_path)
             print(f"Saved visualization to {save_path}")
 
-            if self.logger:
-                self.logger.log_image("augmentation_flow", comparison, step=self.current_step)
-
     def _save_paper_figure(self):
         """Generate Figure 2: Method Comparison (Flow vs RandAugment)."""
         if self.data_shape is None:
@@ -719,7 +713,7 @@ class AdaptiveAugmentationFlow(Agent):
             save_image(grid, save_path)
             print(f"Saved paper figure to {save_path}")
 
-    def save_checkpoint(self, filename):
+    def _save_checkpoint(self, filename):
         """Save model checkpoint.
 
         Args:
@@ -749,7 +743,7 @@ class AdaptiveAugmentationFlow(Agent):
         latest_path = self.checkpoint_dir / "latest.pt"
         torch.save(checkpoint, latest_path)
 
-    def load_checkpoint(self, path):
+    def _load_checkpoint(self, path):
         """Load model checkpoint.
 
         Args:
@@ -772,7 +766,7 @@ class AdaptiveAugmentationFlow(Agent):
 
         print(f"Checkpoint loaded: {path}")
 
-    def save_model_for_ssl(self, filename="augmentation_flow_model.pt"):
+    def _save_model_for_ssl(self, filename="augmentation_flow_model.pt"):
         """Save model in a format suitable for SSL usage (frozen model).
 
         This saves only the model weights (preferably EMA) without optimizer state,
@@ -860,3 +854,4 @@ class AdaptiveAugmentationFlow(Agent):
             metadata=ssl_state,
             filename=filename
         )
+

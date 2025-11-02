@@ -1,0 +1,78 @@
+# Test config for FlowAugmentationFixmatch with pretrained flow model
+agent: flow_augmentation_fixmatch
+
+# Pretrained flow model
+flow_checkpoint: checkpoints/adaptive_augflow/latest.pt
+flow_steps: 10
+flow_predict_mode: flow
+
+# Dataset - MSTAR (same as flow training)
+data_root: "./data/mstar"
+dataset:
+  train: mstar(split="train")
+  test: mstar(split="test")
+
+# Basic transforms - same as flow training
+size: 128
+mean: !!python/tuple [0.1414, 0.1414, 0.1414]
+std: !!python/tuple [0.1258, 0.1258, 0.1258]
+padding: 16
+padding_mode: reflect
+
+transform:
+  base: "resize | to_tensor | normalize"
+
+# Data loaders - small batch for testing
+num_labeled: 100  # 10 per class for MSTAR (10 classes)
+batch_size: 4
+mu: 2  # unlabeled_batch = 4 * 2 = 8
+
+dataloader:
+  labeled: basic(shuffle=True, drop_last=True)
+  unlabeled: basic(shuffle=True, drop_last=True)
+  test: basic(shuffle=False, drop_last=False)
+
+sampler:
+  labeled: subset_random
+  unlabeled: subset_random
+
+# Models
+model:
+  # Classification model (WideResNet 28-2)
+  classifier: wideresnet(depth=28, widen_factor=2, num_classes=10, dropout_rate=0.0)
+  # Flow model for augmentation (U-Net - same as training)
+  flow: unet
+
+# Optimizer
+optimizer: adam
+lr: 0.0003
+weight_decay: 0.0005
+
+# Loss
+loss:
+  cross_entropy: cross_entropy
+
+# Metrics
+metric:
+  accuracy: accuracy
+
+# FixMatch parameters
+threshold: 0.95
+lambda_u: 1.0
+
+# Adaptive augmentation difficulty range (optional clipping)
+min_difficulty: 0.0
+max_difficulty: 1.0
+
+# Training - 1 epoch for testing
+epochs: 1
+device: 0
+
+# Logging
+log_dir: logs/flow_fixmatch_test
+# logger: wandb(project="cvlab-kit", name="flow_fixmatch_test", mode="disabled")
+
+# Early stopping
+early_stopping_patience: 100
+
+seed: 42

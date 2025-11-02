@@ -137,6 +137,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Node.js
+node_modules/
+
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -182,15 +185,32 @@ cython_debug/
 .DS_Store
 
 # Project Directory
+checkpoints/
 data/
 logs/
 tests/
 wandb/
-legacy_code/
+legacy/
+results/
+.trash/
+tools/
+.playwright-mcp/
+temp_configs/
 
 # Documentation
 GEMINI.md
+CLAUDE.md
+reports/
+test-results/
 
 # Web Helper
-web/launch_configs/*
-web/web_helper.db
+web_helper/web_helper.db
+
+# Claude Code (exclude personal settings, keep hooks)
+.claude/settings.json
+.claude/.session*
+
+# dev
+.serena/
+memory-bank/
+scripts/

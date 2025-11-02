@@ -12,7 +12,7 @@ agent: generative_augmentation_fixmatch
 
 # === Global Hyperparameters ===
 epochs: 256
-batch_size: 16
+batch_size: 4  # Reduced for 24GB GPU (unlabeled = 4*7 = 28)
 num_workers: 4
 data_root: "./data/mstar"
 size: 128
@@ -30,7 +30,7 @@ weight_decay: 0
 steps_per_epoch: 128
 num_labeled: 100
 
-mu: 7
+mu: 4  # Reduced: unlabeled_batch = 4*4 = 16 (memory efficient)
 confidence_threshold: 0.95
 
 # === Difficulty Computation ===
@@ -43,11 +43,9 @@ lambda_pl: 1.0  # Pseudo-label loss
 lambda_cons: 0.5  # Consistency KL loss
 
 # Generator Stage
-lambda_rf: 1.0  # Rectified Flow velocity matching
 lambda_ratio: 1.0  # Difficulty ratio lower bound
 lambda_lpips: 1.0  # LPIPS perceptual upper bound
 lambda_identity: 1.0  # Identity preservation (unconditional)
-lambda_diff_eq: 1.0  # Difficulty equality (unconditional)
 
 # === Difficulty Constraints ===
 # Lower bound: log(s_strong/s_weak) >= 1/C (automatic, no config needed)

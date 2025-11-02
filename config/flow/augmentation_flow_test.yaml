@@ -1,0 +1,55 @@
+# AugmentationFlow - Quick Test Configuration
+# 1 epoch test with MSTAR
+
+agent: augmentation_flow
+
+data_root: "./data/mstar"
+size: 128
+mean: !!python/tuple [0.1414, 0.1414, 0.1414]
+std: !!python/tuple [0.1258, 0.1258, 0.1258]
+padding: 16
+padding_mode: reflect
+
+dataset: mstar(split="train")
+dataloader: basic
+batch_size: 4
+num_workers: 0
+epochs: 1
+
+model: unet
+optimizer: adam
+lr: 0.0001
+
+transform:
+  weak: "resize | random_flip | random_crop | to_tensor | normalize"
+  strong: "resize | random_flip | random_crop | rand_augment | to_tensor | normalize"
+
+predict: flow
+max_grad_norm: 1.0
+
+# Conditioning - disabled for simplicity
+use_conditioning: false
+
+# EMA - enabled
+use_ema: true
+ema_kwargs:
+  beta: 0.995
+  update_every: 10
+
+# === Checkpoint Directories (Fallback mode) ===
+checkpoint_dir: checkpoints/test_augflow
+results_dir: results/test_augflow
+
+# Step-based saving
+save_checkpoint_every: 50  # Every 50 steps (now fixed!)
+save_results_every: 25
+
+# Sampling
+sample_steps: 10              # Fewer steps for speed
+num_samples: 4                # Only 4 images
+
+# Logging (disabled for testing)
+# logger: csv
+# log_dir: logs/test_augflow
+
+device: 0

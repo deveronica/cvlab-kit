@@ -107,12 +107,28 @@ class InterfaceMeta(ABCMeta):
                 )
 
                 if not has_concrete_implementation:
-                    # This lambda captures the method name and creates a function
-                    # that calls the corresponding method on the delegated component.
-                    delegating_methods[name] = (
-                        lambda self, *a, _name=name, **kw:
-                            getattr(self._delegated_component, _name)(*a, **kw)
-                    )
+                    # Only delegate callable methods, not properties/attributes
+                    attr = getattr(delegation_target, name)
+                    if callable(attr):
+                        # This lambda captures the method name and creates a function
+                        # that calls the corresponding method on the delegated component.
+                        # Note: We capture the delegation_target directly and ignore the
+                        # 'self' parameter to ensure that methods with internal self-references
+                        # (like state_dict()) work correctly. The 'self' parameter is the wrapper
+                        # instance, not the actual PyTorch object, so we ignore it.
+                        delegating_methods[name] = (
+                            lambda self, *a, _component=delegation_target, _name=name, **kw:
+                                getattr(_component, _name)(*a, **kw)
+                        )
+
+            # Add __getattr__ to delegate attribute access
+            def __getattr__(self, name):
+                """Delegate attribute access to the wrapped component."""
+                if name == '_delegated_component':
+                    raise AttributeError(name)
+                return getattr(self._delegated_component, name)
+
+            delegating_methods['__getattr__'] = __getattr__
 
             # Create a new class type on the fly.
             # It inherits from the original class and adds the delegating methods.

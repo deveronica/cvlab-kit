@@ -1,0 +1,51 @@
+# AugmentationFlow - Original to Weak (first half: t=0→0.5)
+# Learn: no augmentation → weak augmentation
+
+agent: augmentation_flow
+
+data_root: "./data/mstar"
+size: 128
+mean: !!python/tuple [0.1414, 0.1414, 0.1414]
+std: !!python/tuple [0.1258, 0.1258, 0.1258]
+padding: 16
+padding_mode: reflect
+
+dataset: mstar(split="train")
+dataloader: basic
+batch_size: 4
+num_workers: 0
+epochs: 1
+
+model: unet
+optimizer: adam
+lr: 0.0001
+
+transform:
+  weak: "resize | random_crop | to_tensor | normalize"
+  strong: "resize | random_flip | random_crop | to_tensor | normalize"
+
+predict: flow
+max_grad_norm: 1.0
+
+# Conditioning - disabled
+use_conditioning: false
+
+# EMA - enabled
+use_ema: true
+ema_kwargs:
+  beta: 0.995
+  update_every: 10
+
+# === Checkpoint Directories ===
+checkpoint_dir: checkpoints/augflow_orig_to_weak
+results_dir: results/augflow_orig_to_weak
+
+# Step-based saving
+save_checkpoint_every: 50
+save_results_every: 25
+
+# Sampling
+sample_steps: 10
+num_samples: 4
+
+device: 0

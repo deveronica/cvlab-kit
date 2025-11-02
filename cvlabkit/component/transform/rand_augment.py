@@ -13,7 +13,7 @@ def _float_parameter(v, max_v):
     return float(v) * max_v / PARAMETER_MAX
 
 def _int_parameter(v, max_v):
-    return int(v) * max_v / PARAMETER_MAX
+    return int(int(v) * max_v / PARAMETER_MAX)
 
 def AutoContrast(img, **kwarg):
     return PIL.ImageOps.autocontrast(img)

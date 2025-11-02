@@ -1,0 +1,75 @@
+# AugmentationFlow Agent Configuration
+# Learns the distribution flow from weak to strong augmentation
+# for use in SSL frameworks
+
+agent: augmentation_flow
+
+# Dataset
+dataset: cifar10
+batch_size: 128
+num_workers: 4
+
+# Model (U-Net for image-to-image transformation)
+model: unet_rectified_flow
+
+# Optimizer
+optimizer: adam
+lr: 0.0001
+weight_decay: 0.0
+
+# Transforms
+transform:
+  # Weak augmentation (x_0)
+  weak: "resize(size=32) | random_flip | normalize"
+
+  # Strong augmentation (x_1) - RandAugment
+  strong: "resize(size=32) | random_flip | rand_augment(n=2, m=10) | normalize"
+
+  # Data normalizer (for model input/output)
+  normalizer: data_normalizer
+  unnormalizer: data_normalizer(inverse=true)
+
+  # Noise schedule (optional, default is linear)
+  noise_schedule: noise_schedule(schedule_type="cosine")
+
+# Solver for ODE integration (optional, for multi-step generation)
+solver: euler  # Options: euler, heun, rk4
+
+# Loss function (optional, default is MSE)
+# loss: mse  # or use perceptual loss if available
+
+# Training configuration
+predict: flow  # Options: "flow" (predict x_1 - x_0), "x1" (predict x_1 directly)
+epochs: 100
+max_grad_norm: 1.0
+
+# Conditioning (optional)
+use_conditioning: false  # Enable conditioning input to model
+condition_type: random   # Options: "random" (rand [0,1]), "fixed" (use condition_value), "difficulty" (use time as difficulty)
+condition_value: 0.5     # Used when condition_type="fixed"
+val_condition: 1.0       # Conditioning value for validation (max difficulty)
+sample_condition: 1.0    # Conditioning value for sampling visualization
+
+# EMA for stable generation
+use_ema: true
+ema_kwargs:
+  beta: 0.995
+  update_every: 10
+
+# Checkpointing
+checkpoint_dir: checkpoints/augmentation_flow
+save_checkpoint_every: 1000
+
+# Sampling/Visualization
+results_dir: results/augmentation_flow
+save_results_every: 500
+sample_steps: 50  # Number of ODE steps for generation
+num_samples: 16  # Must be perfect square (4x4, 16, 25, etc.)
+sample_temperature: 1.0
+
+# Logging (optional)
+logger: tensorboard
+log_dir: logs/augmentation_flow
+
+# Device
+device: 0  # GPU ID

@@ -1,0 +1,94 @@
+# config/ssl/generative_augmentation_test.yaml
+# Quick test configuration for Generative Augmentation FixMatch
+# === General Configuration ===
+log_dir: "./logs/test_generative_fixmatch"
+run_name: test_run_{{date}}
+description: Test run for Generative Augmentation FixMatch
+agent: generative_augmentation_fixmatch
+
+# === Quick Test Hyperparameters ===
+epochs: 1
+batch_size: 8
+num_workers: 2
+size: 128
+num_classes: 10
+pretrained: false
+padding: 16
+padding_mode: reflect
+
+# Normalization (MSTAR)
+mean: !!python/tuple [0.1414, 0.1414, 0.1414]
+std: !!python/tuple [0.1258, 0.1258, 0.1258]
+lr: 0.003
+weight_decay: 0
+
+# === Training Configuration ===
+steps_per_epoch: 5
+num_labeled: 20
+mu: 3
+
+# Difficulty computation
+scale_a: 10.0
+confidence_threshold: 0.95
+
+# === Loss Weights ===
+lambda_pl: 1.0
+lambda_cons: 0.5
+lambda_ratio: 1.0
+lambda_lpips: 1.0
+lambda_identity: 1.0
+
+# === Difficulty Constraints ===
+# Lower bound: log(s_strong/s_weak) >= 1/C (automatic)
+# Upper bound: LPIPS applied only when lower bound satisfied
+
+# === ODE ===
+ode_steps: 4  # Minimal for fast testing
+
+# === Component Selections ===
+
+# Models: Classifier & Generator
+model:
+  classifier: resnet18
+  generator: conditional_unet(channels=3, dim=32, dim_mults=[1,2,4], dropout=0.1, num_residual_streams=2)
+
+# Optimizers
+optimizer:
+  classifier: adam
+  generator: adam(lr=0.0003)  # Legacy default: 3e-4
+
+# ODE Solver
+solver: ode_solver(method="midpoint", atol=1e-5, rtol=1e-5)
+
+# Dataset
+dataset:
+  train: mstar(split="train")
+  val: mstar(split="test")
+
+# Dataloader
+dataloader:
+  labeled: basic
+  unlabeled: basic
+  val: basic
+
+# Sampler
+sampler:
+  labeled: subset_random
+  unlabeled: subset_random
+
+# Transforms
+transform:
+  weak: "resize | random_flip | random_crop | to_tensor | normalize"
+  val: "resize | to_tensor | normalize"
+
+# Loss
+loss:
+  supervised: cross_entropy(reduction="mean")
+  cond_upper: lpips
+
+# Logger
+logger: csv
+
+# Metric
+metric:
+  val: accuracy

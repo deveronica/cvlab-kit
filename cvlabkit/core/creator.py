@@ -307,7 +307,9 @@ class _ComponentCategoryLoader(_BaseLoader):
             try:
                 package = importlib.import_module(package_path)
                 for _, name, _ in pkgutil.iter_modules(package.__path__):
-                    available_modules.append(name)
+                    # Skip legacy folders
+                    if name != 'legacy':
+                        available_modules.append(name)
             except (ModuleNotFoundError, IndexError):
                 pass
 
@@ -438,10 +440,12 @@ class _AgentLoader(_BaseLoader):
             try:
                 package = importlib.import_module(package_path)
                 for _, name, _ in pkgutil.iter_modules(package.__path__):
-                    available_modules.append(name)
+                    # Skip legacy folders
+                    if name != 'legacy':
+                        available_modules.append(name)
             except (ModuleNotFoundError, IndexError):
                 pass
-            
+
             if available_modules:
                 raise ValueError(f"Agent implementation '{impl_name}' not found. Available: {', '.join(available_modules)}")
             else:

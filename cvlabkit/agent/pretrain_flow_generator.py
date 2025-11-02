@@ -301,10 +301,6 @@ class AdaptiveAugmentationFlow(Agent):
         self.epoch_loss_sum += loss_value
         self.epoch_step_count += 1
 
-        # Log metrics (step-level, optional)
-        if self.logger:
-            self.logger.log({"loss": loss_value}, step=self.current_step)
-
         # Periodic sampling
         if self.current_step % self.save_results_every == 0:
             self.sample_and_save(f"step_{self.current_step}")
@@ -390,14 +386,11 @@ class AdaptiveAugmentationFlow(Agent):
                 if self.predict == "flow":
                     x_1_generated = x_0 + x_1_generated
 
-            # Compute validation loss
+            # Compute validation loss (not logged - epoch-level only)
             if self.loss_fn is None:
                 val_loss = F.mse_loss(x_1_generated, x_1_true)
             else:
                 val_loss = self.loss_fn(x_1_generated, x_1_true)
-
-            if self.logger:
-                self.logger.log({"val_loss": val_loss.item()}, step=self.current_step)
 
     def evaluate(self):
         """Evaluate and save periodic images at epoch end.

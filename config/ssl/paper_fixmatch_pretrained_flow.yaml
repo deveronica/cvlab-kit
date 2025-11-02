@@ -1,5 +1,5 @@
 # FixMatch with Pretrained Flow Generator
-agent: flow_augmentation_fixmatch
+agent: paper_fixmatch_pretrained_flow
 
 # Pretrained flow model
 flow_checkpoint: checkpoints/adaptive_augflow/latest.pt

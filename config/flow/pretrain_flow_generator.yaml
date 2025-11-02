@@ -1,7 +1,7 @@
 # AdaptiveAugmentationFlow - Original to Adaptive Strength
 # Learn: no augmentation → adaptive RandAugment (strength controlled by t)
 
-agent: adaptive_augmentation_flow
+agent: pretrain_flow_generator
 
 data_root: "./data/mstar"
 size: 128

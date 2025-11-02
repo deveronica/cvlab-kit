@@ -1,7 +1,7 @@
-# AugmentationFlow - Original to Weak (first half: t=0→0.5)
-# Learn: no augmentation → weak augmentation
+# AdaptiveAugmentationFlow - Original to Adaptive Strength
+# Learn: no augmentation → adaptive RandAugment (strength controlled by t)
 
-agent: augmentation_flow
+agent: adaptive_augmentation_flow
 
 data_root: "./data/mstar"
 size: 128
@@ -21,8 +21,13 @@ optimizer: adam
 lr: 0.0001
 
 transform:
-  weak: "resize | random_crop | to_tensor | normalize"
-  strong: "resize | random_flip | random_crop | to_tensor | normalize"
+  base_pil: "resize | random_crop"
+  base_tensor: "to_tensor | normalize"
+  adaptive_augment:
+    _type: adaptive_rand_augment
+    magnitude_min: 0
+    magnitude_max: 10
+    num_ops: 2
 
 predict: flow
 max_grad_norm: 1.0
@@ -37,8 +42,8 @@ ema_kwargs:
   update_every: 10
 
 # === Checkpoint Directories ===
-checkpoint_dir: checkpoints/augflow_orig_to_weak
-results_dir: results/augflow_orig_to_weak
+checkpoint_dir: checkpoints/adaptive_augflow
+results_dir: results/adaptive_augflow
 
 # Step-based saving
 save_checkpoint_every: 50

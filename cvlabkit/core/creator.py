@@ -172,7 +172,15 @@ class _BaseLoader:
 
         elif isinstance(config_value, dict):  # e.g., { _type: "resnet18", ... }
             if "_type" not in config_value:
-                raise ValueError("Dictionary-based config must have a '_type' key.")
+                raise ValueError(
+                    f"Dictionary-based config for '{self.category}' must have a '_type' key.\n"
+                    f"Example:\n"
+                    f"  {self.category}:\n"
+                    f"    _type: component_name\n"
+                    f"    param1: value1\n"
+                    f"    param2: value2\n"
+                    f"Current config: {config_value}"
+                )
             impl_name = config_value.pop("_type")
             return impl_name, Config(config_value)
 

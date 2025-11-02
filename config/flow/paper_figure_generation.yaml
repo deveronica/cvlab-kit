@@ -1,0 +1,63 @@
+# Quick test for paper figure generation
+agent: adaptive_augmentation_flow
+
+# Model
+model: unet
+optimizer: adam
+lr: 0.0001
+
+# Dataset - MSTAR
+data_root: "./data/mstar"
+dataset: mstar
+
+# Basic transforms
+size: 128
+mean: !!python/tuple [0.1414, 0.1414, 0.1414]
+std: !!python/tuple [0.1258, 0.1258, 0.1258]
+padding: 16
+padding_mode: reflect
+
+transform:
+  base_pil: "resize | random_crop"
+  base_tensor: "to_tensor | normalize"
+  adaptive_augment:
+    _type: adaptive_rand_augment
+    magnitude_min: 0
+    magnitude_max: 10
+    num_ops: 2
+
+predict: flow
+max_grad_norm: 1.0
+
+# Conditioning - disabled
+use_conditioning: false
+
+# Training - just 1 epoch for testing
+epochs: 1
+batch_size: 16
+device: 0
+
+# Results directory
+log_dir: results/test_paper_fig
+checkpoint_dir: checkpoints/test_paper_fig
+
+# Checkpoints - save every epoch
+checkpoint:
+  model:
+    _type: model_checkpoint
+    period: 1  # Save every epoch
+    save_latest: true
+
+  image:
+    _type: periodic_checkpoint
+    period: 1  # Generate images every epoch
+    base_dir: results/test_paper_fig
+
+# Image settings
+num_samples: 16
+num_sample_rows: 4
+
+# Load pretrained model for testing
+pretrained: checkpoints/adaptive_augflow/latest.pt
+
+seed: 42

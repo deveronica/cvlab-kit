@@ -32,8 +32,8 @@ class AdaptiveRandAugment(Transform):
         """
         Applies RandAugment with a magnitude interpolated from the difficulty score.
 
-        A high difficulty score (e.g., 1.0) results in a low magnitude (close to min),
-        while a low score (e.g., 0.0) results in a high magnitude (close to max).
+        A high difficulty score (e.g., 1.0) results in a high magnitude (strong augmentation),
+        while a low score (e.g., 0.0) results in a low magnitude (weak augmentation).
 
         Args:
             sample (PIL.Image): The input image.
@@ -44,11 +44,12 @@ class AdaptiveRandAugment(Transform):
         """
         # Default to the easiest case if no score is provided.
         difficulty_score = kwargs.get('difficulty_score', 0.0)
-        
+
         # Linear interpolation for the magnitude
-        # magnitude = max - (max - min) * score
-        magnitude = self.magnitude_max - (self.magnitude_max - self.magnitude_min) * difficulty_score
-        
+        # High difficulty → High magnitude (strong augmentation)
+        # magnitude = min + (max - min) * score
+        magnitude = self.magnitude_min + (self.magnitude_max - self.magnitude_min) * difficulty_score
+
         # Ensure magnitude is an integer for RandAugment
         final_magnitude = int(round(magnitude))
 

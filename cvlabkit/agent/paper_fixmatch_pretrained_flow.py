@@ -1,98 +1,119 @@
-"""Agent for FixMatch with pretrained Augmentation Flow model.
+# cvlabkit/agent/paper_fixmatch_pretrained_flow.py
+"""FixMatch with Pretrained Flow Generator for Adaptive Augmentation."""
 
-This agent integrates a pretrained augmentation flow model to generate
-adaptive strong augmentations based on pseudo-label confidence.
-"""
+import os
+import json
+from pathlib import Path
+from collections import defaultdict
 
 import torch
-import torch.nn.functional as F
 import numpy as np
-import random
-from pathlib import Path
 from tqdm import tqdm
 
 from cvlabkit.core.agent import Agent
+from cvlabkit.core.config import Config
+
+
+def pil_collate(batch):
+    """Custom collate function to handle PIL Images."""
+    images = [item[0] for item in batch]
+    labels = torch.tensor([item[1] for item in batch])
+    return images, labels
 
 
 class FlowAugmentationFixmatch(Agent):
-    """FixMatch with adaptive augmentation from pretrained flow model.
+    """FixMatch with pretrained flow model for adaptive strong augmentation.
 
-    Uses a pretrained augmentation flow model to generate strong augmentations
-    with controllable strength based on pseudo-label confidence (difficulty).
+    Uses a pretrained flow model to generate difficulty-adaptive strong augmentations.
+    High confidence samples get strong augmentations (curriculum learning).
     """
 
     def setup(self):
-        """Set up all components for training."""
-        # Random seed
-        seed = self.cfg.get("seed", 42)
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
+        """Creates and initializes all necessary components for the agent."""
+        device_id = self.cfg.get("device", 0)
         if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(seed)
-
-        # Device setup
-        device_cfg = self.cfg.get("device", "cuda" if torch.cuda.is_available() else "cpu")
-        if isinstance(device_cfg, int):
-            self.device = torch.device(f"cuda:{device_cfg}" if torch.cuda.is_available() else "cpu")
+            self.device = torch.device(f"cuda:{device_id}")
         else:
-            self.device = torch.device(device_cfg)
+            self.device = torch.device("cpu")
+        self.current_epoch = 0
 
-        # Model and optimizer
+        # --- Create Components using the Creator ---
         self.model = self.create.model().to(self.device)
         self.optimizer = self.create.optimizer(self.model.parameters())
 
-        # Create datasets
-        base_transform = self.create.transform.base()
-        train_dataset = self.create.dataset.train(transform=base_transform)
-        test_dataset = self.create.dataset.test(transform=base_transform)
+        # Transforms
+        self.weak_transform = self.create.transform.weak()
+        self.val_transform = self.create.transform.val()
+        # Note: No strong_transform - we use flow model instead
 
-        # Split labeled/unlabeled
-        num_train = len(train_dataset)
-        num_labeled = self.cfg.get("num_labeled", 100)
+        # Loss functions
+        self.sup_loss_fn = self.create.loss.supervised()
+        self.unsup_loss_fn = self.create.loss.unsupervised()
+        self.contrastive_loss_fn = self.create.loss.contrastive()
 
-        all_indices = np.arange(num_train)
-        np.random.shuffle(all_indices)
+        # Metric
+        self.metric = self.create.metric.val()
 
-        labeled_indices = all_indices[:num_labeled].tolist()
-        unlabeled_indices = all_indices.tolist()  # All for unlabeled
+        # Logger (optional)
+        if self.cfg.get("logger"):
+            self.logger = self.create.logger()
 
-        # Create samplers
+        # --- Load Pretrained Flow Model ---
+        self._setup_augmentation_flow()
+
+        # --- Data Handling with Stratified Splitting ---
+        train_dataset = self.create.dataset.train()
+        val_dataset = self.create.dataset.val()
+
+        num_labeled = self.cfg.num_labeled
+        targets = np.array(train_dataset.targets)
+
+        # Load or create labeled indices for reproducibility
+        log_dir = self.cfg.get("log_dir", "./logs")
+        dataset_name = self.cfg.dataset.train.split('(')[0]
+        os.makedirs(log_dir, exist_ok=True)
+        index_file_path = os.path.join(log_dir, f"{dataset_name}_labeled_indices_{num_labeled}.json")
+
+        if os.path.exists(index_file_path):
+            print(f"Loading labeled indices from {index_file_path}")
+            with open(index_file_path, 'r') as f:
+                labeled_indices = json.load(f)
+
+            all_indices = set(range(len(targets)))
+            unlabeled_indices = list(all_indices - set(labeled_indices))
+            np.random.shuffle(unlabeled_indices)
+            print(f"Loaded {len(labeled_indices)} labeled indices and reconstructed {len(unlabeled_indices)} unlabeled indices.")
+        else:
+            print("Generating new labeled/unlabeled split.")
+            labeled_indices, unlabeled_indices = self._stratified_split(targets, num_labeled)
+
+            print(f"Saving {len(labeled_indices)} labeled indices to {index_file_path}")
+            with open(index_file_path, 'w') as f:
+                json.dump(labeled_indices, f)
+
         labeled_sampler = self.create.sampler.labeled(indices=labeled_indices)
         unlabeled_sampler = self.create.sampler.unlabeled(indices=unlabeled_indices)
 
-        # Create data loaders
-        batch_size = self.cfg.get("batch_size", 4)
-        mu = self.cfg.get("mu", 2)
+        # Dynamically calculate batch sizes
+        labeled_batch_size = self.cfg.batch_size
+        unlabeled_batch_size = labeled_batch_size * self.cfg.get("mu", 7)
 
-        self.train_loader = self.create.dataloader.labeled(
+        self.labeled_loader = self.create.dataloader.labeled(
             dataset=train_dataset,
             sampler=labeled_sampler,
-            batch_size=batch_size
+            collate_fn=pil_collate,
+            batch_size=labeled_batch_size
         )
         self.unlabeled_loader = self.create.dataloader.unlabeled(
             dataset=train_dataset,
             sampler=unlabeled_sampler,
-            batch_size=batch_size * mu
+            collate_fn=pil_collate,
+            batch_size=unlabeled_batch_size
         )
-        self.val_loader = self.create.dataloader.test(dataset=test_dataset)
-
-        # Loss functions
-        self.loss_supervised = self.create.loss.supervised()
-        self.loss_unsupervised = self.create.loss.unsupervised()
-
-        # Logger and metrics
-        if self.cfg.get("logger"):
-            self.logger = self.create.logger()
-        else:
-            self.logger = None
-        self.accuracy_metric = self.create.metric.val()
-
-        # Load pretrained augmentation flow model
-        self._setup_augmentation_flow()
-
-        # Training state
-        self.best_acc = 0
+        self.val_loader = self.create.dataloader.val(
+            dataset=val_dataset,
+            collate_fn=pil_collate
+        )
 
     def _setup_augmentation_flow(self):
         """Load pretrained augmentation flow model."""
@@ -110,15 +131,13 @@ class FlowAugmentationFixmatch(Agent):
         # Load checkpoint
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
 
-        # Create flow model using creator (use top-level 'generator' key)
-        from cvlabkit.core.config import Config
+        # Create flow model using creator
         generator_cfg = self.cfg.get("generator")
         if generator_cfg is None:
             raise ValueError("generator must be specified in config")
 
-        # Parse generator string (e.g., "unet" or "unet(...)")
+        # Parse generator string
         if isinstance(generator_cfg, str):
-            # Create a minimal config for the generator
             temp_cfg = Config({"model": generator_cfg})
             temp_create = type(self.create)(temp_cfg)
             self.generator = temp_create.model().to(self.device)
@@ -144,185 +163,189 @@ class FlowAugmentationFixmatch(Agent):
 
         print(f"Augmentation flow loaded (steps={self.flow_steps})")
 
-    def set_seed(self):
-        """Set random seed for reproducibility."""
-        seed = self.cfg.get("seed", 42)
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(seed)
+    def _stratified_split(self, targets: np.ndarray, num_labeled: int):
+        """Performs a stratified split of indices based on a fixed number of labeled samples."""
+        indices_by_class = defaultdict(list)
+        for i, target in enumerate(targets):
+            indices_by_class[target].append(i)
 
-    def _generate_adaptive_augmentation(self, images_weak, difficulty_scores):
+        num_classes = len(indices_by_class)
+        num_labeled_per_class = int(np.floor(num_labeled / num_classes))
+
+        labeled_indices = []
+        unlabeled_indices = []
+
+        for class_idx, indices in indices_by_class.items():
+            np.random.shuffle(indices)
+            actual_num_labeled = min(num_labeled_per_class, len(indices))
+
+            labeled_indices.extend(indices[:actual_num_labeled])
+            unlabeled_indices.extend(indices)
+
+        np.random.shuffle(unlabeled_indices)
+
+        print(f"Dataset split: {len(labeled_indices)} labeled ({num_labeled_per_class} per class target), {len(unlabeled_indices)} unlabeled.")
+        return labeled_indices, unlabeled_indices
+
+    def _generate_adaptive_augmentation(self, images_weak_tensor, difficulty_scores):
         """Generate adaptive strong augmentations using flow model.
 
         Args:
-            images_weak: Weakly augmented images [B, C, H, W]
+            images_weak_tensor: Weakly augmented images [B, C, H, W] (already tensor)
             difficulty_scores: Difficulty scores [B] in range [0, 1]
-                              0 = easy (high confidence) → weak augmentation
-                              1 = hard (low confidence) → strong augmentation
+                              High confidence → Low difficulty → Need strong aug
 
         Returns:
             Adaptively augmented images [B, C, H, W]
         """
         with torch.no_grad():
-            x_0 = images_weak
-            x_t = x_0.clone()
+            # Invert difficulty: high confidence (low difficulty) → t=1 (strong aug)
+            t_target = 1.0 - difficulty_scores
 
-            # ODE solver with Euler method
+            x_t = images_weak_tensor.clone()
+
+            # Solve ODE from t=0 to t=t_target
             for i in range(self.flow_steps):
-                # Current time for each sample based on difficulty
-                t_current = difficulty_scores * (i / self.flow_steps)
+                # Current timestep for each sample
+                t_current = t_target * (i / self.flow_steps)
 
                 # Predict velocity
                 v_t = self.generator(x_t, t_current)
 
-                # Update step
-                dt = difficulty_scores / self.flow_steps
+                # Euler step
+                dt = t_target / self.flow_steps
                 x_t = x_t + v_t * dt.view(-1, 1, 1, 1)
 
             return x_t
 
-    def train_epoch(self):
-        """Train for one epoch with epoch-level logging."""
+    def train_step(self, labeled_batch, unlabeled_batch):
+        """Performs a single training step with flow-based adaptive augmentation."""
         self.model.train()
-        target_epochs = self.cfg.get("epochs", 1)
 
-        # Accumulators for epoch averages
-        epoch_loss_sum = 0.0
-        epoch_Lx_sum = 0.0
-        epoch_Lpl_sum = 0.0
-        epoch_Lcons_sum = 0.0
-        epoch_mask_sum = 0.0
-        epoch_difficulty_sum = 0.0
-        epoch_confidence_sum = 0.0
-        num_steps = 0
+        labeled_images_pil, labels = labeled_batch
+        unlabeled_images_pil, _ = unlabeled_batch
 
-        # zip stops when the shorter iterable is exhausted
-        for batch in tqdm(zip(self.train_loader, self.unlabeled_loader),
-                          desc=f"Epoch {self.current_epoch + 1}/{target_epochs}"):
-            metrics = self.train_step(batch)
+        labeled_images = torch.stack([self.weak_transform(img) for img in labeled_images_pil]).to(self.device)
+        labels = labels.to(self.device)
 
-            # Accumulate metrics
-            epoch_loss_sum += metrics["total_loss"]
-            epoch_Lx_sum += metrics["Lx"]
-            epoch_Lpl_sum += metrics["L_pl"]
-            epoch_Lcons_sum += metrics["L_cons"]
-            epoch_mask_sum += metrics["mask_ratio"]
-            epoch_difficulty_sum += metrics["avg_difficulty"]
-            epoch_confidence_sum += metrics["avg_confidence"]
-            num_steps += 1
+        # 1. Supervised loss
+        sup_preds = self.model(labeled_images)
+        loss_sup = self.sup_loss_fn(sup_preds, labels)
 
-            self.current_step += 1
-
-        # Log epoch averages
-        if num_steps > 0 and self.logger:
-            avg_metrics = {
-                "epoch_loss": epoch_loss_sum / num_steps,
-                "epoch_Lx": epoch_Lx_sum / num_steps,
-                "epoch_L_pl": epoch_Lpl_sum / num_steps,
-                "epoch_L_cons": epoch_Lcons_sum / num_steps,
-                "epoch_mask_ratio": epoch_mask_sum / num_steps,
-                "epoch_avg_difficulty": epoch_difficulty_sum / num_steps,
-                "epoch_avg_confidence": epoch_confidence_sum / num_steps,
-            }
-            print(f"Epoch {self.current_epoch + 1} - Avg Loss: {avg_metrics['epoch_loss']:.6f}")
-            self.logger.log_metrics(avg_metrics, step=self.current_epoch)
-
-    def train_step(self, batch):
-        """Single training step with adaptive augmentation.
-
-        Args:
-            batch: Tuple of (labeled_batch, unlabeled_batch)
-
-        Returns:
-            dict: Metrics for this step
-        """
-        (labeled_batch, unlabeled_batch) = batch
-
-        inputs_x, targets_x = labeled_batch
-        # Unlabeled batch: just (images, labels) from basic transform
-        inputs_u_w, _ = unlabeled_batch
-
-        inputs_x, targets_x = inputs_x.to(self.device), targets_x.to(self.device)
-        inputs_u_w = inputs_u_w.to(self.device)
-
-        # Get pseudo-labels from weak augmentation
+        # 2. Unsupervised loss with flow-based strong augmentation
         with torch.no_grad():
-            logits_u_w = self.model(inputs_u_w)
-            pseudo_label = torch.softmax(logits_u_w, dim=-1)
-            max_probs, targets_u = torch.max(pseudo_label, dim=-1)
+            weak_aug_images = torch.stack([self.weak_transform(img) for img in unlabeled_images_pil]).to(self.device)
+            teacher_preds = self.model(weak_aug_images)
 
-            # Calculate difficulty: low confidence → high difficulty → strong aug
-            # difficulty = 1 - confidence
-            difficulty_scores = 1.0 - max_probs
+            probs = torch.softmax(teacher_preds, dim=1)
+            max_probs, pseudo_labels = torch.max(probs, dim=1)
+            mask = max_probs.ge(self.cfg.get("confidence_threshold", 0.95)).float()
 
-            # Optional: Clip difficulty to reasonable range
-            min_difficulty = self.cfg.get("min_difficulty", 0.0)
-            max_difficulty = self.cfg.get("max_difficulty", 1.0)
-            difficulty_scores = torch.clamp(difficulty_scores, min_difficulty, max_difficulty)
+            # Calculate difficulty scores (high confidence → low difficulty)
+            entropy = -torch.sum(probs * torch.log(probs + 1e-7), dim=1)
+            C = self.cfg.get("num_classes", 10)
+            a = float(self.cfg.get("scale_a", 10.0))
+            Ca = (float(C) ** a)
+            difficulty_scores = ((Ca * torch.exp(-a * entropy)) - 1.0) / (Ca - 1.0 + 1e-12)
+            difficulty_scores = difficulty_scores.clamp(0.0, 1.0)
 
-            # Generate adaptive strong augmentation
-            inputs_u_s = self._generate_adaptive_augmentation(inputs_u_w, difficulty_scores)
+        # Generate flow-based strong augmentation
+        strong_aug_images = self._generate_adaptive_augmentation(weak_aug_images, difficulty_scores)
 
-        # Forward pass
-        logits_x = self.model(inputs_x)
-        logits_u_w_forward = self.model(inputs_u_w)  # For consistency loss
-        logits_u_s = self.model(inputs_u_s)
+        student_preds = self.model(strong_aug_images)
 
-        # Supervised loss
-        Lx = self.loss_supervised(logits_x, targets_x)
+        # Pseudo-label loss (with mask)
+        loss_pl = self.unsup_loss_fn(student_preds, pseudo_labels)
+        loss_pl = (loss_pl * mask).mean()
 
-        # Pseudo-labeling loss with confidence masking (Eq. 7)
-        threshold = self.cfg.get("confidence_threshold", 0.95)
-        mask = max_probs.ge(threshold).float()
-        Lu_pl = self.loss_unsupervised(logits_u_s, targets_u)
-        L_pl = (Lu_pl * mask).mean()
+        # Consistency loss
+        loss_cons = self.contrastive_loss_fn(student_preds, teacher_preds).mean()
 
-        # Consistency loss: KL divergence between weak and strong predictions (Eq. 8)
-        L_cons = F.kl_div(
-            F.log_softmax(logits_u_s, dim=1),
-            F.softmax(logits_u_w_forward.detach(), dim=1),
-            reduction='batchmean'
+        # Total loss
+        total_loss = (
+            loss_sup +
+            self.cfg.get("lambda_pl", 1.0) * loss_pl +
+            self.cfg.get("lambda_cons", 0.5) * loss_cons
         )
 
-        # Total loss (Eq. 9)
-        lambda_pl = self.cfg.get("lambda_pl", 1.0)
-        lambda_cons = self.cfg.get("lambda_cons", 0.5)
-        loss = Lx + lambda_pl * L_pl + lambda_cons * L_cons
-
-        # Optimization
         self.optimizer.zero_grad()
-        loss.backward()
+        total_loss.backward()
         self.optimizer.step()
 
-        # Return metrics for epoch averaging
         return {
-            "total_loss": loss.item(),
-            "Lx": Lx.item(),
-            "L_pl": L_pl.item(),
-            "L_cons": L_cons.item(),
-            "mask_ratio": mask.mean().item(),
-            "avg_difficulty": difficulty_scores.mean().item(),
-            "avg_confidence": max_probs.mean().item(),
+            "total_loss": total_loss.item(),
+            "sup_loss": loss_sup.item(),
+            "pl_loss": loss_pl.item(),
+            "cons_loss": loss_cons.item()
         }
 
-    def validate_step(self, batch):
-        """Single validation step."""
-        inputs, targets = batch
-        inputs, targets = inputs.to(self.device), targets.to(self.device)
-        outputs = self.model(inputs)
-        self.accuracy_metric.update(outputs, targets)
+    def fit(self):
+        """The main training loop, driven by a fixed number of steps per epoch."""
+        train_epochs = self.cfg.get("epochs", 1)
+        target_epochs = self.current_epoch + train_epochs
+        steps_per_epoch = self.cfg.get("steps_per_epoch", 1024)
+
+        labeled_iter = iter(self.labeled_loader)
+        unlabeled_iter = iter(self.unlabeled_loader)
+
+        while self.current_epoch < target_epochs:
+            epoch_losses = defaultdict(float)
+
+            progress_bar = tqdm(range(steps_per_epoch), desc=f"Epoch [{self.current_epoch+1}/{target_epochs}]")
+            for step in progress_bar:
+                try:
+                    labeled_batch = next(labeled_iter)
+                except StopIteration:
+                    labeled_iter = iter(self.labeled_loader)
+                    labeled_batch = next(labeled_iter)
+
+                try:
+                    unlabeled_batch = next(unlabeled_iter)
+                except StopIteration:
+                    unlabeled_iter = iter(self.unlabeled_loader)
+                    unlabeled_batch = next(unlabeled_iter)
+
+                loss_dict = self.train_step(labeled_batch, unlabeled_batch)
+
+                for key, value in loss_dict.items():
+                    epoch_losses[key] += value
+
+                progress_bar.set_postfix(loss=f"{loss_dict['total_loss']:.4f}")
+
+            if hasattr(self, 'logger') and self.logger is not None:
+                log_data = {}
+                for key, value in epoch_losses.items():
+                    log_key = "train_loss" if key == "total_loss" else f"train_{key}"
+                    log_data[log_key] = value / steps_per_epoch
+                self.logger.log_metrics(metrics=log_data, step=self.current_epoch + 1)
+
+            self.evaluate()
+            self.current_epoch += 1
 
     def evaluate(self):
-        """Evaluate on validation set."""
-        self.accuracy_metric.reset()
-        super().evaluate()
-        val_acc = self.accuracy_metric.compute()
+        """Evaluates the model on the validation set."""
+        self.model.eval()
+        self.metric.reset()
 
-        if self.logger:
-            self.logger.log_metrics({"val_accuracy": val_acc.item()}, step=self.current_epoch)
+        total_val_loss = 0
 
-        # Track best accuracy
-        is_best = val_acc > self.best_acc
-        self.best_acc = max(val_acc, self.best_acc)
+        with torch.no_grad():
+            for images_pil, labels in self.val_loader:
+                images = torch.stack([self.val_transform(img) for img in images_pil]).to(self.device)
+                labels = labels.to(self.device)
+                preds = self.model(images)
+
+                val_loss = self.sup_loss_fn(preds, labels)
+                total_val_loss += val_loss.item()
+
+                self.metric.update(preds=preds, targets=labels)
+
+        avg_val_loss = total_val_loss / len(self.val_loader)
+
+        metrics = self.metric.compute()
+        metrics['val_loss'] = avg_val_loss
+
+        print(f"Epoch {self.current_epoch+1} Validation Metrics: {metrics}")
+
+        if hasattr(self, 'logger') and self.logger is not None:
+            self.logger.log_metrics(metrics=metrics, step=self.current_epoch + 1)

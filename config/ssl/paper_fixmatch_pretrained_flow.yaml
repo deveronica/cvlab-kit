@@ -5,19 +5,19 @@ log_dir: ./logs/paper_fixmatch_flow
 run_name: run_{{date}}_{{num_labeled}}
 description: Paper Implementation - FixMatch with Pretrained Flow Generator
 author: CVLab
-date: "2025-11-02"
+date: "2025-11-03"
 
 agent: paper_fixmatch_pretrained_flow
 
 # === Pretrained Flow Model ===
 flow_checkpoint: checkpoints/adaptive_augflow/latest.pt
-flow_steps: 10
+flow_steps: 16
 
 # === Dataset ===
 data_root: ./data/mstar
 dataset:
   train: mstar(split="train")
-  test: mstar(split="test")
+  val: mstar(split="test")
 
 # === Image Processing ===
 size: 128
@@ -28,7 +28,8 @@ padding_mode: reflect
 
 # === Transforms ===
 transform:
-  base: "resize | random_flip | random_crop | to_tensor | normalize"
+  weak: "resize | random_flip | random_crop | to_tensor | normalize"
+  val: "resize | to_tensor | normalize"
 
 # === Global Hyperparameters ===
 steps_per_epoch: 128
@@ -41,7 +42,7 @@ pretrained: false
 dataloader:
   labeled: basic(shuffle=True, drop_last=True)
   unlabeled: basic(shuffle=True, drop_last=True)
-  test: basic(shuffle=False, drop_last=False)
+  val: basic(shuffle=False, drop_last=False)
 
 sampler:
   labeled: subset_random
@@ -61,6 +62,7 @@ weight_decay: 0
 loss:
   supervised: cross_entropy(reduction="mean")
   unsupervised: cross_entropy(reduction="none")
+  contrastive: kl_div(reduction="batchmean")
 
 # === Metrics ===
 metric:
@@ -71,12 +73,11 @@ logger: csv
 
 # === FixMatch Parameters ===
 confidence_threshold: 0.95
-lambda_pl: 1.0      # Pseudo-labeling loss weight (Eq. 7)
-lambda_cons: 0.5    # Consistency loss weight (Eq. 8)
+lambda_pl: 1.0  # Pseudo-label loss weight
+lambda_cons: 0.5  # Consistency loss weight
 
 # === Adaptive Augmentation ===
-min_difficulty: 0.0
-max_difficulty: 1.0
+scale_a: 10.0  # Difficulty scaling factor
 
 # === Training ===
 epochs: 256

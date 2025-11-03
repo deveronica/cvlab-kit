@@ -392,7 +392,7 @@ class AdaptiveAugmentationFlow(Agent):
     def evaluate(self):
         """Evaluate and save periodic images at epoch end.
 
-        This overrides the base Agent.evaluate() to add periodic image saving.
+        This overrides the base Agent.evaluate() to add periodic image saving and checkpointing.
         """
         # Run validation if val_loader exists
         if self.val_loader is not None:
@@ -404,6 +404,12 @@ class AdaptiveAugmentationFlow(Agent):
             self._save_periodic_images()
             # Generate paper figure (Method Comparison)
             self._save_paper_figure()
+
+        # Save checkpoint at end of epoch
+        if self.model_checkpoint is not None:
+            self._save_checkpoint_component(f"checkpoint_epoch_{self.current_epoch}.pt")
+        else:
+            self._save_checkpoint(f"checkpoint_epoch_{self.current_epoch}.pt")
 
     def _save_periodic_images(self):
         """Generate and save images using periodic checkpoint."""

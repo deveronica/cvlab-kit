@@ -65,8 +65,8 @@ ema_kwargs:
 # === Checkpointing & Results ===
 checkpoint_dir: checkpoints/adaptive_augflow
 results_dir: results/adaptive_augflow
-save_checkpoint_every: 500
-save_results_every: 100
+save_checkpoint_every: 10000  # ~Every 15 epochs (686 steps/epoch)
+save_results_every: 1000
 
 # === Sampling ===
 sample_steps: 16

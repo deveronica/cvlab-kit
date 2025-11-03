@@ -23,10 +23,20 @@ class FlowAugmentationFixmatch(Agent):
 
     def setup(self):
         """Set up all components for training."""
-        self.set_seed()
+        # Random seed
+        seed = self.cfg.get("seed", 42)
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
 
         # Device setup
-        self.device = self.cfg.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+        device_cfg = self.cfg.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+        if isinstance(device_cfg, int):
+            self.device = torch.device(f"cuda:{device_cfg}" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = torch.device(device_cfg)
 
         # Model and optimizer
         self.model = self.create.model().to(self.device)
@@ -67,19 +77,24 @@ class FlowAugmentationFixmatch(Agent):
         )
         self.val_loader = self.create.dataloader.test(dataset=test_dataset)
 
-        # Loss and metrics
-        self.lx_fn = self.create.loss.cross_entropy()
-        self.logger = self.create.logger()
-        self.accuracy_metric = self.create.metric.accuracy()
+        # Loss functions
+        self.loss_supervised = self.create.loss.supervised()
+        self.loss_unsupervised = self.create.loss.unsupervised()
+
+        # Logger and metrics
+        if self.cfg.get("logger"):
+            self.logger = self.create.logger()
+        else:
+            self.logger = None
+        self.accuracy_metric = self.create.metric.val()
 
         # Load pretrained augmentation flow model
-        self.setup_augmentation_flow()
+        self._setup_augmentation_flow()
 
         # Training state
         self.best_acc = 0
-        self.early_stopping_counter = 0
 
-    def setup_augmentation_flow(self):
+    def _setup_augmentation_flow(self):
         """Load pretrained augmentation flow model."""
         flow_checkpoint = self.cfg.get("flow_checkpoint")
 
@@ -138,14 +153,14 @@ class FlowAugmentationFixmatch(Agent):
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
-    def generate_adaptive_augmentation(self, images_weak, difficulty_scores):
+    def _generate_adaptive_augmentation(self, images_weak, difficulty_scores):
         """Generate adaptive strong augmentations using flow model.
 
         Args:
             images_weak: Weakly augmented images [B, C, H, W]
             difficulty_scores: Difficulty scores [B] in range [0, 1]
-                              0 = easy (high confidence) � weak augmentation
-                              1 = hard (low confidence) � strong augmentation
+                              0 = easy (high confidence) → weak augmentation
+                              1 = hard (low confidence) → strong augmentation
 
         Returns:
             Adaptively augmented images [B, C, H, W]
@@ -169,21 +184,59 @@ class FlowAugmentationFixmatch(Agent):
             return x_t
 
     def train_epoch(self):
-        """Train for one epoch."""
+        """Train for one epoch with epoch-level logging."""
         self.model.train()
         target_epochs = self.cfg.get("epochs", 1)
+
+        # Accumulators for epoch averages
+        epoch_loss_sum = 0.0
+        epoch_Lx_sum = 0.0
+        epoch_Lpl_sum = 0.0
+        epoch_Lcons_sum = 0.0
+        epoch_mask_sum = 0.0
+        epoch_difficulty_sum = 0.0
+        epoch_confidence_sum = 0.0
+        num_steps = 0
 
         # zip stops when the shorter iterable is exhausted
         for batch in tqdm(zip(self.train_loader, self.unlabeled_loader),
                           desc=f"Epoch {self.current_epoch + 1}/{target_epochs}"):
-            self.train_step(batch)
+            metrics = self.train_step(batch)
+
+            # Accumulate metrics
+            epoch_loss_sum += metrics["total_loss"]
+            epoch_Lx_sum += metrics["Lx"]
+            epoch_Lpl_sum += metrics["L_pl"]
+            epoch_Lcons_sum += metrics["L_cons"]
+            epoch_mask_sum += metrics["mask_ratio"]
+            epoch_difficulty_sum += metrics["avg_difficulty"]
+            epoch_confidence_sum += metrics["avg_confidence"]
+            num_steps += 1
+
             self.current_step += 1
+
+        # Log epoch averages
+        if num_steps > 0 and self.logger:
+            avg_metrics = {
+                "epoch_loss": epoch_loss_sum / num_steps,
+                "epoch_Lx": epoch_Lx_sum / num_steps,
+                "epoch_L_pl": epoch_Lpl_sum / num_steps,
+                "epoch_L_cons": epoch_Lcons_sum / num_steps,
+                "epoch_mask_ratio": epoch_mask_sum / num_steps,
+                "epoch_avg_difficulty": epoch_difficulty_sum / num_steps,
+                "epoch_avg_confidence": epoch_confidence_sum / num_steps,
+            }
+            print(f"Epoch {self.current_epoch + 1} - Avg Loss: {avg_metrics['epoch_loss']:.6f}")
+            self.logger.log_metrics(avg_metrics, step=self.current_epoch)
 
     def train_step(self, batch):
         """Single training step with adaptive augmentation.
 
         Args:
             batch: Tuple of (labeled_batch, unlabeled_batch)
+
+        Returns:
+            dict: Metrics for this step
         """
         (labeled_batch, unlabeled_batch) = batch
 
@@ -200,7 +253,7 @@ class FlowAugmentationFixmatch(Agent):
             pseudo_label = torch.softmax(logits_u_w, dim=-1)
             max_probs, targets_u = torch.max(pseudo_label, dim=-1)
 
-            # Calculate difficulty: low confidence � high difficulty � strong aug
+            # Calculate difficulty: low confidence → high difficulty → strong aug
             # difficulty = 1 - confidence
             difficulty_scores = 1.0 - max_probs
 
@@ -210,7 +263,7 @@ class FlowAugmentationFixmatch(Agent):
             difficulty_scores = torch.clamp(difficulty_scores, min_difficulty, max_difficulty)
 
             # Generate adaptive strong augmentation
-            inputs_u_s = self.generate_adaptive_augmentation(inputs_u_w, difficulty_scores)
+            inputs_u_s = self._generate_adaptive_augmentation(inputs_u_w, difficulty_scores)
 
         # Forward pass
         logits_x = self.model(inputs_x)
@@ -218,12 +271,13 @@ class FlowAugmentationFixmatch(Agent):
         logits_u_s = self.model(inputs_u_s)
 
         # Supervised loss
-        Lx = self.lx_fn(logits_x, targets_x)
+        Lx = self.loss_supervised(logits_x, targets_x)
 
         # Pseudo-labeling loss with confidence masking (Eq. 7)
-        threshold = self.cfg.get("threshold", 0.95)
+        threshold = self.cfg.get("confidence_threshold", 0.95)
         mask = max_probs.ge(threshold).float()
-        L_pl = (F.cross_entropy(logits_u_s, targets_u, reduction='none') * mask).mean()
+        Lu_pl = self.loss_unsupervised(logits_u_s, targets_u)
+        L_pl = (Lu_pl * mask).mean()
 
         # Consistency loss: KL divergence between weak and strong predictions (Eq. 8)
         L_cons = F.kl_div(
@@ -242,8 +296,8 @@ class FlowAugmentationFixmatch(Agent):
         loss.backward()
         self.optimizer.step()
 
-        # Logging
-        self.logger.log_metrics({
+        # Return metrics for epoch averaging
+        return {
             "total_loss": loss.item(),
             "Lx": Lx.item(),
             "L_pl": L_pl.item(),
@@ -251,7 +305,7 @@ class FlowAugmentationFixmatch(Agent):
             "mask_ratio": mask.mean().item(),
             "avg_difficulty": difficulty_scores.mean().item(),
             "avg_confidence": max_probs.mean().item(),
-        }, step=self.current_step)
+        }
 
     def validate_step(self, batch):
         """Single validation step."""
@@ -265,17 +319,10 @@ class FlowAugmentationFixmatch(Agent):
         self.accuracy_metric.reset()
         super().evaluate()
         val_acc = self.accuracy_metric.compute()
-        self.logger.log_metrics({"val_accuracy": val_acc.item()}, step=self.current_epoch)
 
-        # Early stopping
+        if self.logger:
+            self.logger.log_metrics({"val_accuracy": val_acc.item()}, step=self.current_epoch)
+
+        # Track best accuracy
         is_best = val_acc > self.best_acc
         self.best_acc = max(val_acc, self.best_acc)
-
-        if is_best:
-            self.early_stopping_counter = 0
-        else:
-            self.early_stopping_counter += 1
-            patience = self.cfg.get("early_stopping_patience", 100)
-            if self.early_stopping_counter > patience:
-                print(f"Early stopping at epoch {self.current_epoch} due to no improvement.")
-                self.current_epoch = self.cfg.get("epochs")

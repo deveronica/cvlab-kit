@@ -43,6 +43,8 @@ class FlowAugmentationFixmatch(Agent):
 
         # Transforms
         self.weak_transform = self.create.transform.weak()
+        self.weak_unnorm_transform = self.create.transform.weak_unnorm()
+        self.normalize_transform = self.create.transform.normalize()
         self.val_transform = self.create.transform.val()
         # Note: No strong_transform - we use flow model instead
 
@@ -249,8 +251,10 @@ class FlowAugmentationFixmatch(Agent):
             difficulty_scores = ((Ca * torch.exp(-a * entropy)) - 1.0) / (Ca - 1.0 + 1e-12)
             difficulty_scores = difficulty_scores.clamp(0.0, 1.0)
 
-        # Generate flow-based strong augmentation
-        strong_aug_images = self._generate_adaptive_augmentation(weak_aug_images, difficulty_scores)
+        # Generate flow-based strong augmentation (PIL → tensor [0,1] → flow → normalize)
+        unlabeled_unnorm = torch.stack([self.weak_unnorm_transform(img) for img in unlabeled_images_pil]).to(self.device)
+        strong_aug_unnorm = self._generate_adaptive_augmentation(unlabeled_unnorm, difficulty_scores)
+        strong_aug_images = torch.stack([self.normalize_transform(img) for img in strong_aug_unnorm])
 
         student_preds = self.model(strong_aug_images)
 

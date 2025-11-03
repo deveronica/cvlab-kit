@@ -29,6 +29,8 @@ padding_mode: reflect
 # === Transforms ===
 transform:
   weak: "resize | random_flip | random_crop | to_tensor | normalize"
+  weak_unnorm: "resize | random_flip | random_crop | to_tensor"
+  normalize: normalize
   val: "resize | to_tensor | normalize"
 
 # === Global Hyperparameters ===

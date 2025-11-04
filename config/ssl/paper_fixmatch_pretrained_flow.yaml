@@ -11,7 +11,7 @@ agent: paper_fixmatch_pretrained_flow
 
 # === Pretrained Flow Model ===
 flow_checkpoint: checkpoints/adaptive_augflow/latest.pt
-flow_steps: 16
+flow_steps: 4
 
 # === Dataset ===
 data_root: ./data/mstar
@@ -82,7 +82,7 @@ lambda_cons: 4.5  # Consistency loss weight
 scale_a: 10.0  # Difficulty scaling factor
 
 # === Training ===
-epochs: 256
+epochs: 128
 device: 0
 
 # === Random Seed ===

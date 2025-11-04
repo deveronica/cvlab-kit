@@ -156,6 +156,13 @@ class FlowAugmentationFixmatch(Agent):
 
         self.generator.eval()
 
+        # Compile generator for faster inference (PyTorch 2.0+)
+        try:
+            self.generator = torch.compile(self.generator)
+            print("Generator compiled with torch.compile")
+        except Exception as e:
+            print(f"torch.compile failed: {e}")
+
         # Freeze generator parameters
         for param in self.generator.parameters():
             param.requires_grad = False

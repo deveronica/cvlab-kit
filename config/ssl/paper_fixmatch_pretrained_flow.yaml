@@ -21,8 +21,8 @@ dataset:
 
 # === Image Processing ===
 size: 128
-mean: [0.1414, 0.1414, 0.1414]
-std: [0.1258, 0.1258, 0.1258]
+mean: !!python/tuple [0.1414, 0.1414, 0.1414]
+std: !!python/tuple [0.1258, 0.1258, 0.1258]
 padding: 16
 padding_mode: reflect
 
@@ -76,7 +76,7 @@ logger: csv
 # === FixMatch Parameters ===
 confidence_threshold: 0.95
 lambda_pl: 1.0  # Pseudo-label loss weight
-lambda_cons: 0.5  # Consistency loss weight
+lambda_cons: 4.5  # Consistency loss weight
 
 # === Adaptive Augmentation ===
 scale_a: 10.0  # Difficulty scaling factor

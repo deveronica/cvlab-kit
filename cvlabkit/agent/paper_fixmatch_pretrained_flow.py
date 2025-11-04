@@ -189,20 +189,20 @@ class FlowAugmentationFixmatch(Agent):
         print(f"Dataset split: {len(labeled_indices)} labeled ({num_labeled_per_class} per class target), {len(unlabeled_indices)} unlabeled.")
         return labeled_indices, unlabeled_indices
 
-    def _generate_adaptive_augmentation(self, images_weak_tensor, difficulty_scores):
+    def _generate_adaptive_augmentation(self, images_weak_tensor, confidence_scores):
         """Generate adaptive strong augmentations using flow model.
 
         Args:
             images_weak_tensor: Weakly augmented images [B, C, H, W] (already tensor)
-            difficulty_scores: Difficulty scores [B] in range [0, 1]
-                              High confidence → Low difficulty → Need strong aug
+            confidence_scores: Confidence scores [B] in range [0, 1]
+                              High confidence → High score → Need strong aug
 
         Returns:
             Adaptively augmented images [B, C, H, W]
         """
         with torch.no_grad():
-            # Invert difficulty: high confidence (low difficulty) → t=1 (strong aug)
-            t_target = 1.0 - difficulty_scores
+            # Use confidence directly: high confidence → t=1 (strong aug)
+            t_target = confidence_scores
 
             x_t = images_weak_tensor.clone()
 
@@ -243,17 +243,17 @@ class FlowAugmentationFixmatch(Agent):
             max_probs, pseudo_labels = torch.max(probs, dim=1)
             mask = max_probs.ge(self.cfg.get("confidence_threshold", 0.95)).float()
 
-            # Calculate difficulty scores (high confidence → low difficulty)
+            # Calculate confidence scores (high confidence → high score → strong aug)
             entropy = -torch.sum(probs * torch.log(probs + 1e-7), dim=1)
             C = self.cfg.get("num_classes", 10)
             a = float(self.cfg.get("scale_a", 10.0))
             Ca = (float(C) ** a)
-            difficulty_scores = ((Ca * torch.exp(-a * entropy)) - 1.0) / (Ca - 1.0 + 1e-12)
-            difficulty_scores = difficulty_scores.clamp(0.0, 1.0)
+            confidence_scores = ((Ca * torch.exp(-a * entropy)) - 1.0) / (Ca - 1.0 + 1e-12)
+            confidence_scores = confidence_scores.clamp(0.0, 1.0)
 
         # Generate flow-based strong augmentation (PIL → tensor [0,1] → flow → normalize)
         unlabeled_unnorm = torch.stack([self.weak_unnorm_transform(img) for img in unlabeled_images_pil]).to(self.device)
-        strong_aug_unnorm = self._generate_adaptive_augmentation(unlabeled_unnorm, difficulty_scores)
+        strong_aug_unnorm = self._generate_adaptive_augmentation(unlabeled_unnorm, confidence_scores)
         strong_aug_images = torch.stack([self.normalize_transform(img) for img in strong_aug_unnorm])
 
         student_preds = self.model(strong_aug_images)

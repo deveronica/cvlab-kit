@@ -1,15 +1,17 @@
-# config/ssl/fixmatch_flow_randaugment.yaml
-# FixMatch with Flow-Added RandAugment
-# Uses FlowAddedRandAugment: Flow is added to RandAugment operation pool
+# FixMatch with Pretrained Flow Generator using FlowAddedRandAugment
 
 # === General Configuration ===
-log_dir: ./logs/fixmatch_flow_randaugment
+log_dir: ./logs/paper_fixmatch_flow_randaugment
 run_name: run_{{date}}_{{num_labeled}}
-description: FixMatch with Flow-Added RandAugment
+description: Paper Implementation - FixMatch with FlowAddedRandAugment
 author: CVLab
 date: "2025-11-05"
 
-agent: fixmatch
+agent: paper_fixmatch_pretrained_flow
+
+# === Pretrained Flow Model ===
+flow_checkpoint: checkpoints/adaptive_augflow/latest.pt
+flow_steps: 4
 
 # === Dataset ===
 data_root: ./data/mstar
@@ -25,11 +27,11 @@ padding: 16
 padding_mode: reflect
 
 # === Transforms ===
-# FlowAddedRandAugment: 15 operations (14 standard + Flow)
-# Magnitude 9 → t=0.29 for Flow operation
 transform:
   weak: "resize | random_flip | random_crop | to_tensor | normalize"
-  strong: "resize | random_flip | random_crop | flow_added_rand_augment(num_ops=2, magnitude=9, flow_checkpoint='checkpoints/adaptive_augflow/latest.pt', flow_steps=4) | to_tensor | normalize"
+  weak_unnorm: "resize | random_flip | random_crop | to_tensor"
+  strong: flow_added_rand_augment(num_ops=2, magnitude=9, flow_checkpoint='checkpoints/adaptive_augflow/latest.pt', flow_steps=4)
+  normalize: normalize
   val: "resize | to_tensor | normalize"
 
 # === Global Hyperparameters ===
@@ -51,6 +53,7 @@ sampler:
 
 # === Models ===
 model: resnet18
+generator: unet
 num_classes: 10
 
 # === Optimizer ===
@@ -62,6 +65,7 @@ weight_decay: 0
 loss:
   supervised: cross_entropy(reduction="mean")
   unsupervised: cross_entropy(reduction="none")
+  contrastive: kl_div(reduction="batchmean")
 
 # === Metrics ===
 metric:
@@ -72,10 +76,14 @@ logger: csv
 
 # === FixMatch Parameters ===
 confidence_threshold: 0.95
-lambda_fixmatch: 1.0
+lambda_pl: 1.0  # Pseudo-label loss weight
+lambda_cons: 4.5  # Consistency loss weight
+
+# === Adaptive Augmentation ===
+scale_a: 10.0  # Difficulty scaling factor
 
 # === Training ===
-epochs: 256
+epochs: 128
 device: 0
 
 # === Random Seed ===

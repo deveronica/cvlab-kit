@@ -74,6 +74,7 @@ logger: csv
 # === FixMatch Parameters ===
 confidence_threshold: 0.95
 lambda_pl: 1.0  # Pseudo-label loss weight
+lambda_cons: 4.5  # Consistency loss weight
 
 # === Adaptive Augmentation ===
 scale_a: 10.0  # Confidence scaling factor

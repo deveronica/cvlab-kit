@@ -46,6 +46,7 @@ class PaperFixmatchFlowRandaugment(Agent):
         # Loss functions
         self.sup_loss_fn = self.create.loss.supervised()
         self.unsup_loss_fn = self.create.loss.unsupervised()
+        self.contrastive_loss_fn = self.create.loss.contrastive()
 
         if self.cfg.get("logger"):
             self.logger = self.create.logger()
@@ -175,9 +176,13 @@ class PaperFixmatchFlowRandaugment(Agent):
         loss_pl = self.unsup_loss_fn(student_preds, pseudo_labels)
         loss_pl = (loss_pl * mask).mean()
 
+        # Consistency loss
+        loss_cons = self.contrastive_loss_fn(student_preds, teacher_preds).mean()
+
         # 3. Total Loss
         lambda_pl = self.cfg.get("lambda_pl", 1.0)
-        total_loss = loss_sup + lambda_pl * loss_pl
+        lambda_cons = self.cfg.get("lambda_cons", 4.5)
+        total_loss = loss_sup + lambda_pl * loss_pl + lambda_cons * loss_cons
 
         self.optimizer.zero_grad()
         total_loss.backward()
@@ -187,6 +192,7 @@ class PaperFixmatchFlowRandaugment(Agent):
             "total_loss": total_loss.item(),
             "sup_loss": loss_sup.item(),
             "pl_loss": loss_pl.item(),
+            "cons_loss": loss_cons.item(),
             "mask_ratio": mask.mean().item()
         }
 

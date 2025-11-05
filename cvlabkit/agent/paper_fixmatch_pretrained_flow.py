@@ -163,6 +163,9 @@ class FlowAugmentationFixmatch(Agent):
         except Exception as e:
             print(f"torch.compile failed: {e}")
 
+        # Ensure generator is on correct device after compile
+        self.generator = self.generator.to(self.device)
+
         # Freeze generator parameters
         for param in self.generator.parameters():
             param.requires_grad = False

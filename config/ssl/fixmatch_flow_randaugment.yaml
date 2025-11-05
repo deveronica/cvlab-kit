@@ -7,7 +7,7 @@ description: Paper Implementation - FixMatch with FlowAddedRandAugment
 author: CVLab
 date: "2025-11-05"
 
-agent: paper_fixmatch_pretrained_flow
+agent: paper_fixmatch_flow_randaugment
 
 # === Pretrained Flow Model ===
 flow_checkpoint: checkpoints/adaptive_augflow/latest.pt
@@ -29,9 +29,7 @@ padding_mode: reflect
 # === Transforms ===
 transform:
   weak: "resize | random_flip | random_crop | to_tensor | normalize"
-  weak_unnorm: "resize | random_flip | random_crop | to_tensor"
-  strong: flow_added_rand_augment(num_ops=2, magnitude=9, flow_checkpoint='checkpoints/adaptive_augflow/latest.pt', flow_steps=4)
-  normalize: normalize
+  strong: "resize | random_flip | random_crop | adaptive_flow_rand_augment(magnitude_min=0, magnitude_max=30, num_ops=2, flow_checkpoint='checkpoints/adaptive_augflow/latest.pt', flow_steps=4) | to_tensor | normalize"
   val: "resize | to_tensor | normalize"
 
 # === Global Hyperparameters ===
@@ -53,7 +51,6 @@ sampler:
 
 # === Models ===
 model: resnet18
-generator: unet
 num_classes: 10
 
 # === Optimizer ===
@@ -77,10 +74,9 @@ logger: csv
 # === FixMatch Parameters ===
 confidence_threshold: 0.95
 lambda_pl: 1.0  # Pseudo-label loss weight
-lambda_cons: 4.5  # Consistency loss weight
 
 # === Adaptive Augmentation ===
-scale_a: 10.0  # Difficulty scaling factor
+scale_a: 10.0  # Confidence scaling factor
 
 # === Training ===
 epochs: 128

@@ -1,0 +1,83 @@
+# config/ssl/fixmatch_flow_randaugment.yaml
+# FixMatch with Flow-Added RandAugment
+# Uses FlowAddedRandAugment: Flow is added to RandAugment operation pool
+
+# === General Configuration ===
+log_dir: ./logs/fixmatch_flow_randaugment
+run_name: run_{{date}}_{{num_labeled}}
+description: FixMatch with Flow-Added RandAugment
+author: CVLab
+date: "2025-11-05"
+
+agent: fixmatch
+
+# === Dataset ===
+data_root: ./data/mstar
+dataset:
+  train: mstar(split="train")
+  val: mstar(split="test")
+
+# === Image Processing ===
+size: 128
+mean: !!python/tuple [0.1414, 0.1414, 0.1414]
+std: !!python/tuple [0.1258, 0.1258, 0.1258]
+padding: 16
+padding_mode: reflect
+
+# === Transforms ===
+# FlowAddedRandAugment: 15 operations (14 standard + Flow)
+# Magnitude 9 → t=0.29 for Flow operation
+transform:
+  weak: "resize | random_flip | random_crop | to_tensor | normalize"
+  strong: "resize | random_flip | random_crop | flow_added_rand_augment(num_ops=2, magnitude=9, flow_checkpoint='checkpoints/adaptive_augflow/latest.pt', flow_steps=4) | to_tensor | normalize"
+  val: "resize | to_tensor | normalize"
+
+# === Global Hyperparameters ===
+steps_per_epoch: 128
+num_labeled: 100  # 10 per class for MSTAR (10 classes)
+batch_size: 16
+mu: 7  # unlabeled_batch = 16 * 7 = 112
+num_workers: 4
+pretrained: false
+
+dataloader:
+  labeled: basic(shuffle=True, drop_last=True)
+  unlabeled: basic(shuffle=True, drop_last=True)
+  val: basic(shuffle=False, drop_last=False)
+
+sampler:
+  labeled: subset_random
+  unlabeled: subset_random
+
+# === Models ===
+model: resnet18
+num_classes: 10
+
+# === Optimizer ===
+optimizer: adam
+lr: 0.003
+weight_decay: 0
+
+# === Loss ===
+loss:
+  supervised: cross_entropy(reduction="mean")
+  unsupervised: cross_entropy(reduction="none")
+
+# === Metrics ===
+metric:
+  val: accuracy
+
+# === Logger ===
+logger: csv
+
+# === FixMatch Parameters ===
+confidence_threshold: 0.95
+lambda_fixmatch: 1.0
+
+# === Training ===
+epochs: 256
+device: 0
+
+# === Random Seed ===
+seed: 42
+n_gpu: 1

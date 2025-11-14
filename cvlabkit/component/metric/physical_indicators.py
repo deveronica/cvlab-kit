@@ -61,10 +61,10 @@ class PhysicalIndicators(Metric):
             preds: Model predictions (logits) [B, num_classes]
             targets: Ground truth labels [B]
         """
-        # Convert to numpy for processing
-        images_np = images.cpu().numpy()
-        preds_np = preds.cpu().numpy()
-        targets_np = targets.cpu().numpy()
+        # Convert to numpy for processing (detach to avoid gradient error)
+        images_np = images.detach().cpu().numpy()
+        preds_np = preds.detach().cpu().numpy()
+        targets_np = targets.detach().cpu().numpy()
 
         batch_size = images_np.shape[0]
 

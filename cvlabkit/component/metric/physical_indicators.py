@@ -44,12 +44,16 @@ class PhysicalIndicators(Metric):
                 - glcm_distances (list): Distances for GLCM calculation (default: [1])
                 - glcm_angles (list): Angles for GLCM in radians (default: [0, π/4, π/2, 3π/4])
                 - num_bins (int): Number of bins for entropy histogram (default: 256)
+                - save_logits (bool): Save raw logits for future analysis (default: False)
+                - save_indices (bool): Save sample indices for tracking (default: False)
         """
         super().__init__()
         self.lf_ratio = cfg.get("lf_ratio", 0.25)
         self.glcm_distances = cfg.get("glcm_distances", [1])
         self.glcm_angles = cfg.get("glcm_angles", [0, np.pi/4, np.pi/2, 3*np.pi/4])
         self.num_bins = cfg.get("num_bins", 256)
+        self.save_logits = cfg.get("save_logits", False)
+        self.save_indices = cfg.get("save_indices", False)
         self.reset()
 
     def update(self, images: torch.Tensor, preds: torch.Tensor, targets: torch.Tensor) -> None:
@@ -69,6 +73,9 @@ class PhysicalIndicators(Metric):
         batch_size = images_np.shape[0]
 
         for i in range(batch_size):
+            # Track sample index (auto-increment counter)
+            current_idx = self.sample_counter
+            self.sample_counter += 1
             # Get single image [C, H, W] -> convert to grayscale if needed
             img = images_np[i]
             if img.shape[0] == 3:  # RGB -> grayscale
@@ -106,6 +113,13 @@ class PhysicalIndicators(Metric):
             # Store prediction correctness
             pred_class = np.argmax(preds_np[i])
             self.correct_list.append(int(pred_class == targets_np[i]))
+
+            # Optionally save logits and indices
+            if self.save_logits:
+                self.logits_list.append(preds_np[i].tolist())
+
+            if self.save_indices:
+                self.indices_list.append(current_idx)
 
     def _compute_ecr(self, img: np.ndarray) -> float:
         """
@@ -406,6 +420,13 @@ class PhysicalIndicators(Metric):
             "corr_pred_entropy_ce_loss": float(stats.spearmanr(pred_entropy, ce_loss)[0]),
         }
 
+        # Add optional data
+        if self.save_logits and len(self.logits_list) > 0:
+            result["logits"] = self.logits_list
+
+        if self.save_indices and len(self.indices_list) > 0:
+            result["indices"] = self.indices_list
+
         return result
 
     def reset(self) -> None:
@@ -421,3 +442,8 @@ class PhysicalIndicators(Metric):
         self.ce_loss_values: List[float] = []
         self.targets_list: List[int] = []
         self.correct_list: List[int] = []
+
+        # Optional storage
+        self.logits_list: List[List[float]] = []  # [N, num_classes]
+        self.indices_list: List[int] = []  # [N]
+        self.sample_counter: int = 0  # Auto-increment counter

@@ -1,0 +1,51 @@
+# MSTAR Physical Correlation Analysis - Version 2
+# Stores images indices & logits for future reanalysis
+
+project: mstar_physical_correlation_v2
+agent: mstar_correlation
+
+# Model configuration
+model: resnet18
+num_classes: 10
+
+# Dataset
+dataset:
+  train: mstar(root="./data/mstar", split="TRAIN")
+  val: mstar(root="./data/mstar", split="TEST")
+
+# Transforms
+transform: "resize(size=128) | to_tensor"
+
+# Dataloader
+dataloader:
+  train: basic(split=train, shuffle=true)
+  val: basic(split=val, shuffle=false)
+
+# Training
+epochs: 100  # Only 100 epochs for sweet spot analysis
+batch_size: 32
+device: cpu
+
+# Optimizer
+optimizer: sgd
+lr: 0.01
+momentum: 0.9
+weight_decay: 0.0001
+
+# Loss
+loss: cross_entropy
+
+# Metrics
+metric:
+  physical: physical_indicators(lf_ratio=0.25, num_bins=256, save_logits=true, save_indices=true)
+  accuracy: accuracy
+
+# Logging
+output_dir: ./outputs/mstar_correlation_v2
+save_freq: 10  # Save checkpoint every 10 epochs
+
+# Analysis configuration
+analysis:
+  save_images: false  # Don't save images (can reload from dataset)
+  save_logits: true   # Save for difficulty indicators
+  save_indices: true  # Save for tracking samples

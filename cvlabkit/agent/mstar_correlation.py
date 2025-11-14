@@ -243,6 +243,15 @@ class MSTARCorrelation(Agent):
         # Save per-image CSV table
         self._save_per_image_table(physical_results)
 
+        # Save checkpoint periodically
+        save_freq = self.cfg.get("save_freq", None)
+        if save_freq is not None and (self.current_epoch + 1) % save_freq == 0:
+            checkpoint_path = os.path.join(
+                self.cfg.get("output_dir", "./outputs/mstar_correlation"),
+                f"checkpoint_epoch_{self.current_epoch:03d}.pt"
+            )
+            self.save(checkpoint_path)
+
         # Check if target accuracy reached
         target_accuracy = self.cfg.get("target_accuracy", None)
         if target_accuracy is not None and accuracy_results['accuracy'] >= target_accuracy:
@@ -344,6 +353,13 @@ class MSTARCorrelation(Agent):
                 "correct_predictions": physical_results['correct'],
             },
         }
+
+        # Add optional logits and indices
+        if 'logits' in physical_results:
+            results['raw_data']['logits'] = physical_results['logits']
+
+        if 'indices' in physical_results:
+            results['raw_data']['indices'] = physical_results['indices']
 
         # Save to JSON file
         output_dir = self.cfg.get("output_dir", "./outputs/mstar_correlation")

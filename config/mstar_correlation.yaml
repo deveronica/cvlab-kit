@@ -1,0 +1,53 @@
+# config/mstar_correlation.yaml
+# MSTAR Physical Indicators Correlation Analysis
+# ResNet-18 Classification with Physical Indicators Analysis
+
+project: mstar_physical_correlation
+agent: mstar_correlation
+
+# Model Configuration
+model: resnet18
+num_classes: 10  # MSTAR has 10 target classes
+
+# Dataset Configuration
+dataset:
+  train: mstar(root="./data/mstar", split="TRAIN")
+  val: mstar(root="./data/mstar", split="TEST")
+
+# Data Transforms
+transform: "resize(size=128) | to_tensor"
+
+# Dataloader Configuration
+dataloader:
+  train: basic(split=train, shuffle=true)
+  val: basic(split=val, shuffle=false)
+
+# Optimizer Configuration
+optimizer: adam
+lr: 0.001
+weight_decay: 0.0001
+betas: !!python/tuple [0.9, 0.999]
+
+# Loss Function
+loss: cross_entropy
+
+# Metrics Configuration
+metric:
+  physical: physical_indicators(lf_ratio=0.25, num_bins=256)
+  accuracy: accuracy
+
+# Training Hyperparameters
+epochs: 500  # Max epochs
+batch_size: 32
+target_accuracy: 0.999  # Stop when validation accuracy reaches 99.9%
+
+# Device Configuration
+device: 0  # GPU device ID, use -1 for CPU
+
+# Output Configuration
+output_dir: ./outputs/mstar_correlation
+save_freq: 10  # Save checkpoint every 10 epochs
+
+# Experiment Metadata
+project_name: mstar_physical_correlation
+run_name: resnet18_baseline

@@ -1,4 +1,6 @@
-# Adding New Component Implementation
+# 컴포넌트 확장
+
+> 새로운 Model, Loss, Dataset 등 추가하기
 
 ## 1. 컴포넌트 추가 위치
 - cvlabkit/component 디렉토리 하위에 컴포넌트 타입에 맞는 디렉토리를 생성하고, 그 안에 구현체를 추가합니다.
@@ -19,7 +21,7 @@ cvlabkit/
 - 기존에 구현된 컴포넌트를 활용할 경우, 합성(Composition) 패턴을 활용하여 객체를 생성한 뒤, 필요한 메서드를 재정의하여 사용할 수 있습니다.
 
 ```python
-# cvlabkit/component/optimizer/adamw.py
+## cvlabkit/component/optimizer/adamw.py
 import torch.optim as optim
 from cvlabkit.component.base import Optimizer
 
@@ -49,3 +51,11 @@ opt = create.optimizer(model.parameters())
 
 ## 5. **자동 로딩 테스트**
 - `main.py`을 수행하여 새로운 컴포넌트가 올바르게 로드되는지 확인합니다.
+
+---
+
+## 관련 문서
+
+- [개발자 가이드](user_guide_developer.md)
+- [아키텍처](architecture.md)
+- [설정 예제](config_examples.md)

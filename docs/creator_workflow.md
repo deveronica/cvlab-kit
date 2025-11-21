@@ -12,7 +12,7 @@
 모든 과정은 `main.py`에서 `Creator` 객체를 생성하는 것으로 시작됩니다.
 
 ```python
-# main.py
+## main.py
 cfg = Config(args.config)    # 1. YAML 설정 로드
 create = Creator(cfg)        # 2. Creator 초기화
 agent = create.agent()       # 3. 메인 에이전트 생성
@@ -22,7 +22,7 @@ agent.run()                  # 4. 에이전트 실행
 `Creator`가 초기화될 때, 내부에 `ComponentCreator` 인스턴스를 함께 생성합니다. `Creator` 자신은 에이전트 생성만 담당하고, 나머지 모든 컴포넌트 생성 작업은 `ComponentCreator`에게 위임하는 구조입니다.
 
 ```python
-# cvlabkit/core/creator.py
+## cvlabkit/core/creator.py
 class Creator:
     def __init__(self, cfg: Config):
         self.cfg = cfg
@@ -35,7 +35,7 @@ class Creator:
 에이전트는 자신의 `setup()` 메소드 내에서 필요한 컴포넌트들을 `Creator`에게 요청합니다. 이 때 `create`는 에이전트에 주입된 `ComponentCreator`의 프록시(proxy) 역할을 합니다.
 
 ```python
-# agent.py (예시)
+## agent.py (예시)
 class MyAgent(Agent):
     def setup(self):
         # self.create는 ComponentCreator를 가리킴

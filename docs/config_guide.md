@@ -1,4 +1,6 @@
-# 설정 가이드: 동적 로딩 및 구성 규칙
+# 설정 가이드
+
+> YAML 기반 동적 컴포넌트 로딩 및 Grid Search 설정
 
 `Creator`는 YAML 설정 파일을 기반으로 필요한 컴포넌트를 동적으로 로딩합니다. 사용자는 `import` 구문 없이 YAML 파일만 수정하여 실험 구성을 변경할 수 있습니다. 이를 위해 다음 설정 규칙을 따라야 합니다.
 
@@ -126,5 +128,63 @@
     val_metric = create.metric.val()
     ```
 
-- **전제 조건:**
-  이 기능을 사용하려면 해당 컴포넌트 타입 디렉토리(예: `cvlabkit/component/transform/`, `cvlabkit/component/metric/`) 내에 `compose.py` 파일과 `Compose` 클래스가 반드시 구현되어 있어야 합니다. `Compose` 클래스는 컴포넌트 인스턴스 리스트를 받아 순차적으로 실행하는 로직을 담당합니다.
+### Compose 작동 원리
+
+`Compose` 컴포넌트는 여러 컴포넌트를 순차적으로 실행하는 컨테이너입니다. Creator가 `|`로 연결된 설정을 만나면 자동으로 각 컴포넌트를 인스턴스화한 뒤 `Compose`로 래핑합니다.
+
+**Transform Compose 예시:**
+```python
+# cvlabkit/component/transform/compose.py
+class Compose(Transform):
+    def __init__(self, cfg: Config, components: List[Transform]):
+        # PRE-INSTANTIATED transform 리스트를 받음
+        self.pipeline = transforms.Compose(transforms=components)
+
+    def __call__(self, sample, **kwargs):
+        # 각 transform을 순차 실행하며 kwargs 전달
+        for t in self.pipeline.transforms:
+            if isinstance(t, Transform):
+                sample = t(sample, **kwargs)  # 커스텀 kwargs 전달
+            else:
+                sample = t(sample)  # torchvision 표준 transform
+        return sample
+```
+
+**Metric Compose 예시:**
+```python
+# cvlabkit/component/metric/compose.py
+class Compose(Metric):
+    def __init__(self, cfg: Config, components: List[Metric]):
+        self.metrics = components  # PRE-INSTANTIATED metric 리스트
+
+    def update(self, **kwargs):
+        for metric in self.metrics:
+            metric.update(**kwargs)  # 모든 metric 업데이트
+
+    def compute(self) -> Dict[str, float]:
+        results = {}
+        for metric in self.metrics:
+            results.update(metric.compute())  # 결과 병합
+        return results
+```
+
+**핵심 특징:**
+- `Compose`는 이미 인스턴스화된 컴포넌트 리스트를 받음 (`components` 파라미터)
+- Transform: kwargs를 통한 추가 정보 전달 지원 (예: `difficulty_score`)
+- Metric: 여러 메트릭의 결과를 하나의 딕셔너리로 병합
+- 각 컴포넌트 타입은 자체 `compose.py` 구현 필요 (`transform/`, `metric/`)
+
+**실행 흐름:**
+1. YAML: `transform: "resize(size=128) | to_tensor | normalize"`
+2. Creator: 각 컴포넌트 인스턴스화 → `[resize_obj, to_tensor_obj, normalize_obj]`
+3. Compose 생성: `Compose(cfg, components=[resize_obj, to_tensor_obj, normalize_obj])`
+4. 사용: `compose_obj(image)` → resize → to_tensor → normalize 순차 실행
+
+---
+
+## 관련 문서
+
+- [Creator 워크플로우](creator_workflow.md) - Creator의 동작 원리와 컴포넌트 로딩 메커니즘
+- [컴포넌트 확장](extending_components.md) - 새로운 컴포넌트 추가 방법
+- [Build 개념](build_concept_explained.md) - 설정 템플릿 자동 생성
+- [문제 해결](troubleshooting.md) - Config 관련 일반적인 에러

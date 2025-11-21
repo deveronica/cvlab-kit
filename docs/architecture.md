@@ -1,7 +1,67 @@
-# 아키텍처 개요
+# 아키텍처
+
+> CVLab-Kit의 Agent-Component-Creator 구조와 동작 원리
 
 이 섹션에서는 CVLab-Kit 프레임워크의 내부 작동 방식과 아키텍처에 대해 자세히 설명합니다.
 
+## 시스템 구조도
+
+```mermaid
+graph TB
+    subgraph USER[사용자]
+        YAML[YAML 설정 파일]
+        CLI[main.py --config]
+    end
+
+    subgraph CORE[Core 시스템]
+        Config[Config<br/>YAML 파싱]
+        Creator[Creator<br/>컴포넌트 팩토리]
+        Interface[InterfaceMeta<br/>인터페이스 통일]
+    end
+
+    subgraph COMP[Components]
+        Model[Model]
+        Loss[Loss]
+        Optimizer[Optimizer]
+        Dataset[Dataset]
+        Transform[Transform]
+        Metric[Metric]
+    end
+
+    subgraph AGENT[Agent]
+        Agent[Agent<br/>실험 오케스트레이션]
+        Train[train_epoch]
+        Val[validate]
+        Test[test]
+    end
+
+    YAML --> CLI
+    CLI --> Config
+    Config --> Creator
+    Creator -.생성.-> Model
+    Creator -.생성.-> Loss
+    Creator -.생성.-> Optimizer
+    Creator -.생성.-> Dataset
+    Creator -.생성.-> Transform
+    Creator -.생성.-> Metric
+
+    Interface -.적용.-> Model
+    Interface -.적용.-> Loss
+    Interface -.적용.-> Optimizer
+    Interface -.적용.-> Dataset
+    Interface -.적용.-> Transform
+    Interface -.적용.-> Metric
+
+    Creator --> Agent
+    Model --> Train
+    Loss --> Train
+    Optimizer --> Train
+    Dataset --> Train
+    Transform --> Train
+    Metric --> Val
+
+    Train --> Val --> Test
+```
 
 ## 작동 방식
 

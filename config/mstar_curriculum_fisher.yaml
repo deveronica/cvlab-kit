@@ -1,0 +1,47 @@
+# MSTAR Curriculum Learning with Fisher Criterion (Training-Free)
+# Progressive easy-to-hard learning based on physical image indicators
+
+project: mstar_curriculum
+agent: curriculum_mstar
+
+# Model
+model: resnet18(num_classes=10)
+
+# Dataset & Dataloader
+dataset:
+  train: mstar(split=train)
+  test: mstar(split=test)
+
+dataloader:
+  train: curriculum_mstar(weight_strategy=fisher, start_ratio=0.2, end_ratio=1.0, schedule=linear, total_epochs=100)
+  test: basic
+
+# Training
+epochs: 100
+batch_size: 64
+lr: 0.001
+weight_decay: 0.0001
+
+optimizer: adam
+scheduler: cosine_annealing(T_max=100)
+
+# Loss
+loss: cross_entropy
+
+# Transforms
+transform:
+  train: "resize(size=128) | random_horizontal_flip | random_rotation(degrees=15) | to_tensor | normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])"
+  test: "resize(size=128) | to_tensor | normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])"
+
+# Metrics
+metric:
+  accuracy: accuracy
+  f1: f1_score(average=macro)
+
+# Logging
+checkpoint:
+  save_freq: 10
+  save_best: True
+  metric_name: test_accuracy
+
+log_freq: 10

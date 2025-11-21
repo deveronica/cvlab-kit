@@ -1,0 +1,52 @@
+# MSTAR Physical Correlation Analysis - Version 3 (Extended Indicators)
+# Includes 20 total physical indicators for maximum correlation discovery
+
+project: mstar_physical_correlation_v3
+agent: mstar_correlation
+
+# Model configuration
+model: resnet18
+num_classes: 10
+
+# Dataset
+dataset:
+  train: mstar(root="./data/mstar", split="TRAIN")
+  val: mstar(root="./data/mstar", split="TEST")
+
+# Transforms
+transform: "resize(size=128) | to_tensor"
+
+# Dataloader
+dataloader:
+  train: basic(split=train, shuffle=true)
+  val: basic(split=val, shuffle=false)
+
+# Training
+epochs: 100
+batch_size: 32
+device: cpu
+
+# Optimizer
+optimizer: sgd
+lr: 0.01
+momentum: 0.9
+weight_decay: 0.0001
+
+# Loss
+loss: cross_entropy
+
+# Metrics - Using Extended Physical Indicators
+metric:
+  physical: extended_physical_indicators(lf_ratio=0.25, num_bins=256, save_logits=true, save_indices=true, local_window_size=7, canny_sigma=1.0, fft_hf_threshold=0.5)
+  accuracy: accuracy
+
+# Logging
+output_dir: ./outputs/mstar_correlation_v3
+save_freq: 10
+
+# Analysis configuration
+analysis:
+  extended_indicators: true
+  save_images: false
+  save_logits: true
+  save_indices: true

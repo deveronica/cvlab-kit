@@ -1,7 +1,6 @@
-import re
 import os
+import re
 from pathlib import Path
-
 
 # Determine project root and paths to the agent and component directories
 base_dir = Path(__file__).resolve().parent.parent
@@ -14,22 +13,28 @@ placeholders = []
 
 # For agent: pick first .py file (excluding dunder) as default, if any
 if agent_dir.exists():
-    agent_files = sorted([f.stem for f in agent_dir.glob("*.py") if not f.name.startswith("_")])
+    agent_files = sorted(
+        [f.stem for f in agent_dir.glob("*.py") if not f.name.startswith("_")]
+    )
     default_agent = agent_files[0] if agent_files else ""
     placeholders.append(("Agent (select implementation)", "agent", default_agent))
 
 # For components: add a header and then each category with its default = first .py file in that category
 if component_dir.exists():
     placeholders.append(("Components: (select implementation)", "", ""))
-    for category in sorted([p.name for p in component_dir.iterdir() if p.is_dir() and p.name != "base"]):
+    for category in sorted(
+        [p.name for p in component_dir.iterdir() if p.is_dir() and p.name != "base"]
+    ):
         cat_dir = component_dir / category
-        impl_files = sorted([f.stem for f in cat_dir.glob("*.py") if not f.name.startswith("_")])
+        impl_files = sorted(
+            [f.stem for f in cat_dir.glob("*.py") if not f.name.startswith("_")]
+        )
         default_impl = impl_files[0] if impl_files else ""
         placeholders.append(("", category, default_impl))
 
 # Compile regex patterns for cfg.attribute and cfg.get("attribute")
-pattern_attr = re.compile(r'cfg\.([a-zA-Z_]\w*)')
-pattern_get  = re.compile(r'cfg\.get\(["\']([a-zA-Z_]\w*)["\']')
+pattern_attr = re.compile(r"cfg\.([a-zA-Z_]\w*)")
+pattern_get = re.compile(r'cfg\.get\(["\']([a-zA-Z_]\w*)["\']')
 
 # Traverse agent and component directories
 # Collect all flat cfg keys (depth=1) referenced in code files

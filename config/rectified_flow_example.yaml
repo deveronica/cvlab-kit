@@ -1,0 +1,89 @@
+# Rectified Flow Training Configuration
+# Refactored to use component-based architecture
+
+project: rectified_flow_example
+
+# Agent
+agent: rectified_flow_trainer
+
+# Model (Unet only, no wrapper)
+model: unet(
+  dim=64,
+  dim_mults=[1, 2, 4, 8],
+  channels=3,
+  mean_variance_net=false,
+  learned_sinusoidal_cond=false,
+  random_fourier_features=false,
+  learned_sinusoidal_dim=16,
+  dropout=0.0,
+  attn_dim_head=32,
+  attn_heads=4,
+  flash_attn=false,
+  num_residual_streams=2
+)
+
+# Transforms
+transform:
+  data_normalizer: data_normalizer(mode="neg_one_to_one")
+  unnormalize: data_normalizer(mode="zero_to_one")
+  noise_schedule: noise_schedule(schedule="cosmap")
+
+# Solver for ODE sampling
+solver: ode_solver(method="midpoint", atol=1e-5, rtol=1e-5)
+
+# Loss (optional, defaults to MSE in agent)
+# loss: pseudo_huber_lpips(data_dim=3)
+
+# Dataset
+dataset: image_folder(
+  folder="/path/to/image/folder",
+  image_size=64,
+  exts=["jpg", "jpeg", "png"],
+  augment_horizontal_flip=true,
+  convert_image_to="RGB"
+)
+
+# Dataloader
+dataloader:
+  batch_size: 16
+  shuffle: true
+  drop_last: true
+  num_workers: 4
+
+# Optimizer
+optimizer: adam(lr=0.0003, betas=[0.9, 0.999])
+
+# Training configuration
+epochs: 100
+batch_size: 16
+device: 0
+
+# Flow prediction mode
+predict: flow  # 'flow' or 'noise'
+max_grad_norm: 0.5
+
+# EMA (optional)
+use_ema: true
+ema_kwargs:
+  beta: 0.9999
+  update_every: 10
+
+# Sampling settings
+sample_steps: 50
+num_samples: 16  # Must be a perfect square
+sample_temperature: 1.0
+
+# Checkpointing
+results_folder: ./results/rectified_flow
+checkpoints_folder: ./checkpoints/rectified_flow
+save_results_every: 100
+checkpoint_every: 1000
+
+# Logger (optional)
+# logger: csv(log_dir="./logs")
+
+# Grid search examples:
+# optimizer: adam(lr=[0.0001, 0.0003, 0.001])  # 3 experiments
+# predict: [flow, noise]  # 2 experiments
+# transform:
+#   noise_schedule: noise_schedule(schedule=["linear", "cosmap"])  # 2 experiments

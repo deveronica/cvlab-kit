@@ -4,15 +4,14 @@
 
 ## 📋 목차
 
-1. [개념 이해](#1-개념-이해)
-2. [GitHub 배포](#2-github-배포)
-3. [서버 배포](#3-서버-배포)
-4. [클라이언트 연결](#4-클라이언트-연결)
-5. [실전 시나리오](#5-실전-시나리오)
+1. [개념 이해](#concept)
+2. [GitHub 배포](#github)
+3. [서버 배포](#server)
+4. [클라이언트 연결](#client)
 
 ---
 
-## 1. 개념 이해
+## 1. 개념 이해 {#concept}
 
 ### 시스템 구조
 
@@ -43,7 +42,7 @@ graph TD
 
 ---
 
-## 2. GitHub 배포
+## 2. GitHub 배포 {#github}
 
 ### 2.1 리포지토리 생성
 
@@ -120,7 +119,7 @@ git push
 
 ---
 
-## 3. 서버 배포
+## 3. 서버 배포 {#server}
 
 ### 3.1 서버 준비
 
@@ -192,7 +191,7 @@ cd ../..
 ### 3.5 방화벽 설정
 
 > **Platform**: Linux only (Ubuntu/Debian)
-> **macOS**: Use `pf` (see [macOS Section](#macos-launchd))
+> **macOS**: Use `pf` or System Preferences > Security > Firewall
 > **Windows**: Use Windows Firewall
 
 **Ubuntu UFW 사용**:
@@ -206,8 +205,8 @@ sudo ufw status
 ### 3.6 서버 실행 (systemd 서비스 등록)
 
 > **Platform**: Linux only
-> **macOS alternative**: See [macOS launchd section](#macos-launchd)
-> **Windows alternative**: See [Windows Task Scheduler](#windows-작업-스케줄러)
+> **macOS alternative**: Use `launchd` with plist file
+> **Windows alternative**: Use Task Scheduler
 
 **systemd 서비스 파일 생성**:
 ```bash
@@ -258,7 +257,7 @@ curl ifconfig.me
 
 ---
 
-## 4. 클라이언트 연결
+## 4. 클라이언트 연결 {#client}
 
 ### 4.1 GPU 워크스테이션 준비
 

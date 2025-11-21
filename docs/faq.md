@@ -42,7 +42,7 @@ batch_size: 32
 gradient_accumulation_steps: 4  # 실질적으로 128과 동일
 ```
 
-자세한 내용은 [성능 튜닝 가이드](performance_tuning.md#gpu-메모리-최적화)를 참고하세요.
+자세한 내용은 [성능 튜닝 가이드](performance_tuning.md)를 참고하세요.
 
 ## 실험 실행
 
@@ -252,7 +252,7 @@ uv run app.py --server-only
 uv run app.py --client-only --url http://server-ip:8000
 ```
 
-자세한 내용은 [분산 실행 가이드](distributed_execution_guide.md#4-클라이언트-연결)를 참고하세요.
+자세한 내용은 [분산 실행 가이드](distributed_execution_guide.md)를 참고하세요.
 
 ## 문제 해결
 

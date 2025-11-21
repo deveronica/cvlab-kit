@@ -1,6 +1,8 @@
-from cvlabkit.component.base import Metric
-import torch
 from typing import Dict
+
+import torch
+
+from cvlabkit.component.base import Metric
 
 
 class Accuracy(Metric):

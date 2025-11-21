@@ -1,5 +1,6 @@
 from cvlabkit.component.base import Metric
 
+
 class DetmapMetric(Metric):
     def __init__(self, cfg):
         self.results = []

@@ -1,18 +1,18 @@
 # cvlabkit/component/metric/compose.py
 
-from typing import Any, Dict, List
-from cvlabkit.core.config import Config
+from typing import Dict, List
+
 from cvlabkit.component.base import Metric
+from cvlabkit.core.config import Config
 
 
 class Compose(Metric):
-    """
-    A generic metric component that composes a list of other metric components.
+    """A generic metric component that composes a list of other metric components.
     It is initialized with a list of already-instantiated metric components.
     """
+
     def __init__(self, cfg: Config, components: List[Metric]):
-        """
-        Initializes the Compose metric.
+        """Initializes the Compose metric.
 
         Args:
             cfg (Config): The configuration object for this component.

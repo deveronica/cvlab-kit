@@ -1,8 +1,10 @@
 import os
-import numpy as np
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, List
 from collections import defaultdict
+from typing import Any, Dict, List
+
+import numpy as np
+
 from cvlabkit.component.base import Metric
 
 
@@ -11,28 +13,30 @@ def parse_rec(xml_file: str) -> List[Dict[str, Any]]:
     objects = []
     for obj in tree.findall("object"):
         bbox = obj.find("bndbox")
-        objects.append({
-            "name": obj.find("name").text,
-            "difficult": int(obj.find("difficult").text),
-            "bbox": [
-                int(bbox.find("xmin").text),
-                int(bbox.find("ymin").text),
-                int(bbox.find("xmax").text),
-                int(bbox.find("ymax").text),
-            ],
-        })
+        objects.append(
+            {
+                "name": obj.find("name").text,
+                "difficult": int(obj.find("difficult").text),
+                "bbox": [
+                    int(bbox.find("xmin").text),
+                    int(bbox.find("ymin").text),
+                    int(bbox.find("xmax").text),
+                    int(bbox.find("ymax").text),
+                ],
+            }
+        )
     return objects
 
 
 def voc_ap(rec, prec, use_07_metric=False):
     if use_07_metric:
         ap = 0.0
-        for t in np.arange(0., 1.1, 0.1):
+        for t in np.arange(0.0, 1.1, 0.1):
             p = np.max(prec[rec >= t]) if np.any(rec >= t) else 0
-            ap += p / 11.
+            ap += p / 11.0
     else:
-        mrec = np.concatenate(([0.], rec, [1.]))
-        mpre = np.concatenate(([0.], prec, [0.]))
+        mrec = np.concatenate(([0.0], rec, [1.0]))
+        mpre = np.concatenate(([0.0], prec, [0.0]))
 
         for i in range(mpre.size - 1, 0, -1):
             mpre[i - 1] = np.maximum(mpre[i - 1], mpre[i])
@@ -48,7 +52,8 @@ class PascalVOCAPMetric(Metric):
         split = cfg.split
         self.annotation_dir = os.path.join(root, "Annotations")
         self.image_set_file = os.path.join(root, "ImageSets", "Main", f"{split}.txt")
-        if isinstance(cfg.class_names, str): cfg.class_names = [cfg.class_names]
+        if isinstance(cfg.class_names, str):
+            cfg.class_names = [cfg.class_names]
         self.class_names = cfg.class_names
         self.use_07_metric = True
 
@@ -56,8 +61,7 @@ class PascalVOCAPMetric(Metric):
         self.gts = {}
 
     def update(self, **kwargs: Any) -> None:
-        """
-        kwargs: {
+        """kwargs: {
             "image_id": str,
             "boxes": np.ndarray,   # [N, 4]
             "scores": np.ndarray,  # [N]
@@ -67,7 +71,7 @@ class PascalVOCAPMetric(Metric):
         self.detections.append(kwargs)
 
     def compute(self) -> Dict[str, float]:
-        with open(self.image_set_file, "r") as f:
+        with open(self.image_set_file) as f:
             image_ids = [x.strip() for x in f.readlines()]
 
         for image_id in image_ids:
@@ -130,7 +134,11 @@ class PascalVOCAPMetric(Metric):
             difficult = np.array([x["difficult"] for x in objs]).astype(bool)
             det_flags = [False] * len(objs)
             npos += np.sum(~difficult)
-            gt_records[image_id] = {"bbox": bbox, "difficult": difficult, "det": det_flags}
+            gt_records[image_id] = {
+                "bbox": bbox,
+                "difficult": difficult,
+                "det": det_flags,
+            }
 
         tp = np.zeros(len(image_ids))
         fp = np.zeros(len(image_ids))
@@ -150,26 +158,29 @@ class PascalVOCAPMetric(Metric):
                 iymin = np.maximum(BBGT[:, 1], bb[1])
                 ixmax = np.minimum(BBGT[:, 2], bb[2])
                 iymax = np.minimum(BBGT[:, 3], bb[3])
-                iw = np.maximum(ixmax - ixmin + 1.0, 0.)
-                ih = np.maximum(iymax - iymin + 1.0, 0.)
+                iw = np.maximum(ixmax - ixmin + 1.0, 0.0)
+                ih = np.maximum(iymax - iymin + 1.0, 0.0)
                 inters = iw * ih
-                uni = ((bb[2]-bb[0]+1.) * (bb[3]-bb[1]+1.) +
-                       (BBGT[:, 2]-BBGT[:, 0]+1.) * (BBGT[:, 3]-BBGT[:, 1]+1.) - inters)
+                uni = (
+                    (bb[2] - bb[0] + 1.0) * (bb[3] - bb[1] + 1.0)
+                    + (BBGT[:, 2] - BBGT[:, 0] + 1.0) * (BBGT[:, 3] - BBGT[:, 1] + 1.0)
+                    - inters
+                )
                 overlaps = inters / uni
                 ovmax = np.max(overlaps)
                 jmax = np.argmax(overlaps)
             else:
-                ovmax = 0.
+                ovmax = 0.0
 
             if ovmax > ovthresh:
                 if not R["difficult"][jmax]:
                     if not R["det"][jmax]:
-                        tp[i] = 1.
+                        tp[i] = 1.0
                         R["det"][jmax] = True
                     else:
-                        fp[i] = 1.
+                        fp[i] = 1.0
             else:
-                fp[i] = 1.
+                fp[i] = 1.0
 
         fp = np.cumsum(fp)
         tp = np.cumsum(tp)

@@ -1,14 +1,14 @@
-"""
-Physical Indicators Metric Component for Image Analysis.
+"""Physical Indicators Metric Component for Image Analysis.
 
 This metric computes various physical indicators from images along with
 prediction entropy to analyze correlations between image properties and
 model uncertainty.
 """
 
+from typing import Dict, List
+
 import numpy as np
 import torch
-from typing import Dict, List
 from scipy import stats
 from scipy.ndimage import sobel
 from skimage.feature import graycomatrix, graycoprops
@@ -17,8 +17,7 @@ from cvlabkit.component.base import Metric
 
 
 class PhysicalIndicators(Metric):
-    """
-    Computes physical indicators and prediction entropy for each test sample.
+    """Computes physical indicators and prediction entropy for each test sample.
 
     Physical Indicators:
     - ECR (Energy Compaction Ratio): LF energy / HF energy ratio
@@ -35,8 +34,7 @@ class PhysicalIndicators(Metric):
     """
 
     def __init__(self, cfg):
-        """
-        Initializes the PhysicalIndicators metric.
+        """Initializes the PhysicalIndicators metric.
 
         Args:
             cfg: Configuration object with optional parameters:
@@ -50,15 +48,18 @@ class PhysicalIndicators(Metric):
         super().__init__()
         self.lf_ratio = cfg.get("lf_ratio", 0.25)
         self.glcm_distances = cfg.get("glcm_distances", [1])
-        self.glcm_angles = cfg.get("glcm_angles", [0, np.pi/4, np.pi/2, 3*np.pi/4])
+        self.glcm_angles = cfg.get(
+            "glcm_angles", [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4]
+        )
         self.num_bins = cfg.get("num_bins", 256)
         self.save_logits = cfg.get("save_logits", False)
         self.save_indices = cfg.get("save_indices", False)
         self.reset()
 
-    def update(self, images: torch.Tensor, preds: torch.Tensor, targets: torch.Tensor) -> None:
-        """
-        Updates the metric state with a batch of images and predictions.
+    def update(
+        self, images: torch.Tensor, preds: torch.Tensor, targets: torch.Tensor
+    ) -> None:
+        """Updates the metric state with a batch of images and predictions.
 
         Args:
             images: Input images [B, C, H, W]
@@ -122,8 +123,7 @@ class PhysicalIndicators(Metric):
                 self.indices_list.append(current_idx)
 
     def _compute_ecr(self, img: np.ndarray) -> float:
-        """
-        Computes Energy Compaction Ratio (ECR).
+        """Computes Energy Compaction Ratio (ECR).
 
         ECR = LF_energy / HF_energy
         where LF is the center region and HF is the outer region in frequency space.
@@ -142,21 +142,20 @@ class PhysicalIndicators(Metric):
 
         # Compute energies
         lf_region = img[start_h:end_h, start_w:end_w]
-        lf_energy = np.sum(lf_region ** 2)
+        lf_energy = np.sum(lf_region**2)
 
         # HF energy: total - LF
-        total_energy = np.sum(img ** 2)
+        total_energy = np.sum(img**2)
         hf_energy = total_energy - lf_energy
 
         # Avoid division by zero
         if hf_energy < 1e-10:
-            return float('inf')
+            return float("inf")
 
         return lf_energy / hf_energy
 
     def _compute_tv(self, img: np.ndarray) -> float:
-        """
-        Computes Total Variation (TV).
+        """Computes Total Variation (TV).
 
         TV = sum(sqrt(|∇x|² + |∇y|²))
 
@@ -172,18 +171,18 @@ class PhysicalIndicators(Metric):
         return float(tv)
 
     def _compute_kurtosis(self, img: np.ndarray) -> float:
-        """
-        Computes excess kurtosis of pixel intensity distribution.
+        """Computes excess kurtosis of pixel intensity distribution.
 
         Kurtosis measures the "tailedness" of the distribution.
         High kurtosis indicates extreme outliers (e.g., DC peak in k-space).
         """
         flat_img = img.flatten()
-        return float(stats.kurtosis(flat_img, fisher=True))  # Excess kurtosis (normal=0)
+        return float(
+            stats.kurtosis(flat_img, fisher=True)
+        )  # Excess kurtosis (normal=0)
 
     def _compute_shannon_entropy(self, img: np.ndarray) -> float:
-        """
-        Computes Shannon entropy of pixel intensity distribution.
+        """Computes Shannon entropy of pixel intensity distribution.
 
         H = -Σ p(i) * log₂(p(i))
 
@@ -202,14 +201,15 @@ class PhysicalIndicators(Metric):
         return float(entropy)
 
     def _compute_glcm_contrast(self, img: np.ndarray) -> float:
-        """
-        Computes GLCM (Gray-Level Co-occurrence Matrix) Contrast.
+        """Computes GLCM (Gray-Level Co-occurrence Matrix) Contrast.
 
         Contrast measures local variations in the gray-level co-occurrence matrix.
         High contrast indicates rough spectral texture.
         """
         # Normalize image to 0-255 range for GLCM
-        img_normalized = ((img - img.min()) / (img.max() - img.min() + 1e-10) * 255).astype(np.uint8)
+        img_normalized = (
+            (img - img.min()) / (img.max() - img.min() + 1e-10) * 255
+        ).astype(np.uint8)
 
         # Compute GLCM
         glcm = graycomatrix(
@@ -218,18 +218,17 @@ class PhysicalIndicators(Metric):
             angles=self.glcm_angles,
             levels=256,
             symmetric=True,
-            normed=True
+            normed=True,
         )
 
         # Compute contrast property
-        contrast = graycoprops(glcm, 'contrast')
+        contrast = graycoprops(glcm, "contrast")
 
         # Average over all distances and angles
         return float(np.mean(contrast))
 
     def _compute_glcm_entropy(self, img: np.ndarray) -> float:
-        """
-        Computes GLCM (Gray-Level Co-occurrence Matrix) Entropy.
+        """Computes GLCM (Gray-Level Co-occurrence Matrix) Entropy.
 
         Entropy measures randomness/disorder in the texture.
         H = -Σ p(i,j) * log₂(p(i,j))
@@ -237,7 +236,9 @@ class PhysicalIndicators(Metric):
         High entropy indicates complex, random texture patterns.
         """
         # Normalize image to 0-255 range for GLCM
-        img_normalized = ((img - img.min()) / (img.max() - img.min() + 1e-10) * 255).astype(np.uint8)
+        img_normalized = (
+            (img - img.min()) / (img.max() - img.min() + 1e-10) * 255
+        ).astype(np.uint8)
 
         # Compute GLCM
         glcm = graycomatrix(
@@ -246,7 +247,7 @@ class PhysicalIndicators(Metric):
             angles=self.glcm_angles,
             levels=256,
             symmetric=True,
-            normed=True
+            normed=True,
         )
 
         # Compute entropy from GLCM
@@ -265,8 +266,7 @@ class PhysicalIndicators(Metric):
         return float(np.mean(entropies))
 
     def _compute_enl(self, img: np.ndarray) -> float:
-        """
-        Computes ENL (Equivalent Number of Looks).
+        """Computes ENL (Equivalent Number of Looks).
 
         ENL = mean² / variance
 
@@ -281,15 +281,14 @@ class PhysicalIndicators(Metric):
 
         # Avoid division by zero
         if variance < 1e-10:
-            return float('inf')
+            return float("inf")
 
-        enl = (mean ** 2) / variance
+        enl = (mean**2) / variance
 
         return float(enl)
 
     def _compute_prediction_entropy(self, logits: np.ndarray) -> float:
-        """
-        Computes prediction entropy from model logits.
+        """Computes prediction entropy from model logits.
 
         H = -Σ p(c) * log₂(p(c))
 
@@ -307,8 +306,7 @@ class PhysicalIndicators(Metric):
         return float(entropy)
 
     def _compute_cross_entropy_loss(self, logits: np.ndarray, target: int) -> float:
-        """
-        Computes cross entropy loss for the correct class.
+        """Computes cross entropy loss for the correct class.
 
         CE = -log(p_correct)
 
@@ -330,8 +328,7 @@ class PhysicalIndicators(Metric):
         return float(ce_loss)
 
     def compute(self) -> Dict[str, any]:
-        """
-        Computes final statistics and returns all collected data.
+        """Computes final statistics and returns all collected data.
 
         Returns:
             Dictionary containing:
@@ -340,10 +337,7 @@ class PhysicalIndicators(Metric):
                 - Prediction accuracy
         """
         if len(self.ecr_values) == 0:
-            return {
-                "num_samples": 0,
-                "warning": "No samples processed"
-            }
+            return {"num_samples": 0, "warning": "No samples processed"}
 
         # Convert lists to numpy arrays
         ecr = np.array(self.ecr_values)
@@ -371,11 +365,9 @@ class PhysicalIndicators(Metric):
             "cross_entropy_loss": ce_loss.tolist(),
             "targets": self.targets_list,
             "correct": correct.tolist(),
-
             # Summary statistics
             "num_samples": len(self.ecr_values),
             "accuracy": float(np.mean(correct)),
-
             # Physical indicators statistics
             "ecr_mean": float(np.mean(ecr)),
             "ecr_std": float(np.std(ecr)),
@@ -391,33 +383,43 @@ class PhysicalIndicators(Metric):
             "glcm_entropy_std": float(np.std(glcm_entropy)),
             "enl_mean": float(np.mean(enl)),
             "enl_std": float(np.std(enl)),
-
             # Model uncertainty statistics
             "pred_entropy_mean": float(np.mean(pred_entropy)),
             "pred_entropy_std": float(np.std(pred_entropy)),
             "ce_loss_mean": float(np.mean(ce_loss)),
             "ce_loss_std": float(np.std(ce_loss)),
-
             # Correlations with Prediction Entropy (Spearman rank correlation)
             "corr_ecr_pred_entropy": float(stats.spearmanr(ecr, pred_entropy)[0]),
             "corr_tv_pred_entropy": float(stats.spearmanr(tv, pred_entropy)[0]),
-            "corr_kurtosis_pred_entropy": float(stats.spearmanr(kurtosis, pred_entropy)[0]),
-            "corr_entropy_pred_entropy": float(stats.spearmanr(entropy, pred_entropy)[0]),
-            "corr_glcm_contrast_pred_entropy": float(stats.spearmanr(glcm_contrast, pred_entropy)[0]),
-            "corr_glcm_entropy_pred_entropy": float(stats.spearmanr(glcm_entropy, pred_entropy)[0]),
+            "corr_kurtosis_pred_entropy": float(
+                stats.spearmanr(kurtosis, pred_entropy)[0]
+            ),
+            "corr_entropy_pred_entropy": float(
+                stats.spearmanr(entropy, pred_entropy)[0]
+            ),
+            "corr_glcm_contrast_pred_entropy": float(
+                stats.spearmanr(glcm_contrast, pred_entropy)[0]
+            ),
+            "corr_glcm_entropy_pred_entropy": float(
+                stats.spearmanr(glcm_entropy, pred_entropy)[0]
+            ),
             "corr_enl_pred_entropy": float(stats.spearmanr(enl, pred_entropy)[0]),
-
             # Correlations with Cross Entropy Loss (Spearman rank correlation)
             "corr_ecr_ce_loss": float(stats.spearmanr(ecr, ce_loss)[0]),
             "corr_tv_ce_loss": float(stats.spearmanr(tv, ce_loss)[0]),
             "corr_kurtosis_ce_loss": float(stats.spearmanr(kurtosis, ce_loss)[0]),
             "corr_entropy_ce_loss": float(stats.spearmanr(entropy, ce_loss)[0]),
-            "corr_glcm_contrast_ce_loss": float(stats.spearmanr(glcm_contrast, ce_loss)[0]),
-            "corr_glcm_entropy_ce_loss": float(stats.spearmanr(glcm_entropy, ce_loss)[0]),
+            "corr_glcm_contrast_ce_loss": float(
+                stats.spearmanr(glcm_contrast, ce_loss)[0]
+            ),
+            "corr_glcm_entropy_ce_loss": float(
+                stats.spearmanr(glcm_entropy, ce_loss)[0]
+            ),
             "corr_enl_ce_loss": float(stats.spearmanr(enl, ce_loss)[0]),
-
             # Correlation between the two uncertainty measures
-            "corr_pred_entropy_ce_loss": float(stats.spearmanr(pred_entropy, ce_loss)[0]),
+            "corr_pred_entropy_ce_loss": float(
+                stats.spearmanr(pred_entropy, ce_loss)[0]
+            ),
         }
 
         # Add optional data

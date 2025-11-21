@@ -408,11 +408,14 @@ test-results/
 
 # Web Helper
 web_helper/web_helper.db
+web_helper/*.backup
+web_helper/queue_state.json*
 web_helper/state/db.sqlite
 web_helper/state/*.db
 web_helper/queue_logs/
 web_helper/frontend/dist/
 web_helper/frontend/node_modules/
+web_helper/frontend/.vite/
 
 # Claude Code (personal development tool)
 .claude/

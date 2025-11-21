@@ -247,7 +247,9 @@ class ConditionalUnet(Model):
                         Residual(branch=resnet_block(dim_in, dim_in)),
                         Residual(
                             branch=attn_klass(
-                                dim_in, dim_head=layer_attn_dim_head, heads=layer_attn_heads
+                                dim_in,
+                                dim_head=layer_attn_dim_head,
+                                heads=layer_attn_heads,
                             )
                         ),
                         Downsample(dim_in, dim_out)
@@ -295,7 +297,9 @@ class ConditionalUnet(Model):
                         ),
                         Residual(
                             branch=attn_klass(
-                                dim_out, dim_head=layer_attn_dim_head, heads=layer_attn_heads
+                                dim_out,
+                                dim_head=layer_attn_dim_head,
+                                heads=layer_attn_heads,
                             )
                         ),
                         Upsample(dim_out, dim_in)
@@ -326,9 +330,9 @@ class ConditionalUnet(Model):
         Returns:
             Output [B, C, H, W]
         """
-        assert all(
-            [divisible_by(d, self.downsample_factor) for d in x.shape[-2:]]
-        ), f"Input {x.shape[-2:]} must be divisible by {self.downsample_factor}"
+        assert all([divisible_by(d, self.downsample_factor) for d in x.shape[-2:]]), (
+            f"Input {x.shape[-2:]} must be divisible by {self.downsample_factor}"
+        )
 
         x = self.init_conv(x)
         r = x.clone()

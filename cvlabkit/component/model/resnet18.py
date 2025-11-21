@@ -1,5 +1,7 @@
 import torchvision
+
 from cvlabkit.component.base import Model
+
 
 class ResNet18(Model):
     def __init__(self, cfg):

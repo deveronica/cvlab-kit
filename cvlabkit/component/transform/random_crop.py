@@ -5,12 +5,10 @@ from cvlabkit.core.config import Config
 
 
 class RandomCrop(Transform):
-    """
-    A transform component that crops the given image at a random location.
-    """
+    """A transform component that crops the given image at a random location."""
+
     def __init__(self, cfg: Config):
-        """
-        Initializes the RandomCrop transform.
+        """Initializes the RandomCrop transform.
 
         Args:
             cfg (Config): The configuration object. Expected keys:
@@ -31,12 +29,11 @@ class RandomCrop(Transform):
             padding=padding,
             pad_if_needed=pad_if_needed,
             fill=fill,
-            padding_mode=padding_mode
+            padding_mode=padding_mode,
         )
 
     def __call__(self, sample, **kwargs):
-        """
-        Applies the random crop transformation.
+        """Applies the random crop transformation.
 
         Args:
             sample (PIL.Image): The input image.

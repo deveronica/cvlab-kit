@@ -1,14 +1,14 @@
 from torchvision import transforms
+
 from cvlabkit.component.base import Transform
 from cvlabkit.core.config import Config
 
+
 class Normalize(Transform):
-    """
-    A transform component that normalizes a tensor image with mean and standard deviation.
-    """
+    """A transform component that normalizes a tensor image with mean and standard deviation."""
+
     def __init__(self, cfg: Config):
-        """
-        Initializes the Normalize transform.
+        """Initializes the Normalize transform.
 
         Args:
             cfg (Config): The configuration object. Expected keys:
@@ -20,8 +20,7 @@ class Normalize(Transform):
         self.transform = transforms.Normalize(mean=mean, std=std)
 
     def __call__(self, sample, **kwargs):
-        """
-        Applies the normalization transformation.
+        """Applies the normalization transformation.
 
         Args:
             sample (torch.Tensor): The tensor image to be normalized.

@@ -4,13 +4,12 @@ from typing import List
 
 from torchvision import transforms
 
-from cvlabkit.core.config import Config
 from cvlabkit.component.base import Transform
+from cvlabkit.core.config import Config
 
 
 class Compose(Transform):
-    """
-    A transform component that composes a list of other transform components.
+    """A transform component that composes a list of other transform components.
 
     This component wraps a torchvision.transforms.Compose instance. Thanks to
     the InterfaceMeta metaclass, any calls to this component (like __call__)
@@ -18,9 +17,9 @@ class Compose(Transform):
     internal self.pipeline object. It is initialized with a list of already-instantiated
     transform components.
     """
+
     def __init__(self, cfg: Config, components: List[Transform]):
-        """
-        Initializes the Compose transform.
+        """Initializes the Compose transform.
 
         Args:
             cfg (Config): The configuration object for this component.
@@ -31,9 +30,8 @@ class Compose(Transform):
         self.pipeline = transforms.Compose(transforms=components)
 
     def __call__(self, sample, **kwargs):
-        """
-        Applies the sequence of transformations to the sample.
-        
+        """Applies the sequence of transformations to the sample.
+
         This explicit __call__ method ensures that any additional keyword
         arguments (like 'difficulty_score') are correctly passed down to each
         sub-component in the pipeline, which is not the default behavior of
@@ -43,7 +41,7 @@ class Compose(Transform):
             # Check if the component is a class from our framework to avoid errors
             # with standard torchvision transforms that don't accept kwargs.
             if isinstance(t, Transform):
-                 sample = t(sample, **kwargs)
+                sample = t(sample, **kwargs)
             else:
-                 sample = t(sample)
+                sample = t(sample)
         return sample

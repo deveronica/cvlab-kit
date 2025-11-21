@@ -39,15 +39,17 @@ class AdaptiveFlowRandAugment(Transform):
         self.generator_type = cfg.get("generator", "unet")
 
         # Create base config for FlowAddedRandAugment
-        self.base_cfg = Config({
-            "num_ops": self.num_ops,
-            "magnitude": 0,  # Will be updated dynamically
-            "num_magnitude_bins": 31,
-            "flow_checkpoint": self.flow_checkpoint,
-            "flow_steps": self.flow_steps,
-            "generator": self.generator_type,
-            "device": cfg.get("device", 0),
-        })
+        self.base_cfg = Config(
+            {
+                "num_ops": self.num_ops,
+                "magnitude": 0,  # Will be updated dynamically
+                "num_magnitude_bins": 31,
+                "flow_checkpoint": self.flow_checkpoint,
+                "flow_steps": self.flow_steps,
+                "generator": self.generator_type,
+                "device": cfg.get("device", 0),
+            }
+        )
 
         # Create FlowAddedRandAugment (loads generator once)
         self.augmenter = FlowAddedRandAugment(self.base_cfg)
@@ -67,7 +69,10 @@ class AdaptiveFlowRandAugment(Transform):
 
         # Linear interpolation for magnitude
         # High difficulty → High magnitude (strong augmentation)
-        magnitude = self.magnitude_min + (self.magnitude_max - self.magnitude_min) * difficulty_score
+        magnitude = (
+            self.magnitude_min
+            + (self.magnitude_max - self.magnitude_min) * difficulty_score
+        )
         final_magnitude = int(round(magnitude))
 
         # Update magnitude dynamically
@@ -77,7 +82,9 @@ class AdaptiveFlowRandAugment(Transform):
         return self.augmenter(sample)
 
     def __repr__(self) -> str:
-        flow_info = f", flow_checkpoint={self.flow_checkpoint}" if self.flow_checkpoint else ""
+        flow_info = (
+            f", flow_checkpoint={self.flow_checkpoint}" if self.flow_checkpoint else ""
+        )
         return (
             f"{self.__class__.__name__}("
             f"magnitude_min={self.magnitude_min}"

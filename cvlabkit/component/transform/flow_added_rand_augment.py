@@ -1,14 +1,14 @@
 # cvlabkit/component/transform/flow_added_rand_augment.py
 """RandAugment with Flow augmentation added to the operation pool."""
 
-import torch
-import torch.nn as nn
 from pathlib import Path
+
+import torch
 from PIL import Image
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
-from torchvision.transforms.functional import get_dimensions
 from torchvision.transforms.autoaugment import _apply_op
+from torchvision.transforms.functional import get_dimensions
 
 from cvlabkit.component.base import Transform
 from cvlabkit.core.config import Config
@@ -72,6 +72,7 @@ class FlowAddedRandAugment(Transform):
 
         # Create generator using Creator pattern
         from cvlabkit.core.creator import Creator
+
         temp_cfg = Config({"model": self.generator_type})
         temp_creator = Creator(temp_cfg)
         self.generator = temp_creator.model().to(self.device)
@@ -103,14 +104,23 @@ class FlowAddedRandAugment(Transform):
             "Identity": (torch.tensor(0.0), False),
             "ShearX": (torch.linspace(0.0, 0.3, num_bins), True),
             "ShearY": (torch.linspace(0.0, 0.3, num_bins), True),
-            "TranslateX": (torch.linspace(0.0, 150.0 / 331.0 * image_size[1], num_bins), True),
-            "TranslateY": (torch.linspace(0.0, 150.0 / 331.0 * image_size[0], num_bins), True),
+            "TranslateX": (
+                torch.linspace(0.0, 150.0 / 331.0 * image_size[1], num_bins),
+                True,
+            ),
+            "TranslateY": (
+                torch.linspace(0.0, 150.0 / 331.0 * image_size[0], num_bins),
+                True,
+            ),
             "Rotate": (torch.linspace(0.0, 30.0, num_bins), True),
             "Brightness": (torch.linspace(0.0, 0.9, num_bins), True),
             "Color": (torch.linspace(0.0, 0.9, num_bins), True),
             "Contrast": (torch.linspace(0.0, 0.9, num_bins), True),
             "Sharpness": (torch.linspace(0.0, 0.9, num_bins), True),
-            "Posterize": (8 - (torch.arange(num_bins) / ((num_bins - 1) / 4)).round().int(), False),
+            "Posterize": (
+                8 - (torch.arange(num_bins) / ((num_bins - 1) / 4)).round().int(),
+                False,
+            ),
             "Solarize": (torch.linspace(255.0, 0.0, num_bins), False),
             "AutoContrast": (torch.tensor(0.0), False),
             "Equalize": (torch.tensor(0.0), False),
@@ -203,7 +213,9 @@ class FlowAddedRandAugment(Transform):
             op_index = int(torch.randint(len(op_meta), (1,)).item())
             op_name = list(op_meta.keys())[op_index]
             magnitudes, signed = op_meta[op_name]
-            magnitude = float(magnitudes[self.magnitude].item()) if magnitudes.ndim > 0 else 0.0
+            magnitude = (
+                float(magnitudes[self.magnitude].item()) if magnitudes.ndim > 0 else 0.0
+            )
 
             if signed and torch.randint(2, (1,)):
                 magnitude *= -1.0
@@ -212,13 +224,16 @@ class FlowAddedRandAugment(Transform):
             if op_name == "Flow":
                 img = self._apply_flow(img, magnitude)
             else:
-                img = _apply_op(img, op_name, magnitude,
-                              interpolation=self.interpolation, fill=fill)
+                img = _apply_op(
+                    img, op_name, magnitude, interpolation=self.interpolation, fill=fill
+                )
 
         return img
 
     def __repr__(self) -> str:
-        flow_info = f", flow_checkpoint={self.flow_checkpoint}" if self.generator else ""
+        flow_info = (
+            f", flow_checkpoint={self.flow_checkpoint}" if self.generator else ""
+        )
         return (
             f"{self.__class__.__name__}("
             f"num_ops={self.num_ops}"

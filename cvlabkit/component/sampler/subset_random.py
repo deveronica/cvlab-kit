@@ -9,6 +9,7 @@ class SubsetRandom(Sampler):
 
     This component wraps `torch.utils.data.SubsetRandomSampler`.
     """
+
     def __init__(self, cfg: Config, indices: list):
         """Initializes the SubsetRandom sampler.
 

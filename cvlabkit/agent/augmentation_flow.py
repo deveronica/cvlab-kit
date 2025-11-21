@@ -113,7 +113,9 @@ class AugmentationFlow(Agent):
 
         # Conditioning mode
         self.use_conditioning = self.cfg.get("use_conditioning", False)
-        self.condition_type = self.cfg.get("condition_type", "random")  # 'random', 'fixed', 'difficulty'
+        self.condition_type = self.cfg.get(
+            "condition_type", "random"
+        )  # 'random', 'fixed', 'difficulty'
 
         # EMA (optional but recommended for stable generation)
         self.use_ema = self.cfg.get("use_ema", True)
@@ -139,8 +141,12 @@ class AugmentationFlow(Agent):
             self.model_checkpoint = None
             self.image_checkpoint = None
             self.periodic_checkpoint = None
-            self.checkpoint_dir = Path(self.cfg.get("checkpoint_dir", "./checkpoints/augmentation_flow"))
-            self.results_dir = Path(self.cfg.get("results_dir", "./results/augmentation_flow"))
+            self.checkpoint_dir = Path(
+                self.cfg.get("checkpoint_dir", "./checkpoints/augmentation_flow")
+            )
+            self.results_dir = Path(
+                self.cfg.get("results_dir", "./results/augmentation_flow")
+            )
             self.checkpoint_dir.mkdir(exist_ok=True, parents=True)
             self.results_dir.mkdir(exist_ok=True, parents=True)
 
@@ -151,7 +157,9 @@ class AugmentationFlow(Agent):
         # Sample configuration
         num_samples = self.cfg.get("num_samples", 16)
         self.num_sample_rows = int(math.sqrt(num_samples))
-        assert (self.num_sample_rows**2) == num_samples, f"num_samples={num_samples} must be perfect square"
+        assert (self.num_sample_rows**2) == num_samples, (
+            f"num_samples={num_samples} must be perfect square"
+        )
         self.num_samples = num_samples
 
         # Data shape (set on first batch)
@@ -163,7 +171,7 @@ class AugmentationFlow(Agent):
         else:
             self.logger = None
 
-        print(f"AugmentationFlow Agent initialized")
+        print("AugmentationFlow Agent initialized")
         print(f"  Device: {self.device}")
         print(f"  Predict mode: {self.predict}")
         print(f"  Conditioning: {self.use_conditioning} ({self.condition_type})")
@@ -183,8 +191,12 @@ class AugmentationFlow(Agent):
 
         # Apply transforms to PIL images
         with torch.no_grad():
-            x_0 = torch.stack([self.transform_weak(img) for img in images_pil]).to(self.device)
-            x_1 = torch.stack([self.transform_strong(img) for img in images_pil]).to(self.device)
+            x_0 = torch.stack([self.transform_weak(img) for img in images_pil]).to(
+                self.device
+            )
+            x_1 = torch.stack([self.transform_strong(img) for img in images_pil]).to(
+                self.device
+            )
 
         # Set data shape on first batch
         if self.data_shape is None:
@@ -215,7 +227,9 @@ class AugmentationFlow(Agent):
                 condition = torch.rand(len(x_0), device=self.device)
             elif self.condition_type == "fixed":
                 # Fixed conditioning value
-                condition = torch.ones(len(x_0), device=self.device) * self.cfg.get("condition_value", 0.5)
+                condition = torch.ones(len(x_0), device=self.device) * self.cfg.get(
+                    "condition_value", 0.5
+                )
             elif self.condition_type == "difficulty":
                 # Use interpolation time as difficulty (higher t = harder transformation)
                 condition = scheduled_times
@@ -269,7 +283,9 @@ class AugmentationFlow(Agent):
         # Periodic checkpointing
         if self.current_step % self.save_checkpoint_every == 0:
             if self.model_checkpoint is not None:
-                self._save_checkpoint_component(f"checkpoint_step_{self.current_step}.pt")
+                self._save_checkpoint_component(
+                    f"checkpoint_step_{self.current_step}.pt"
+                )
             else:
                 self.save_checkpoint(f"checkpoint_step_{self.current_step}.pt")
 
@@ -284,7 +300,9 @@ class AugmentationFlow(Agent):
 
         # Apply weak transform to get starting point
         with torch.no_grad():
-            images = torch.stack([self.transform_weak(img) for img in images_pil]).to(self.device)
+            images = torch.stack([self.transform_weak(img) for img in images_pil]).to(
+                self.device
+            )
 
         self.model.eval()
         eval_model = self.ema_model if self.use_ema else self.model
@@ -297,7 +315,9 @@ class AugmentationFlow(Agent):
                 x_0 = images
 
             # Generate strong augmentation as ground truth
-            x_1_true = torch.stack([self.transform_strong(img) for img in images_pil]).to(self.device)
+            x_1_true = torch.stack(
+                [self.transform_strong(img) for img in images_pil]
+            ).to(self.device)
             if self.normalizer is not None:
                 x_1_true = self.normalizer(x_1_true)
 
@@ -308,11 +328,15 @@ class AugmentationFlow(Agent):
 
                 # Prepare conditioning for validation
                 if self.use_conditioning:
-                    val_condition = torch.ones(len(images), device=self.device) * self.cfg.get("val_condition", 1.0)
+                    val_condition = torch.ones(
+                        len(images), device=self.device
+                    ) * self.cfg.get("val_condition", 1.0)
+
                     def ode_fn(t, x):
                         t_batch = t.expand(x.shape[0])
                         return eval_model(x, times=t_batch, condition=val_condition)
                 else:
+
                     def ode_fn(t, x):
                         t_batch = t.expand(x.shape[0])
                         return eval_model(x, times=t_batch)
@@ -322,7 +346,9 @@ class AugmentationFlow(Agent):
                 # Simple single-step generation
                 ones = torch.ones(len(images), device=self.device)
                 if self.use_conditioning:
-                    val_condition = torch.ones(len(images), device=self.device) * self.cfg.get("val_condition", 1.0)
+                    val_condition = torch.ones(
+                        len(images), device=self.device
+                    ) * self.cfg.get("val_condition", 1.0)
                     x_1_generated = eval_model(x_0, times=ones, condition=val_condition)
                 else:
                     x_1_generated = eval_model(x_0, times=ones)
@@ -365,14 +391,18 @@ class AugmentationFlow(Agent):
             try:
                 batch = next(iter(self.train_loader))
                 images_pil, _ = batch
-                images_pil = images_pil[:self.num_samples]
+                images_pil = images_pil[: self.num_samples]
             except StopIteration:
                 return
 
             # Generate augmentations from PIL images
-            images = torch.stack([self.transform_weak(img) for img in images_pil]).to(self.device)
+            images = torch.stack([self.transform_weak(img) for img in images_pil]).to(
+                self.device
+            )
             x_0 = images  # Already weak augmented
-            x_1_true = torch.stack([self.transform_strong(img) for img in images_pil]).to(self.device)
+            x_1_true = torch.stack(
+                [self.transform_strong(img) for img in images_pil]
+            ).to(self.device)
 
             if self.normalizer is not None:
                 x_0_norm = self.normalizer(x_0)
@@ -385,11 +415,15 @@ class AugmentationFlow(Agent):
                 times = torch.linspace(0.0, 1.0, num_steps, device=self.device)
 
                 if self.use_conditioning:
-                    sample_condition = torch.ones(len(x_0_norm), device=self.device) * self.cfg.get("sample_condition", 1.0)
+                    sample_condition = torch.ones(
+                        len(x_0_norm), device=self.device
+                    ) * self.cfg.get("sample_condition", 1.0)
+
                     def ode_fn(t, x):
                         t_batch = t.expand(x.shape[0])
                         return eval_model(x, times=t_batch, condition=sample_condition)
                 else:
+
                     def ode_fn(t, x):
                         t_batch = t.expand(x.shape[0])
                         return eval_model(x, times=t_batch)
@@ -398,8 +432,12 @@ class AugmentationFlow(Agent):
             else:
                 ones = torch.ones(len(x_0_norm), device=self.device)
                 if self.use_conditioning:
-                    sample_condition = torch.ones(len(x_0_norm), device=self.device) * self.cfg.get("sample_condition", 1.0)
-                    x_1_generated = eval_model(x_0_norm, times=ones, condition=sample_condition)
+                    sample_condition = torch.ones(
+                        len(x_0_norm), device=self.device
+                    ) * self.cfg.get("sample_condition", 1.0)
+                    x_1_generated = eval_model(
+                        x_0_norm, times=ones, condition=sample_condition
+                    )
                 else:
                     x_1_generated = eval_model(x_0_norm, times=ones)
                 if self.predict == "flow":
@@ -414,21 +452,18 @@ class AugmentationFlow(Agent):
 
             # Use periodic checkpoint to save
             def save_fn(path):
-                from torchvision.utils import save_image
                 from einops import rearrange
+                from torchvision.utils import save_image
 
                 # Rearrange for visualization
-                comp = rearrange(
-                    comparison,
-                    "views b c h w -> (b views) c h w"
-                )
+                comp = rearrange(comparison, "views b c h w -> (b views) c h w")
                 save_image(comp, path, nrow=4, normalize=False)
 
             self.periodic_checkpoint.on_epoch(
                 current_epoch=self.current_epoch,
                 save_fn=save_fn,
                 prefix="epoch_comparison",
-                ext="png"
+                ext="png",
             )
 
     def sample_and_save(self, fname):
@@ -449,15 +484,19 @@ class AugmentationFlow(Agent):
             try:
                 batch = next(iter(self.train_loader))
                 images_pil, _ = batch
-                images_pil = images_pil[:self.num_samples]
+                images_pil = images_pil[: self.num_samples]
             except StopIteration:
                 print("Warning: cannot sample from empty train_loader")
                 return
 
             # Generate augmentations from PIL images
-            images = torch.stack([self.transform_weak(img) for img in images_pil]).to(self.device)
+            images = torch.stack([self.transform_weak(img) for img in images_pil]).to(
+                self.device
+            )
             x_0 = images  # Already weak augmented
-            x_1_true = torch.stack([self.transform_strong(img) for img in images_pil]).to(self.device)
+            x_1_true = torch.stack(
+                [self.transform_strong(img) for img in images_pil]
+            ).to(self.device)
 
             if self.normalizer is not None:
                 x_0_norm = self.normalizer(x_0)
@@ -471,11 +510,15 @@ class AugmentationFlow(Agent):
 
                 # Prepare conditioning for sampling
                 if self.use_conditioning:
-                    sample_condition = torch.ones(len(x_0_norm), device=self.device) * self.cfg.get("sample_condition", 1.0)
+                    sample_condition = torch.ones(
+                        len(x_0_norm), device=self.device
+                    ) * self.cfg.get("sample_condition", 1.0)
+
                     def ode_fn(t, x):
                         t_batch = t.expand(x.shape[0])
                         return eval_model(x, times=t_batch, condition=sample_condition)
                 else:
+
                     def ode_fn(t, x):
                         t_batch = t.expand(x.shape[0])
                         return eval_model(x, times=t_batch)
@@ -485,8 +528,12 @@ class AugmentationFlow(Agent):
                 # Simple single-step generation
                 ones = torch.ones(len(x_0_norm), device=self.device)
                 if self.use_conditioning:
-                    sample_condition = torch.ones(len(x_0_norm), device=self.device) * self.cfg.get("sample_condition", 1.0)
-                    x_1_generated = eval_model(x_0_norm, times=ones, condition=sample_condition)
+                    sample_condition = torch.ones(
+                        len(x_0_norm), device=self.device
+                    ) * self.cfg.get("sample_condition", 1.0)
+                    x_1_generated = eval_model(
+                        x_0_norm, times=ones, condition=sample_condition
+                    )
                 else:
                     x_1_generated = eval_model(x_0_norm, times=ones)
                 if self.predict == "flow":
@@ -497,18 +544,15 @@ class AugmentationFlow(Agent):
                 x_1_generated = self.unnormalizer(x_1_generated)
 
             # Create comparison grid: [original | weak | generated | true_strong]
-            comparison = torch.stack([
-                images,
-                x_0,
-                x_1_generated,
-                x_1_true
-            ], dim=1)  # [B, 4, C, H, W]
+            comparison = torch.stack(
+                [images, x_0, x_1_generated, x_1_true], dim=1
+            )  # [B, 4, C, H, W]
 
             # Rearrange into grid
             comparison = rearrange(
                 comparison,
                 "(row col) views c h w -> c (row h) (views col w)",
-                row=self.num_sample_rows
+                row=self.num_sample_rows,
             )
             comparison = comparison.clamp(0.0, 1.0)
 
@@ -518,7 +562,7 @@ class AugmentationFlow(Agent):
                     [images, x_0, x_1_generated, x_1_true],
                     filename=f"{fname}.png",
                     labels=["Original", "Weak", "Generated", "Strong"],
-                    layout="horizontal"
+                    layout="horizontal",
                 )
             else:
                 save_path = self.results_dir / f"{fname}.png"
@@ -526,7 +570,9 @@ class AugmentationFlow(Agent):
                 print(f"Saved visualization to {save_path}")
 
             if self.logger:
-                self.logger.log_image("augmentation_flow", comparison, step=self.current_step)
+                self.logger.log_image(
+                    "augmentation_flow", comparison, step=self.current_step
+                )
 
     def save_checkpoint(self, filename):
         """Save model checkpoint.
@@ -545,7 +591,7 @@ class AugmentationFlow(Agent):
             "config": {
                 "predict": self.predict,
                 "use_ema": self.use_ema,
-            }
+            },
         }
 
         if self.ema_model is not None:
@@ -596,7 +642,9 @@ class AugmentationFlow(Agent):
         model_to_save = self.ema_model if self.use_ema else self.model
 
         ssl_package = {
-            "model_state_dict": model_to_save.state_dict() if self.use_ema else self.model.state_dict(),
+            "model_state_dict": model_to_save.state_dict()
+            if self.use_ema
+            else self.model.state_dict(),
             "data_shape": self.data_shape,
             "config": {
                 "predict": self.predict,
@@ -606,14 +654,14 @@ class AugmentationFlow(Agent):
                 "trained_epochs": self.current_epoch,
                 "trained_steps": self.current_step,
                 "agent": "AugmentationFlow",
-            }
+            },
         }
 
         torch.save(ssl_package, save_path)
         print(f"SSL-ready model saved: {save_path}")
         print(f"  Load in SSL agent with: torch.load('{save_path}')")
-        print(f"  Then: model.load_state_dict(checkpoint['model_state_dict'])")
-        print(f"  And freeze: model.eval() + model.requires_grad_(False)")
+        print("  Then: model.load_state_dict(checkpoint['model_state_dict'])")
+        print("  And freeze: model.eval() + model.requires_grad_(False)")
 
         return save_path
 
@@ -633,7 +681,7 @@ class AugmentationFlow(Agent):
                 "predict": self.predict,
                 "use_ema": self.use_ema,
                 "use_conditioning": self.use_conditioning,
-            }
+            },
         }
 
         if self.ema_model is not None:
@@ -650,7 +698,9 @@ class AugmentationFlow(Agent):
         model_to_save = self.ema_model if self.use_ema else self.model
 
         ssl_state = {
-            "model_state_dict": model_to_save.state_dict() if self.use_ema else self.model.state_dict(),
+            "model_state_dict": model_to_save.state_dict()
+            if self.use_ema
+            else self.model.state_dict(),
             "data_shape": self.data_shape,
             "config": {
                 "predict": self.predict,
@@ -661,11 +711,11 @@ class AugmentationFlow(Agent):
                 "trained_epochs": self.current_epoch,
                 "trained_steps": self.current_step,
                 "agent": "AugmentationFlow",
-            }
+            },
         }
 
         return self.model_checkpoint.save_for_inference(
             model_state=ssl_state["model_state_dict"],
             metadata=ssl_state,
-            filename=filename
+            filename=filename,
         )

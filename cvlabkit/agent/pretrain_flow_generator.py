@@ -15,8 +15,8 @@ import torch
 import torch.nn.functional as F
 from einops import rearrange
 from ema_pytorch import EMA
-from tqdm import tqdm
 from torchvision.utils import save_image
+from tqdm import tqdm
 
 from cvlabkit.core.agent import Agent
 
@@ -55,8 +55,12 @@ class AdaptiveAugmentationFlow(Agent):
         # Create transforms
         # Base: resize | random_crop | to_tensor | normalize
         # We need to split into: PIL ops | tensor ops
-        self.transform_base_pil = self.create.transform.base_pil()  # resize | random_crop
-        self.transform_base_tensor = self.create.transform.base_tensor()  # to_tensor | normalize
+        self.transform_base_pil = (
+            self.create.transform.base_pil()
+        )  # resize | random_crop
+        self.transform_base_tensor = (
+            self.create.transform.base_tensor()
+        )  # to_tensor | normalize
 
         # AdaptiveRandAugment: difficulty_score is passed at call time, not constructor
         self.adaptive_augment = self.create.transform.adaptive_augment()
@@ -120,7 +124,9 @@ class AdaptiveAugmentationFlow(Agent):
 
         # Conditioning mode
         self.use_conditioning = self.cfg.get("use_conditioning", False)
-        self.condition_type = self.cfg.get("condition_type", "random")  # 'random', 'fixed', 'difficulty'
+        self.condition_type = self.cfg.get(
+            "condition_type", "random"
+        )  # 'random', 'fixed', 'difficulty'
 
         # EMA (optional but recommended for stable generation)
         self.use_ema = self.cfg.get("use_ema", True)
@@ -148,8 +154,12 @@ class AdaptiveAugmentationFlow(Agent):
             self.periodic_checkpoint = None
 
         # Always set checkpoint_dir and results_dir
-        self.checkpoint_dir = Path(self.cfg.get("checkpoint_dir", "./checkpoints/augmentation_flow"))
-        self.results_dir = Path(self.cfg.get("results_dir", "./results/augmentation_flow"))
+        self.checkpoint_dir = Path(
+            self.cfg.get("checkpoint_dir", "./checkpoints/augmentation_flow")
+        )
+        self.results_dir = Path(
+            self.cfg.get("results_dir", "./results/augmentation_flow")
+        )
         self.checkpoint_dir.mkdir(exist_ok=True, parents=True)
         self.results_dir.mkdir(exist_ok=True, parents=True)
 
@@ -160,7 +170,9 @@ class AdaptiveAugmentationFlow(Agent):
         # Sample configuration
         num_samples = self.cfg.get("num_samples", 16)
         self.num_sample_rows = int(math.sqrt(num_samples))
-        assert (self.num_sample_rows**2) == num_samples, f"num_samples={num_samples} must be perfect square"
+        assert (self.num_sample_rows**2) == num_samples, (
+            f"num_samples={num_samples} must be perfect square"
+        )
         self.num_samples = num_samples
 
         # Data shape (set on first batch)
@@ -172,7 +184,7 @@ class AdaptiveAugmentationFlow(Agent):
         else:
             self.logger = None
 
-        print(f"AugmentationFlow Agent initialized")
+        print("AugmentationFlow Agent initialized")
         print(f"  Device: {self.device}")
         print(f"  Predict mode: {self.predict}")
         print(f"  Conditioning: {self.use_conditioning} ({self.condition_type})")
@@ -214,7 +226,9 @@ class AdaptiveAugmentationFlow(Agent):
                 # Current AdaptiveRandAugment: magnitude = max - (max-min)*score
                 # With max=10, min=0: score=0→mag=10, score=1→mag=0
                 # We want: t=0→mag=0, t=1→mag=10, so pass (1-t) as difficulty_score
-                img_augmented = self.adaptive_augment(img_pil, difficulty_score=1.0 - t.item())
+                img_augmented = self.adaptive_augment(
+                    img_pil, difficulty_score=1.0 - t.item()
+                )
                 img_aug_tensor = self.transform_base_tensor(img_augmented)
                 x_1_list.append(img_aug_tensor)
 
@@ -249,7 +263,9 @@ class AdaptiveAugmentationFlow(Agent):
                 condition = torch.rand(len(x_0), device=self.device)
             elif self.condition_type == "fixed":
                 # Fixed conditioning value
-                condition = torch.ones(len(x_0), device=self.device) * self.cfg.get("condition_value", 0.5)
+                condition = torch.ones(len(x_0), device=self.device) * self.cfg.get(
+                    "condition_value", 0.5
+                )
             elif self.condition_type == "difficulty":
                 # Use interpolation time as difficulty (higher t = harder transformation)
                 condition = scheduled_times
@@ -299,7 +315,9 @@ class AdaptiveAugmentationFlow(Agent):
         # Periodic checkpointing
         if self.current_step % self.save_checkpoint_every == 0:
             if self.model_checkpoint is not None:
-                self._save_checkpoint_component(f"checkpoint_step_{self.current_step}.pt")
+                self._save_checkpoint_component(
+                    f"checkpoint_step_{self.current_step}.pt"
+                )
             else:
                 self._save_checkpoint(f"checkpoint_step_{self.current_step}.pt")
 
@@ -314,7 +332,9 @@ class AdaptiveAugmentationFlow(Agent):
         epoch_loss_sum = 0.0
         num_steps = 0
 
-        for batch in tqdm(self.train_loader, desc=f"Epoch {self.current_epoch + 1} Training"):
+        for batch in tqdm(
+            self.train_loader, desc=f"Epoch {self.current_epoch + 1} Training"
+        ):
             loss = self.train_step(batch)
             epoch_loss_sum += loss
             num_steps += 1
@@ -325,7 +345,9 @@ class AdaptiveAugmentationFlow(Agent):
             avg_loss = epoch_loss_sum / num_steps
             print(f"Epoch {self.current_epoch + 1} - Average Loss: {avg_loss:.6f}")
             if self.logger:
-                self.logger.log_metrics({"epoch_loss": avg_loss}, step=self.current_epoch)
+                self.logger.log_metrics(
+                    {"epoch_loss": avg_loss}, step=self.current_epoch
+                )
 
     def validate_step(self, batch):
         """Perform validation (generate samples from validation data).
@@ -338,7 +360,9 @@ class AdaptiveAugmentationFlow(Agent):
 
         # Apply weak transform to get starting point
         with torch.no_grad():
-            images = torch.stack([self.transform_weak(img) for img in images_pil]).to(self.device)
+            images = torch.stack([self.transform_weak(img) for img in images_pil]).to(
+                self.device
+            )
 
         self.model.eval()
         eval_model = self.ema_model if self.use_ema else self.model
@@ -351,7 +375,9 @@ class AdaptiveAugmentationFlow(Agent):
                 x_0 = images
 
             # Generate strong augmentation as ground truth
-            x_1_true = torch.stack([self.transform_strong(img) for img in images_pil]).to(self.device)
+            x_1_true = torch.stack(
+                [self.transform_strong(img) for img in images_pil]
+            ).to(self.device)
             if self.normalizer is not None:
                 x_1_true = self.normalizer(x_1_true)
 
@@ -362,11 +388,15 @@ class AdaptiveAugmentationFlow(Agent):
 
                 # Prepare conditioning for validation
                 if self.use_conditioning:
-                    val_condition = torch.ones(len(images), device=self.device) * self.cfg.get("val_condition", 1.0)
+                    val_condition = torch.ones(
+                        len(images), device=self.device
+                    ) * self.cfg.get("val_condition", 1.0)
+
                     def ode_fn(t, x):
                         t_batch = t.expand(x.shape[0])
                         return eval_model(x, times=t_batch, condition=val_condition)
                 else:
+
                     def ode_fn(t, x):
                         t_batch = t.expand(x.shape[0])
                         return eval_model(x, times=t_batch)
@@ -376,7 +406,9 @@ class AdaptiveAugmentationFlow(Agent):
                 # Simple single-step generation
                 ones = torch.ones(len(images), device=self.device)
                 if self.use_conditioning:
-                    val_condition = torch.ones(len(images), device=self.device) * self.cfg.get("val_condition", 1.0)
+                    val_condition = torch.ones(
+                        len(images), device=self.device
+                    ) * self.cfg.get("val_condition", 1.0)
                     x_1_generated = eval_model(x_0, times=ones, condition=val_condition)
                 else:
                     x_1_generated = eval_model(x_0, times=ones)
@@ -424,7 +456,7 @@ class AdaptiveAugmentationFlow(Agent):
             try:
                 batch = next(iter(self.train_loader))
                 images_pil, _ = batch
-                images_pil = images_pil[:self.num_samples]
+                images_pil = images_pil[: self.num_samples]
             except StopIteration:
                 return
 
@@ -445,7 +477,9 @@ class AdaptiveAugmentationFlow(Agent):
 
                 # x_1_true: Apply adaptive augmentation with t
                 # Pass (1-t) to get correct magnitude: t=0→mag=0, t=1→mag=10
-                img_augmented = self.adaptive_augment(img_pil, difficulty_score=1.0 - t.item())
+                img_augmented = self.adaptive_augment(
+                    img_pil, difficulty_score=1.0 - t.item()
+                )
                 img_aug_tensor = self.transform_base_tensor(img_augmented)
                 x_1_true_list.append(img_aug_tensor)
 
@@ -464,11 +498,15 @@ class AdaptiveAugmentationFlow(Agent):
                 times = torch.linspace(0.0, 1.0, num_steps, device=self.device)
 
                 if self.use_conditioning:
-                    sample_condition = torch.ones(len(x_0_norm), device=self.device) * self.cfg.get("sample_condition", 1.0)
+                    sample_condition = torch.ones(
+                        len(x_0_norm), device=self.device
+                    ) * self.cfg.get("sample_condition", 1.0)
+
                     def ode_fn(t, x):
                         t_batch = t.expand(x.shape[0])
                         return eval_model(x, times=t_batch, condition=sample_condition)
                 else:
+
                     def ode_fn(t, x):
                         t_batch = t.expand(x.shape[0])
                         return eval_model(x, times=t_batch)
@@ -477,8 +515,12 @@ class AdaptiveAugmentationFlow(Agent):
             else:
                 ones = torch.ones(len(x_0_norm), device=self.device)
                 if self.use_conditioning:
-                    sample_condition = torch.ones(len(x_0_norm), device=self.device) * self.cfg.get("sample_condition", 1.0)
-                    x_1_generated = eval_model(x_0_norm, times=ones, condition=sample_condition)
+                    sample_condition = torch.ones(
+                        len(x_0_norm), device=self.device
+                    ) * self.cfg.get("sample_condition", 1.0)
+                    x_1_generated = eval_model(
+                        x_0_norm, times=ones, condition=sample_condition
+                    )
                 else:
                     x_1_generated = eval_model(x_0_norm, times=ones)
                 if self.predict == "flow":
@@ -493,21 +535,18 @@ class AdaptiveAugmentationFlow(Agent):
 
             # Use periodic checkpoint to save
             def save_fn(path):
-                from torchvision.utils import save_image
                 from einops import rearrange
+                from torchvision.utils import save_image
 
                 # Rearrange for visualization
-                comp = rearrange(
-                    comparison,
-                    "views b c h w -> (b views) c h w"
-                )
+                comp = rearrange(comparison, "views b c h w -> (b views) c h w")
                 save_image(comp, path, nrow=4, normalize=False)
 
             self.periodic_checkpoint.on_epoch(
                 current_epoch=self.current_epoch,
                 save_fn=save_fn,
                 prefix="epoch_comparison",
-                ext="png"
+                ext="png",
             )
 
     def _sample_and_save(self, fname):
@@ -528,7 +567,7 @@ class AdaptiveAugmentationFlow(Agent):
             try:
                 batch = next(iter(self.train_loader))
                 images_pil, _ = batch
-                images_pil = images_pil[:self.num_samples]
+                images_pil = images_pil[: self.num_samples]
             except StopIteration:
                 print("Warning: cannot sample from empty train_loader")
                 return
@@ -550,7 +589,9 @@ class AdaptiveAugmentationFlow(Agent):
 
                 # x_1_true: Apply adaptive augmentation with t
                 # Pass (1-t) to get correct magnitude: t=0→mag=0, t=1→mag=10
-                img_augmented = self.adaptive_augment(img_pil, difficulty_score=1.0 - t.item())
+                img_augmented = self.adaptive_augment(
+                    img_pil, difficulty_score=1.0 - t.item()
+                )
                 img_aug_tensor = self.transform_base_tensor(img_augmented)
                 x_1_true_list.append(img_aug_tensor)
 
@@ -570,11 +611,15 @@ class AdaptiveAugmentationFlow(Agent):
 
                 # Prepare conditioning for sampling
                 if self.use_conditioning:
-                    sample_condition = torch.ones(len(x_0_norm), device=self.device) * self.cfg.get("sample_condition", 1.0)
+                    sample_condition = torch.ones(
+                        len(x_0_norm), device=self.device
+                    ) * self.cfg.get("sample_condition", 1.0)
+
                     def ode_fn(t, x):
                         t_batch = t.expand(x.shape[0])
                         return eval_model(x, times=t_batch, condition=sample_condition)
                 else:
+
                     def ode_fn(t, x):
                         t_batch = t.expand(x.shape[0])
                         return eval_model(x, times=t_batch)
@@ -584,8 +629,12 @@ class AdaptiveAugmentationFlow(Agent):
                 # Simple single-step generation
                 ones = torch.ones(len(x_0_norm), device=self.device)
                 if self.use_conditioning:
-                    sample_condition = torch.ones(len(x_0_norm), device=self.device) * self.cfg.get("sample_condition", 1.0)
-                    x_1_generated = eval_model(x_0_norm, times=ones, condition=sample_condition)
+                    sample_condition = torch.ones(
+                        len(x_0_norm), device=self.device
+                    ) * self.cfg.get("sample_condition", 1.0)
+                    x_1_generated = eval_model(
+                        x_0_norm, times=ones, condition=sample_condition
+                    )
                 else:
                     x_1_generated = eval_model(x_0_norm, times=ones)
                 if self.predict == "flow":
@@ -596,18 +645,15 @@ class AdaptiveAugmentationFlow(Agent):
                 x_1_generated = self.unnormalizer(x_1_generated)
 
             # Create comparison grid: [original | weak | generated | true_strong]
-            comparison = torch.stack([
-                images,
-                x_0,
-                x_1_generated,
-                x_1_true
-            ], dim=1)  # [B, 4, C, H, W]
+            comparison = torch.stack(
+                [images, x_0, x_1_generated, x_1_true], dim=1
+            )  # [B, 4, C, H, W]
 
             # Rearrange into grid
             comparison = rearrange(
                 comparison,
                 "(row col) views c h w -> c (row h) (views col w)",
-                row=self.num_sample_rows
+                row=self.num_sample_rows,
             )
             comparison = comparison.clamp(0.0, 1.0)
 
@@ -652,7 +698,9 @@ class AdaptiveAugmentationFlow(Agent):
                 original_list.append(img_tensor)
 
                 # RandAugment (fixed strong augmentation)
-                img_randaug = self.adaptive_augment(img_pil_transformed, difficulty_score=1.0)
+                img_randaug = self.adaptive_augment(
+                    img_pil_transformed, difficulty_score=1.0
+                )
                 img_randaug_tensor = self.transform_base_tensor(img_randaug)
                 randaugment_list.append(img_randaug_tensor)
 
@@ -692,30 +740,44 @@ class AdaptiveAugmentationFlow(Agent):
             # Bottom half: Low confidence (should use strong aug)
             k = min(4, num_samples // 2)
 
-            high_conf_grid = torch.stack([
-                originals[:k],
-                randaugs[:k],  # Always strong (wasteful!)
-                flow_weak[:k],  # Adaptive weak
-            ], dim=1)  # [k, 3, C, H, W]
+            high_conf_grid = torch.stack(
+                [
+                    originals[:k],
+                    randaugs[:k],  # Always strong (wasteful!)
+                    flow_weak[:k],  # Adaptive weak
+                ],
+                dim=1,
+            )  # [k, 3, C, H, W]
 
-            low_conf_grid = torch.stack([
-                originals[k:k*2],
-                randaugs[k:k*2],  # Always strong (correct but not adaptive)
-                flow_strong[k:k*2],  # Adaptive strong
-            ], dim=1)  # [k, 3, C, H, W]
+            low_conf_grid = torch.stack(
+                [
+                    originals[k : k * 2],
+                    randaugs[k : k * 2],  # Always strong (correct but not adaptive)
+                    flow_strong[k : k * 2],  # Adaptive strong
+                ],
+                dim=1,
+            )  # [k, 3, C, H, W]
 
             # Combine and rearrange
-            comparison = torch.cat([
-                rearrange(high_conf_grid, "b views c h w -> (b views) c h w"),
-                rearrange(low_conf_grid, "b views c h w -> (b views) c h w"),
-            ], dim=0)
+            comparison = torch.cat(
+                [
+                    rearrange(high_conf_grid, "b views c h w -> (b views) c h w"),
+                    rearrange(low_conf_grid, "b views c h w -> (b views) c h w"),
+                ],
+                dim=0,
+            )
 
             comparison = comparison.clamp(0.0, 1.0)
 
             # Save
-            save_path = self.results_dir / f"paper_fig2_epoch{self.current_epoch:03d}.png"
+            save_path = (
+                self.results_dir / f"paper_fig2_epoch{self.current_epoch:03d}.png"
+            )
             from torchvision.utils import make_grid
-            grid = make_grid(comparison, nrow=3, normalize=False, padding=2, pad_value=1.0)
+
+            grid = make_grid(
+                comparison, nrow=3, normalize=False, padding=2, pad_value=1.0
+            )
             save_image(grid, save_path)
             print(f"Saved paper figure to {save_path}")
 
@@ -736,7 +798,7 @@ class AdaptiveAugmentationFlow(Agent):
             "config": {
                 "predict": self.predict,
                 "use_ema": self.use_ema,
-            }
+            },
         }
 
         if self.ema_model is not None:
@@ -787,7 +849,9 @@ class AdaptiveAugmentationFlow(Agent):
         model_to_save = self.ema_model if self.use_ema else self.model
 
         ssl_package = {
-            "model_state_dict": model_to_save.state_dict() if self.use_ema else self.model.state_dict(),
+            "model_state_dict": model_to_save.state_dict()
+            if self.use_ema
+            else self.model.state_dict(),
             "data_shape": self.data_shape,
             "config": {
                 "predict": self.predict,
@@ -797,14 +861,14 @@ class AdaptiveAugmentationFlow(Agent):
                 "trained_epochs": self.current_epoch,
                 "trained_steps": self.current_step,
                 "agent": "AugmentationFlow",
-            }
+            },
         }
 
         torch.save(ssl_package, save_path)
         print(f"SSL-ready model saved: {save_path}")
         print(f"  Load in SSL agent with: torch.load('{save_path}')")
-        print(f"  Then: model.load_state_dict(checkpoint['model_state_dict'])")
-        print(f"  And freeze: model.eval() + model.requires_grad_(False)")
+        print("  Then: model.load_state_dict(checkpoint['model_state_dict'])")
+        print("  And freeze: model.eval() + model.requires_grad_(False)")
 
         return save_path
 
@@ -824,7 +888,7 @@ class AdaptiveAugmentationFlow(Agent):
                 "predict": self.predict,
                 "use_ema": self.use_ema,
                 "use_conditioning": self.use_conditioning,
-            }
+            },
         }
 
         if self.ema_model is not None:
@@ -841,7 +905,9 @@ class AdaptiveAugmentationFlow(Agent):
         model_to_save = self.ema_model if self.use_ema else self.model
 
         ssl_state = {
-            "model_state_dict": model_to_save.state_dict() if self.use_ema else self.model.state_dict(),
+            "model_state_dict": model_to_save.state_dict()
+            if self.use_ema
+            else self.model.state_dict(),
             "data_shape": self.data_shape,
             "config": {
                 "predict": self.predict,
@@ -852,12 +918,11 @@ class AdaptiveAugmentationFlow(Agent):
                 "trained_epochs": self.current_epoch,
                 "trained_steps": self.current_step,
                 "agent": "AugmentationFlow",
-            }
+            },
         }
 
         return self.model_checkpoint.save_for_inference(
             model_state=ssl_state["model_state_dict"],
             metadata=ssl_state,
-            filename=filename
+            filename=filename,
         )
-

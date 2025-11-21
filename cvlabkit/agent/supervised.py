@@ -1,20 +1,21 @@
 # cvlabkit/agent/supervised.py
 
-import torch
-import numpy as np
-from tqdm import tqdm
 from collections import defaultdict
+
+import numpy as np
+import torch
+from tqdm import tqdm
 
 from cvlabkit.core.agent import Agent
 
 
 class Supervised(Agent):
-    """
-    A baseline agent that performs standard supervised learning on a labeled dataset.
-    
+    """A baseline agent that performs standard supervised learning on a labeled dataset.
+
     This agent serves as a baseline to compare against semi-supervised methods.
     It uses a subset of the training data designated as 'labeled' by the config.
     """
+
     def setup(self):
         """Creates and initializes all necessary components for the agent."""
         device_id = self.cfg.get("device", 0)
@@ -31,7 +32,7 @@ class Supervised(Agent):
         self.val_transform = self.create.transform.val()
         self.loss_fn = self.create.loss()
         self.metric = self.create.metric()
-        
+
         if self.cfg.get("logger"):
             self.logger = self.create.logger()
 
@@ -42,19 +43,16 @@ class Supervised(Agent):
 
         num_labeled = self.cfg.get("num_labeled", len(train_dataset))
         targets = np.array(train_dataset.targets)
-        
+
         # We only need the labeled indices for supervised training.
         labeled_indices, _ = self._stratified_split(targets, num_labeled)
-        
+
         labeled_sampler = self.create.sampler(indices=labeled_indices)
 
         self.train_loader = self.create.dataloader.train(
-            dataset=train_dataset,
-            sampler=labeled_sampler
+            dataset=train_dataset, sampler=labeled_sampler
         )
-        self.val_loader = self.create.dataloader.val(
-            dataset=val_dataset
-        )
+        self.val_loader = self.create.dataloader.val(dataset=val_dataset)
 
     def _stratified_split(self, targets: np.ndarray, num_labeled: int):
         """Performs a stratified split of indices to get a representative labeled set."""
@@ -74,26 +72,28 @@ class Supervised(Agent):
             labeled_indices.extend(indices[:actual_num_labeled])
             unlabeled_indices.extend(indices[actual_num_labeled:])
 
-        print(f"Dataset split: Using {len(labeled_indices)} labeled samples for training.")
+        print(
+            f"Dataset split: Using {len(labeled_indices)} labeled samples for training."
+        )
         return labeled_indices, unlabeled_indices
 
     def train_step(self, batch):
         """Performs a single training step."""
         self.model.train()
         images, labels = batch
-        
+
         # The dataloader should handle device placement if possible,
         # but we ensure it here for robustness.
         images = images.to(self.device)
         labels = labels.to(self.device)
-        
+
         preds = self.model(images)
         loss = self.loss_fn(preds, labels)
 
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        
+
         return {"loss": loss.item()}
 
     def fit(self):
@@ -103,16 +103,21 @@ class Supervised(Agent):
 
         while self.current_epoch < target_epochs:
             epoch_loss = 0
-            
-            progress_bar = tqdm(self.train_loader, desc=f"Epoch [{self.current_epoch+1}/{target_epochs}]")
+
+            progress_bar = tqdm(
+                self.train_loader,
+                desc=f"Epoch [{self.current_epoch + 1}/{target_epochs}]",
+            )
             for batch in progress_bar:
                 loss_dict = self.train_step(batch)
-                epoch_loss += loss_dict['loss']
+                epoch_loss += loss_dict["loss"]
                 progress_bar.set_postfix(loss=f"{loss_dict['loss']:.4f}")
 
-            if hasattr(self, 'logger') and self.logger is not None:
+            if hasattr(self, "logger") and self.logger is not None:
                 avg_train_loss = epoch_loss / len(self.train_loader)
-                self.logger.log_metrics(metrics={'train_loss': avg_train_loss}, step=self.current_epoch + 1)
+                self.logger.log_metrics(
+                    metrics={"train_loss": avg_train_loss}, step=self.current_epoch + 1
+                )
 
             self.evaluate()
             self.current_epoch += 1
@@ -121,27 +126,27 @@ class Supervised(Agent):
         """Evaluates the model on the validation set."""
         self.model.eval()
         self.metric.reset()
-        
+
         total_val_loss = 0
-        
+
         with torch.no_grad():
             for batch in self.val_loader:
                 images, labels = batch
                 images = images.to(self.device)
                 labels = labels.to(self.device)
                 preds = self.model(images)
-                
+
                 val_loss = self.loss_fn(preds, labels)
                 total_val_loss += val_loss.item()
-                
-                self.metric.update(preds=preds, targets=labels)
-        
-        avg_val_loss = total_val_loss / len(self.val_loader)
-        
-        metrics = self.metric.compute()
-        metrics['val_loss'] = avg_val_loss
-        
-        print(f"Epoch {self.current_epoch+1} Validation Metrics: {metrics}")
 
-        if hasattr(self, 'logger') and self.logger is not None:
+                self.metric.update(preds=preds, targets=labels)
+
+        avg_val_loss = total_val_loss / len(self.val_loader)
+
+        metrics = self.metric.compute()
+        metrics["val_loss"] = avg_val_loss
+
+        print(f"Epoch {self.current_epoch + 1} Validation Metrics: {metrics}")
+
+        if hasattr(self, "logger") and self.logger is not None:
             self.logger.log_metrics(metrics=metrics, step=self.current_epoch + 1)

@@ -1,11 +1,8 @@
 """Provides a standard agent for basic image classification tasks."""
 
 import torch
-from tqdm import tqdm
 
 from cvlabkit.core.agent import Agent
-from cvlabkit.core.config import Config
-from cvlabkit.core.creator import ComponentCreator
 
 
 class Classification(Agent):
@@ -108,17 +105,20 @@ class Classification(Agent):
 
     def save(self, path: str):
         """Saves the model, optimizer, and current epoch to a checkpoint file."""
-        torch.save({
-            'epoch': self.current_epoch,
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-        }, path)
+        torch.save(
+            {
+                "epoch": self.current_epoch,
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+            },
+            path,
+        )
         print(f"Saved checkpoint to {path}")
 
     def load(self, path: str):
         """Loads the model, optimizer, and epoch from a checkpoint file."""
         checkpoint = torch.load(path)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        self.current_epoch = checkpoint['epoch']
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        self.current_epoch = checkpoint["epoch"]
         print(f"Loaded checkpoint from {path}")

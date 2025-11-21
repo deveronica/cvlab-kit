@@ -1,11 +1,11 @@
 # cvlabkit/agent/fixmatch.py
 
-import os
 import json
+import os
 from collections import defaultdict
 
-import torch
 import numpy as np
+import torch
 from tqdm import tqdm
 
 from cvlabkit.core.agent import Agent
@@ -19,11 +19,11 @@ def pil_collate(batch):
 
 
 class Fixmatch(Agent):
+    """An agent that implements the standard FixMatch algorithm for semi-supervised
+    learning (준지도 학습). It uses consistency regularization with a fixed strong
+    augmentation policy.
     """
-    An agent that implements the standard FixMatch algorithm for semi-supervised
-    learning. It uses consistency regularization with a fixed strong augmentation
-    policy.
-    """
+
     def setup(self):
         """Creates and initializes all necessary components for the agent."""
         device_id = self.cfg.get("device", 0)
@@ -36,16 +36,16 @@ class Fixmatch(Agent):
         # --- Create Components using the Creator ---
         self.model = self.create.model().to(self.device)
         self.optimizer = self.create.optimizer(self.model.parameters())
-        
+
         self.weak_transform = self.create.transform.weak()
         self.strong_transform = self.create.transform.strong()
         self.val_transform = self.create.transform.val()
 
         self.sup_loss_fn = self.create.loss.supervised()
         self.unsup_loss_fn = self.create.loss.unsupervised()
-        
+
         self.metric = self.create.metric.val()
-        
+
         if self.cfg.get("logger"):
             self.logger = self.create.logger()
 
@@ -55,27 +55,31 @@ class Fixmatch(Agent):
 
         num_labeled = self.cfg.num_labeled
         targets = np.array(train_dataset.targets)
-        
+
         # Load or create labeled indices for reproducibility
         log_dir = self.cfg.get("log_dir", ".")
-        dataset_name = self.cfg.dataset.train.split('(')[0]
+        dataset_name = self.cfg.dataset.train.split("(")[0]
         os.makedirs(log_dir, exist_ok=True)
-        index_file_path = os.path.join(log_dir, f"{dataset_name}_labeled_indices_{num_labeled}.json")
+        index_file_path = os.path.join(
+            log_dir, f"{dataset_name}_labeled_indices_{num_labeled}.json"
+        )
 
         if os.path.exists(index_file_path):
             print(f"Loading labeled indices from {index_file_path}")
-            with open(index_file_path, 'r') as f:
+            with open(index_file_path) as f:
                 labeled_indices = json.load(f)
-            
+
             all_indices = set(range(len(targets)))
             unlabeled_indices = list(all_indices - set(labeled_indices))
             np.random.shuffle(unlabeled_indices)
         else:
             print("Generating new labeled/unlabeled split.")
-            labeled_indices, unlabeled_indices = self._stratified_split(targets, num_labeled)
-            
+            labeled_indices, unlabeled_indices = self._stratified_split(
+                targets, num_labeled
+            )
+
             print(f"Saving {len(labeled_indices)} labeled indices to {index_file_path}")
-            with open(index_file_path, 'w') as f:
+            with open(index_file_path, "w") as f:
                 json.dump(labeled_indices, f)
 
         labeled_sampler = self.create.sampler.labeled(indices=labeled_indices)
@@ -89,17 +93,16 @@ class Fixmatch(Agent):
             dataset=train_dataset,
             sampler=labeled_sampler,
             collate_fn=pil_collate,
-            batch_size=labeled_batch_size
+            batch_size=labeled_batch_size,
         )
         self.unlabeled_loader = self.create.dataloader.unlabeled(
             dataset=train_dataset,
             sampler=unlabeled_sampler,
             collate_fn=pil_collate,
-            batch_size=unlabeled_batch_size
+            batch_size=unlabeled_batch_size,
         )
         self.val_loader = self.create.dataloader.val(
-            dataset=val_dataset,
-            collate_fn=pil_collate
+            dataset=val_dataset, collate_fn=pil_collate
         )
 
     def _stratified_split(self, targets: np.ndarray, num_labeled: int):
@@ -121,23 +124,29 @@ class Fixmatch(Agent):
             unlabeled_indices.extend(indices[actual_num_labeled:])
 
         np.random.shuffle(unlabeled_indices)
-        print(f"Dataset split: {len(labeled_indices)} labeled, {len(unlabeled_indices)} unlabeled.")
+        print(
+            f"Dataset split: {len(labeled_indices)} labeled, {len(unlabeled_indices)} unlabeled."
+        )
         return labeled_indices, unlabeled_indices
 
     def train_step(self, labeled_batch, unlabeled_batch):
         """Performs a single training step of FixMatch."""
         self.model.train()
-        
+
         labeled_images_pil, labels = labeled_batch
         unlabeled_images_pil, _ = unlabeled_batch
 
         # Apply weak transform to labeled data
-        labeled_images = torch.stack([self.weak_transform(img) for img in labeled_images_pil]).to(self.device)
+        labeled_images = torch.stack(
+            [self.weak_transform(img) for img in labeled_images_pil]
+        ).to(self.device)
         labels = labels.to(self.device)
-        
+
         # Apply weak/strong transforms to unlabeled data
-        unlabeled_images_weak = torch.stack([self.weak_transform(img) for img in unlabeled_images_pil]).to(self.device)
-        
+        unlabeled_images_weak = torch.stack(
+            [self.weak_transform(img) for img in unlabeled_images_pil]
+        ).to(self.device)
+
         # 1. Supervised loss
         sup_preds = self.model(labeled_images)
         loss_sup = self.sup_loss_fn(sup_preds, labels)
@@ -145,14 +154,16 @@ class Fixmatch(Agent):
         # 2. Unsupervised loss (FixMatch)
         with torch.no_grad():
             teacher_preds = self.model(unlabeled_images_weak)
-        
+
             probs = torch.softmax(teacher_preds, dim=1)
             max_probs, pseudo_labels = torch.max(probs, dim=1)
             mask = max_probs.ge(self.cfg.get("confidence_threshold", 0.95)).float()
-        
+
         unlabeled_images_strong = []
         for i, img in enumerate(unlabeled_images_pil):
-            aug_img = self.strong_transform(img, difficulty_score=torch.randint(0, 31, (1,)).item() / 31)
+            aug_img = self.strong_transform(
+                img, difficulty_score=torch.randint(0, 31, (1,)).item() / 31
+            )
             unlabeled_images_strong.append(aug_img)
         unlabeled_images_strong = torch.stack(unlabeled_images_strong).to(self.device)
 
@@ -166,11 +177,11 @@ class Fixmatch(Agent):
         self.optimizer.zero_grad()
         total_loss.backward()
         self.optimizer.step()
-        
+
         return {
             "total_loss": total_loss.item(),
             "sup_loss": loss_sup.item(),
-            "unsup_loss": loss_fixmatch.item()
+            "unsup_loss": loss_fixmatch.item(),
         }
 
     def fit(self):
@@ -184,35 +195,38 @@ class Fixmatch(Agent):
 
         while self.current_epoch < target_epochs:
             epoch_losses = defaultdict(float)
-            
-            progress_bar = tqdm(range(steps_per_epoch), desc=f"Epoch [{self.current_epoch+1}/{target_epochs}]")
+
+            progress_bar = tqdm(
+                range(steps_per_epoch),
+                desc=f"Epoch [{self.current_epoch + 1}/{target_epochs}]",
+            )
             for step in progress_bar:
                 try:
                     labeled_batch = next(labeled_iter)
                 except StopIteration:
                     labeled_iter = iter(self.labeled_loader)
                     labeled_batch = next(labeled_iter)
-                
+
                 try:
                     unlabeled_batch = next(unlabeled_iter)
                 except StopIteration:
                     unlabeled_iter = iter(self.unlabeled_loader)
                     unlabeled_batch = next(unlabeled_iter)
-                
+
                 loss_dict = self.train_step(labeled_batch, unlabeled_batch)
-                
+
                 for key, value in loss_dict.items():
                     epoch_losses[key] += value
-                
+
                 progress_bar.set_postfix(loss=f"{loss_dict['total_loss']:.4f}")
 
-            if hasattr(self, 'logger') and self.logger is not None:
+            if hasattr(self, "logger") and self.logger is not None:
                 log_data = {}
                 for key, value in epoch_losses.items():
                     log_key = "train_loss" if key == "total_loss" else f"train_{key}"
                     log_data[log_key] = value / steps_per_epoch
                 self.logger.log_metrics(metrics=log_data, step=self.current_epoch + 1)
-            
+
             self.evaluate()
             self.current_epoch += 1
 
@@ -220,12 +234,14 @@ class Fixmatch(Agent):
         """Evaluates the model on the validation set."""
         self.model.eval()
         self.metric.reset()
-        
+
         total_val_loss = 0
-        
+
         with torch.no_grad():
             for images_pil, labels in self.val_loader:
-                images = torch.stack([self.val_transform(img) for img in images_pil]).to(self.device)
+                images = torch.stack(
+                    [self.val_transform(img) for img in images_pil]
+                ).to(self.device)
                 images = images.to(self.device)
                 labels = labels.to(self.device)
                 preds = self.model(images)
@@ -234,13 +250,13 @@ class Fixmatch(Agent):
                 total_val_loss += val_loss.item()
 
                 self.metric.update(preds=preds, targets=labels)
-        
-        avg_val_loss = total_val_loss / len(self.val_loader)
-        
-        metrics = self.metric.compute()
-        metrics['val_loss'] = avg_val_loss
-        
-        print(f"Epoch {self.current_epoch+1} Validation Metrics: {metrics}")
 
-        if hasattr(self, 'logger') and self.logger is not None:
+        avg_val_loss = total_val_loss / len(self.val_loader)
+
+        metrics = self.metric.compute()
+        metrics["val_loss"] = avg_val_loss
+
+        print(f"Epoch {self.current_epoch + 1} Validation Metrics: {metrics}")
+
+        if hasattr(self, "logger") and self.logger is not None:
             self.logger.log_metrics(metrics=metrics, step=self.current_epoch + 1)

@@ -1,12 +1,12 @@
 # cvlabkit/agent/paper_fixmatch_flow_randaugment.py
 """FixMatch with FlowAddedRandAugment for adaptive augmentation."""
 
-import os
 import json
+import os
 from collections import defaultdict
 
-import torch
 import numpy as np
+import torch
 from tqdm import tqdm
 
 from cvlabkit.core.agent import Agent
@@ -40,7 +40,9 @@ class PaperFixmatchFlowRandaugment(Agent):
         self.optimizer = self.create.optimizer(self.model.parameters())
 
         self.weak_transform = self.create.transform.weak()
-        self.strong_transform = self.create.transform.strong()  # AdaptiveFlowRandAugment
+        self.strong_transform = (
+            self.create.transform.strong()
+        )  # AdaptiveFlowRandAugment
         self.val_transform = self.create.transform.val()
 
         # Loss functions
@@ -60,13 +62,15 @@ class PaperFixmatchFlowRandaugment(Agent):
 
         # Load or create labeled indices for reproducibility
         log_dir = self.cfg.get("log_dir", ".")
-        dataset_name = self.cfg.dataset.train.split('(')[0]
+        dataset_name = self.cfg.dataset.train.split("(")[0]
         os.makedirs(log_dir, exist_ok=True)
-        index_file_path = os.path.join(log_dir, f"{dataset_name}_labeled_indices_{num_labeled}.json")
+        index_file_path = os.path.join(
+            log_dir, f"{dataset_name}_labeled_indices_{num_labeled}.json"
+        )
 
         if os.path.exists(index_file_path):
             print(f"Loading labeled indices from {index_file_path}")
-            with open(index_file_path, 'r') as f:
+            with open(index_file_path) as f:
                 labeled_indices = json.load(f)
 
             all_indices = set(range(len(targets)))
@@ -74,10 +78,12 @@ class PaperFixmatchFlowRandaugment(Agent):
             np.random.shuffle(unlabeled_indices)
         else:
             print("Generating new labeled/unlabeled split.")
-            labeled_indices, unlabeled_indices = self._stratified_split(targets, num_labeled)
+            labeled_indices, unlabeled_indices = self._stratified_split(
+                targets, num_labeled
+            )
 
             print(f"Saving {len(labeled_indices)} labeled indices to {index_file_path}")
-            with open(index_file_path, 'w') as f:
+            with open(index_file_path, "w") as f:
                 json.dump(labeled_indices, f)
 
         labeled_sampler = self.create.sampler.labeled(indices=labeled_indices)
@@ -91,17 +97,16 @@ class PaperFixmatchFlowRandaugment(Agent):
             dataset=train_dataset,
             sampler=labeled_sampler,
             collate_fn=pil_collate,
-            batch_size=labeled_batch_size
+            batch_size=labeled_batch_size,
         )
         self.unlabeled_loader = self.create.dataloader.unlabeled(
             dataset=train_dataset,
             sampler=unlabeled_sampler,
             collate_fn=pil_collate,
-            batch_size=unlabeled_batch_size
+            batch_size=unlabeled_batch_size,
         )
         self.val_loader = self.create.dataloader.val(
-            dataset=val_dataset,
-            collate_fn=pil_collate
+            dataset=val_dataset, collate_fn=pil_collate
         )
 
     def _stratified_split(self, targets: np.ndarray, num_labeled: int):
@@ -124,7 +129,9 @@ class PaperFixmatchFlowRandaugment(Agent):
             unlabeled_indices.extend(indices[actual_num_labeled:])
 
         np.random.shuffle(unlabeled_indices)
-        print(f"Dataset split: {len(labeled_indices)} labeled ({num_labeled_per_class} per class target), {len(unlabeled_indices)} unlabeled.")
+        print(
+            f"Dataset split: {len(labeled_indices)} labeled ({num_labeled_per_class} per class target), {len(unlabeled_indices)} unlabeled."
+        )
         return labeled_indices, unlabeled_indices
 
     def train_step(self, labeled_batch, unlabeled_batch):
@@ -135,11 +142,15 @@ class PaperFixmatchFlowRandaugment(Agent):
         unlabeled_images_pil, _ = unlabeled_batch
 
         # Apply weak transform to labeled data
-        labeled_images = torch.stack([self.weak_transform(img) for img in labeled_images_pil]).to(self.device)
+        labeled_images = torch.stack(
+            [self.weak_transform(img) for img in labeled_images_pil]
+        ).to(self.device)
         labels = labels.to(self.device)
 
         # Apply weak transform to unlabeled data
-        unlabeled_images_weak = torch.stack([self.weak_transform(img) for img in unlabeled_images_pil]).to(self.device)
+        unlabeled_images_weak = torch.stack(
+            [self.weak_transform(img) for img in unlabeled_images_pil]
+        ).to(self.device)
 
         # 1. Supervised loss
         sup_preds = self.model(labeled_images)
@@ -159,14 +170,18 @@ class PaperFixmatchFlowRandaugment(Agent):
             entropy = -torch.sum(probs * torch.log(probs + 1e-7), dim=1)
             C = self.cfg.get("num_classes", 10)
             a = float(self.cfg.get("scale_a", 10.0))
-            Ca = (float(C) ** a)
-            confidence_scores = ((Ca * torch.exp(-a * entropy)) - 1.0) / (Ca - 1.0 + 1e-12)
+            Ca = float(C) ** a
+            confidence_scores = ((Ca * torch.exp(-a * entropy)) - 1.0) / (
+                Ca - 1.0 + 1e-12
+            )
             confidence_scores = confidence_scores.clamp(0.0, 1.0)
 
         # Apply AdaptiveFlowRandAugment with confidence-based difficulty
         unlabeled_images_strong = []
         for i, img in enumerate(unlabeled_images_pil):
-            aug_img = self.strong_transform(img, difficulty_score=confidence_scores[i].item())
+            aug_img = self.strong_transform(
+                img, difficulty_score=confidence_scores[i].item()
+            )
             unlabeled_images_strong.append(aug_img)
         unlabeled_images_strong = torch.stack(unlabeled_images_strong).to(self.device)
 
@@ -193,7 +208,7 @@ class PaperFixmatchFlowRandaugment(Agent):
             "sup_loss": loss_sup.item(),
             "pl_loss": loss_pl.item(),
             "cons_loss": loss_cons.item(),
-            "mask_ratio": mask.mean().item()
+            "mask_ratio": mask.mean().item(),
         }
 
     def fit(self):
@@ -208,7 +223,10 @@ class PaperFixmatchFlowRandaugment(Agent):
         while self.current_epoch < target_epochs:
             epoch_losses = defaultdict(float)
 
-            progress_bar = tqdm(range(steps_per_epoch), desc=f"Epoch [{self.current_epoch+1}/{target_epochs}]")
+            progress_bar = tqdm(
+                range(steps_per_epoch),
+                desc=f"Epoch [{self.current_epoch + 1}/{target_epochs}]",
+            )
             for step in progress_bar:
                 try:
                     labeled_batch = next(labeled_iter)
@@ -229,7 +247,7 @@ class PaperFixmatchFlowRandaugment(Agent):
 
                 progress_bar.set_postfix(loss=f"{loss_dict['total_loss']:.4f}")
 
-            if hasattr(self, 'logger') and self.logger is not None:
+            if hasattr(self, "logger") and self.logger is not None:
                 log_data = {}
                 for key, value in epoch_losses.items():
                     log_key = "train_loss" if key == "total_loss" else f"train_{key}"
@@ -249,7 +267,9 @@ class PaperFixmatchFlowRandaugment(Agent):
 
         with torch.no_grad():
             for images_pil, labels in self.val_loader:
-                images = torch.stack([self.val_transform(img) for img in images_pil]).to(self.device)
+                images = torch.stack(
+                    [self.val_transform(img) for img in images_pil]
+                ).to(self.device)
                 labels = labels.to(self.device)
                 preds = self.model(images)
 
@@ -261,9 +281,9 @@ class PaperFixmatchFlowRandaugment(Agent):
         avg_val_loss = total_val_loss / len(self.val_loader)
 
         metrics = self.metric.compute()
-        metrics['val_loss'] = avg_val_loss
+        metrics["val_loss"] = avg_val_loss
 
-        print(f"Epoch {self.current_epoch+1} Validation Metrics: {metrics}")
+        print(f"Epoch {self.current_epoch + 1} Validation Metrics: {metrics}")
 
-        if hasattr(self, 'logger') and self.logger is not None:
+        if hasattr(self, "logger") and self.logger is not None:
             self.logger.log_metrics(metrics=metrics, step=self.current_epoch + 1)

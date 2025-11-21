@@ -1,13 +1,13 @@
 # cvlabkit/agent/paper_fixmatch_pretrained_flow.py
 """FixMatch with Pretrained Flow Generator for Adaptive Augmentation."""
 
-import os
 import json
-from pathlib import Path
+import os
 from collections import defaultdict
+from pathlib import Path
 
-import torch
 import numpy as np
+import torch
 from tqdm import tqdm
 
 from cvlabkit.core.agent import Agent
@@ -33,8 +33,11 @@ class FlowAugmentationFixmatch(Agent):
         device_id = self.cfg.get("device", 0)
         if torch.cuda.is_available():
             self.device = torch.device(f"cuda:{device_id}")
+        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            self.device = torch.device("mps")
         else:
             self.device = torch.device("cpu")
+        print(f"Using device: {self.device}")
         self.current_epoch = 0
 
         # --- Create Components using the Creator ---
@@ -72,25 +75,31 @@ class FlowAugmentationFixmatch(Agent):
 
         # Load or create labeled indices for reproducibility
         log_dir = self.cfg.get("log_dir", "./logs")
-        dataset_name = self.cfg.dataset.train.split('(')[0]
+        dataset_name = self.cfg.dataset.train.split("(")[0]
         os.makedirs(log_dir, exist_ok=True)
-        index_file_path = os.path.join(log_dir, f"{dataset_name}_labeled_indices_{num_labeled}.json")
+        index_file_path = os.path.join(
+            log_dir, f"{dataset_name}_labeled_indices_{num_labeled}.json"
+        )
 
         if os.path.exists(index_file_path):
             print(f"Loading labeled indices from {index_file_path}")
-            with open(index_file_path, 'r') as f:
+            with open(index_file_path) as f:
                 labeled_indices = json.load(f)
 
             all_indices = set(range(len(targets)))
             unlabeled_indices = list(all_indices - set(labeled_indices))
             np.random.shuffle(unlabeled_indices)
-            print(f"Loaded {len(labeled_indices)} labeled indices and reconstructed {len(unlabeled_indices)} unlabeled indices.")
+            print(
+                f"Loaded {len(labeled_indices)} labeled indices and reconstructed {len(unlabeled_indices)} unlabeled indices."
+            )
         else:
             print("Generating new labeled/unlabeled split.")
-            labeled_indices, unlabeled_indices = self._stratified_split(targets, num_labeled)
+            labeled_indices, unlabeled_indices = self._stratified_split(
+                targets, num_labeled
+            )
 
             print(f"Saving {len(labeled_indices)} labeled indices to {index_file_path}")
-            with open(index_file_path, 'w') as f:
+            with open(index_file_path, "w") as f:
                 json.dump(labeled_indices, f)
 
         labeled_sampler = self.create.sampler.labeled(indices=labeled_indices)
@@ -104,17 +113,16 @@ class FlowAugmentationFixmatch(Agent):
             dataset=train_dataset,
             sampler=labeled_sampler,
             collate_fn=pil_collate,
-            batch_size=labeled_batch_size
+            batch_size=labeled_batch_size,
         )
         self.unlabeled_loader = self.create.dataloader.unlabeled(
             dataset=train_dataset,
             sampler=unlabeled_sampler,
             collate_fn=pil_collate,
-            batch_size=unlabeled_batch_size
+            batch_size=unlabeled_batch_size,
         )
         self.val_loader = self.create.dataloader.val(
-            dataset=val_dataset,
-            collate_fn=pil_collate
+            dataset=val_dataset, collate_fn=pil_collate
         )
 
     def _setup_augmentation_flow(self):
@@ -157,14 +165,23 @@ class FlowAugmentationFixmatch(Agent):
         self.generator.eval()
 
         # Compile generator for faster inference (PyTorch 2.0+)
-        try:
-            self.generator = torch.compile(self.generator)
-            print("Generator compiled with torch.compile")
-        except Exception as e:
-            print(f"torch.compile failed: {e}")
+        # Note: torch.compile is not stable on MPS yet
+        if self.device.type != "mps":
+            try:
+                self.generator = torch.compile(self.generator)
+                print("Generator compiled with torch.compile")
+            except Exception as e:
+                print(f"torch.compile failed: {e}")
+        else:
+            print("Skipping torch.compile on MPS (not stable yet)")
 
         # Ensure generator is on correct device after compile
         self.generator = self.generator.to(self.device)
+
+        # Verify device placement
+        gen_device = next(self.generator.parameters()).device
+        print(f"Generator device: {gen_device}")
+        print(f"Target device: {self.device}")
 
         # Freeze generator parameters
         for param in self.generator.parameters():
@@ -196,7 +213,9 @@ class FlowAugmentationFixmatch(Agent):
 
         np.random.shuffle(unlabeled_indices)
 
-        print(f"Dataset split: {len(labeled_indices)} labeled ({num_labeled_per_class} per class target), {len(unlabeled_indices)} unlabeled.")
+        print(
+            f"Dataset split: {len(labeled_indices)} labeled ({num_labeled_per_class} per class target), {len(unlabeled_indices)} unlabeled."
+        )
         return labeled_indices, unlabeled_indices
 
     def _generate_adaptive_augmentation(self, images_weak_tensor, confidence_scores):
@@ -237,7 +256,9 @@ class FlowAugmentationFixmatch(Agent):
         labeled_images_pil, labels = labeled_batch
         unlabeled_images_pil, _ = unlabeled_batch
 
-        labeled_images = torch.stack([self.weak_transform(img) for img in labeled_images_pil]).to(self.device)
+        labeled_images = torch.stack(
+            [self.weak_transform(img) for img in labeled_images_pil]
+        ).to(self.device)
         labels = labels.to(self.device)
 
         # 1. Supervised loss
@@ -246,7 +267,9 @@ class FlowAugmentationFixmatch(Agent):
 
         # 2. Unsupervised loss with flow-based strong augmentation
         with torch.no_grad():
-            weak_aug_images = torch.stack([self.weak_transform(img) for img in unlabeled_images_pil]).to(self.device)
+            weak_aug_images = torch.stack(
+                [self.weak_transform(img) for img in unlabeled_images_pil]
+            ).to(self.device)
             teacher_preds = self.model(weak_aug_images)
 
             probs = torch.softmax(teacher_preds, dim=1)
@@ -257,14 +280,22 @@ class FlowAugmentationFixmatch(Agent):
             entropy = -torch.sum(probs * torch.log(probs + 1e-7), dim=1)
             C = self.cfg.get("num_classes", 10)
             a = float(self.cfg.get("scale_a", 10.0))
-            Ca = (float(C) ** a)
-            confidence_scores = ((Ca * torch.exp(-a * entropy)) - 1.0) / (Ca - 1.0 + 1e-12)
+            Ca = float(C) ** a
+            confidence_scores = ((Ca * torch.exp(-a * entropy)) - 1.0) / (
+                Ca - 1.0 + 1e-12
+            )
             confidence_scores = confidence_scores.clamp(0.0, 1.0)
 
         # Generate flow-based strong augmentation (PIL → tensor [0,1] → flow → normalize)
-        unlabeled_unnorm = torch.stack([self.weak_unnorm_transform(img) for img in unlabeled_images_pil]).to(self.device)
-        strong_aug_unnorm = self._generate_adaptive_augmentation(unlabeled_unnorm, confidence_scores)
-        strong_aug_images = torch.stack([self.normalize_transform(img) for img in strong_aug_unnorm])
+        unlabeled_unnorm = torch.stack(
+            [self.weak_unnorm_transform(img) for img in unlabeled_images_pil]
+        ).to(self.device)
+        strong_aug_unnorm = self._generate_adaptive_augmentation(
+            unlabeled_unnorm, confidence_scores
+        )
+        strong_aug_images = torch.stack(
+            [self.normalize_transform(img) for img in strong_aug_unnorm]
+        )
 
         student_preds = self.model(strong_aug_images)
 
@@ -277,9 +308,9 @@ class FlowAugmentationFixmatch(Agent):
 
         # Total loss
         total_loss = (
-            loss_sup +
-            self.cfg.get("lambda_pl", 1.0) * loss_pl +
-            self.cfg.get("lambda_cons", 0.5) * loss_cons
+            loss_sup
+            + self.cfg.get("lambda_pl", 1.0) * loss_pl
+            + self.cfg.get("lambda_cons", 0.5) * loss_cons
         )
 
         self.optimizer.zero_grad()
@@ -290,7 +321,7 @@ class FlowAugmentationFixmatch(Agent):
             "total_loss": total_loss.item(),
             "sup_loss": loss_sup.item(),
             "pl_loss": loss_pl.item(),
-            "cons_loss": loss_cons.item()
+            "cons_loss": loss_cons.item(),
         }
 
     def fit(self):
@@ -305,7 +336,10 @@ class FlowAugmentationFixmatch(Agent):
         while self.current_epoch < target_epochs:
             epoch_losses = defaultdict(float)
 
-            progress_bar = tqdm(range(steps_per_epoch), desc=f"Epoch [{self.current_epoch+1}/{target_epochs}]")
+            progress_bar = tqdm(
+                range(steps_per_epoch),
+                desc=f"Epoch [{self.current_epoch + 1}/{target_epochs}]",
+            )
             for step in progress_bar:
                 try:
                     labeled_batch = next(labeled_iter)
@@ -326,7 +360,7 @@ class FlowAugmentationFixmatch(Agent):
 
                 progress_bar.set_postfix(loss=f"{loss_dict['total_loss']:.4f}")
 
-            if hasattr(self, 'logger') and self.logger is not None:
+            if hasattr(self, "logger") and self.logger is not None:
                 log_data = {}
                 for key, value in epoch_losses.items():
                     log_key = "train_loss" if key == "total_loss" else f"train_{key}"
@@ -345,7 +379,9 @@ class FlowAugmentationFixmatch(Agent):
 
         with torch.no_grad():
             for images_pil, labels in self.val_loader:
-                images = torch.stack([self.val_transform(img) for img in images_pil]).to(self.device)
+                images = torch.stack(
+                    [self.val_transform(img) for img in images_pil]
+                ).to(self.device)
                 labels = labels.to(self.device)
                 preds = self.model(images)
 
@@ -357,9 +393,9 @@ class FlowAugmentationFixmatch(Agent):
         avg_val_loss = total_val_loss / len(self.val_loader)
 
         metrics = self.metric.compute()
-        metrics['val_loss'] = avg_val_loss
+        metrics["val_loss"] = avg_val_loss
 
-        print(f"Epoch {self.current_epoch+1} Validation Metrics: {metrics}")
+        print(f"Epoch {self.current_epoch + 1} Validation Metrics: {metrics}")
 
-        if hasattr(self, 'logger') and self.logger is not None:
+        if hasattr(self, "logger") and self.logger is not None:
             self.logger.log_metrics(metrics=metrics, step=self.current_epoch + 1)

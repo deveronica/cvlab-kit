@@ -1,14 +1,13 @@
 # cvlabkit/agent/adaptive_augmentation_fixmatch.py
-import os
 import json
+import os
 from collections import defaultdict
 
-import torch
 import numpy as np
+import torch
 from tqdm import tqdm
 
 from cvlabkit.core.agent import Agent
-from cvlabkit.core.creator import ComponentCreator
 
 
 def pil_collate(batch):
@@ -19,11 +18,11 @@ def pil_collate(batch):
 
 
 class AdaptiveAugmentationFixmatch(Agent):
-    """
-    An Agent that implements the FixMatch algorithm with a continuous,
+    """An Agent that implements the FixMatch algorithm with a continuous,
     difficulty-aware adaptive augmentation strategy. It relies on the Creator
     to transparently handle component composition from the config file.
     """
+
     def setup(self):
         """Creates and initializes all necessary components for the agent."""
         device_id = self.cfg.get("device", 0)
@@ -36,7 +35,7 @@ class AdaptiveAugmentationFixmatch(Agent):
         # --- Create Components using the Creator ---
         self.model = self.create.model().to(self.device)
         self.optimizer = self.create.optimizer(self.model.parameters())
-        
+
         # The Agent simply requests the transforms. The Creator handles composition
         # based on the YAML structure (list vs. single item).
         self.weak_transform = self.create.transform.weak()
@@ -46,11 +45,11 @@ class AdaptiveAugmentationFixmatch(Agent):
         self.sup_loss_fn = self.create.loss.supervised()
         self.unsup_loss_fn = self.create.loss.unsupervised()
         self.contrastive_loss_fn = self.create.loss.contrastive()
-        
+
         # The Agent requests the validation metric. It receives a single, ready-to-use
         # object, which could be a simple metric or a composed one.
         self.metric = self.create.metric()
-        
+
         if self.cfg.get("logger"):
             self.logger = self.create.logger()
 
@@ -60,28 +59,34 @@ class AdaptiveAugmentationFixmatch(Agent):
 
         num_labeled = self.cfg.num_labeled
         targets = np.array(train_dataset.targets)
-        
+
         # Load or create labeled indices for reproducibility
         log_dir = self.cfg.get("log_dir", "./logs")
-        dataset_name = self.cfg.dataset.train.split('(')[0]
+        dataset_name = self.cfg.dataset.train.split("(")[0]
         os.makedirs(log_dir, exist_ok=True)
-        index_file_path = os.path.join(log_dir, f"{dataset_name}_labeled_indices_{num_labeled}.json")
+        index_file_path = os.path.join(
+            log_dir, f"{dataset_name}_labeled_indices_{num_labeled}.json"
+        )
 
         if os.path.exists(index_file_path):
             print(f"Loading labeled indices from {index_file_path}")
-            with open(index_file_path, 'r') as f:
+            with open(index_file_path) as f:
                 labeled_indices = json.load(f)
-            
+
             all_indices = set(range(len(targets)))
             unlabeled_indices = list(all_indices - set(labeled_indices))
             np.random.shuffle(unlabeled_indices)
-            print(f"Loaded {len(labeled_indices)} labeled indices and reconstructed {len(unlabeled_indices)} unlabeled indices.")
+            print(
+                f"Loaded {len(labeled_indices)} labeled indices and reconstructed {len(unlabeled_indices)} unlabeled indices."
+            )
         else:
             print("Generating new labeled/unlabeled split.")
-            labeled_indices, unlabeled_indices = self._stratified_split(targets, num_labeled)
-            
+            labeled_indices, unlabeled_indices = self._stratified_split(
+                targets, num_labeled
+            )
+
             print(f"Saving {len(labeled_indices)} labeled indices to {index_file_path}")
-            with open(index_file_path, 'w') as f:
+            with open(index_file_path, "w") as f:
                 json.dump(labeled_indices, f)
 
         labeled_sampler = self.create.sampler.labeled(indices=labeled_indices)
@@ -95,17 +100,16 @@ class AdaptiveAugmentationFixmatch(Agent):
             dataset=train_dataset,
             sampler=labeled_sampler,
             collate_fn=pil_collate,
-            batch_size=labeled_batch_size
+            batch_size=labeled_batch_size,
         )
         self.unlabeled_loader = self.create.dataloader.unlabeled(
             dataset=train_dataset,
             sampler=unlabeled_sampler,
             collate_fn=pil_collate,
-            batch_size=unlabeled_batch_size
+            batch_size=unlabeled_batch_size,
         )
         self.val_loader = self.create.dataloader.val(
-            dataset=val_dataset,
-            collate_fn=pil_collate
+            dataset=val_dataset, collate_fn=pil_collate
         )
 
     def _stratified_split(self, targets: np.ndarray, num_labeled: int):
@@ -131,45 +135,57 @@ class AdaptiveAugmentationFixmatch(Agent):
             # All labels are considered unlabeled.
             unlabeled_indices.extend(indices)
 
-        np.random.shuffle(unlabeled_indices) # Labeled indices don't need shuffling here.
+        np.random.shuffle(
+            unlabeled_indices
+        )  # Labeled indices don't need shuffling here.
 
-        print(f"Dataset split: {len(labeled_indices)} labeled ({num_labeled_per_class} per class target), {len(unlabeled_indices)} unlabeled.")
+        print(
+            f"Dataset split: {len(labeled_indices)} labeled ({num_labeled_per_class} per class target), {len(unlabeled_indices)} unlabeled."
+        )
         return labeled_indices, unlabeled_indices
 
     def train_step(self, labeled_batch, unlabeled_batch):
         """Performs a single training step of the Adaptive Augmentation FixMatch."""
         self.model.train()
-        
+
         labeled_images_pil, labels = labeled_batch
         unlabeled_images_pil, _ = unlabeled_batch
 
-        labeled_images = torch.stack([self.weak_transform(img) for img in labeled_images_pil]).to(self.device)
+        labeled_images = torch.stack(
+            [self.weak_transform(img) for img in labeled_images_pil]
+        ).to(self.device)
         labels = labels.to(self.device)
-        
+
         # 1. Supervised loss
         sup_preds = self.model(labeled_images)
         loss_sup = self.sup_loss_fn(sup_preds, labels)
 
         # 2. Unsupervised loss
         with torch.no_grad():
-            weak_aug_images = torch.stack([self.weak_transform(img) for img in unlabeled_images_pil]).to(self.device)
+            weak_aug_images = torch.stack(
+                [self.weak_transform(img) for img in unlabeled_images_pil]
+            ).to(self.device)
             teacher_preds = self.model(weak_aug_images)
-        
+
             probs = torch.softmax(teacher_preds, dim=1)
             max_probs, pseudo_labels = torch.max(probs, dim=1)
             mask = max_probs.ge(self.cfg.get("confidence_threshold", 0.95)).float()
-        
+
             entropy = -torch.sum(probs * torch.log(probs + 1e-7), dim=1)
             # Exponential mapping f(H) with C-classes and slope 'a'
             C = self.cfg.get("num_classes", 10)
             a = float(self.cfg.get("scale_a", 10.0))
-            Ca = (float(C) ** a)
-            difficulty_scores = ((Ca * torch.exp(-a * entropy)) - 1.0) / (Ca - 1.0 + 1e-12)
+            Ca = float(C) ** a
+            difficulty_scores = ((Ca * torch.exp(-a * entropy)) - 1.0) / (
+                Ca - 1.0 + 1e-12
+            )
             difficulty_scores = difficulty_scores.clamp(0.0, 1.0)
-        
+
         strong_aug_images = []
         for i, img in enumerate(unlabeled_images_pil):
-            aug_img = self.strong_transform(img, difficulty_score=difficulty_scores[i].item())
+            aug_img = self.strong_transform(
+                img, difficulty_score=difficulty_scores[i].item()
+            )
             strong_aug_images.append(aug_img)
         strong_aug_images = torch.stack(strong_aug_images).to(self.device)
 
@@ -178,7 +194,7 @@ class AdaptiveAugmentationFixmatch(Agent):
         # --- Calculate FixMatch Loss (using the mask) ---
         loss_fixmatch = self.unsup_loss_fn(student_preds, pseudo_labels)
         loss_fixmatch = (loss_fixmatch * mask).mean()
-        
+
         # --- Calculate Adaptive Contrastive Loss (on all samples) ---
         # e.g., features_weak = self.model(weak_aug_images, return_features=True)
         #       features_strong = self.model(strong_aug_images, return_features=True)
@@ -187,20 +203,20 @@ class AdaptiveAugmentationFixmatch(Agent):
 
         # --- 3. Total Loss ---
         total_loss = (
-            loss_sup + 
-            self.cfg.get("lambda_fixmatch", 1.0) * loss_fixmatch +
-            self.cfg.get("lambda_contrastive", 0.5) * loss_contrastive
+            loss_sup
+            + self.cfg.get("lambda_fixmatch", 1.0) * loss_fixmatch
+            + self.cfg.get("lambda_contrastive", 0.5) * loss_contrastive
         )
 
         self.optimizer.zero_grad()
         total_loss.backward()
         self.optimizer.step()
-        
+
         return {
             "total_loss": total_loss.item(),
             "sup_loss": loss_sup.item(),
             "fixmatch_loss": loss_fixmatch.item(),
-            "contrastive_loss": loss_contrastive.item()
+            "contrastive_loss": loss_contrastive.item(),
         }
 
     def fit(self):
@@ -214,36 +230,39 @@ class AdaptiveAugmentationFixmatch(Agent):
 
         while self.current_epoch < target_epochs:
             epoch_losses = defaultdict(float)
-            
-            progress_bar = tqdm(range(steps_per_epoch), desc=f"Epoch [{self.current_epoch+1}/{target_epochs}]")
+
+            progress_bar = tqdm(
+                range(steps_per_epoch),
+                desc=f"Epoch [{self.current_epoch + 1}/{target_epochs}]",
+            )
             for step in progress_bar:
                 try:
                     labeled_batch = next(labeled_iter)
                 except StopIteration:
                     labeled_iter = iter(self.labeled_loader)
                     labeled_batch = next(labeled_iter)
-                
+
                 try:
                     unlabeled_batch = next(unlabeled_iter)
                 except StopIteration:
                     unlabeled_iter = iter(self.unlabeled_loader)
                     unlabeled_batch = next(unlabeled_iter)
-                
+
                 loss_dict = self.train_step(labeled_batch, unlabeled_batch)
-                
+
                 for key, value in loss_dict.items():
                     epoch_losses[key] += value
-                
+
                 progress_bar.set_postfix(loss=f"{loss_dict['total_loss']:.4f}")
 
-            if hasattr(self, 'logger') and self.logger is not None:
+            if hasattr(self, "logger") and self.logger is not None:
                 log_data = {}
                 for key, value in epoch_losses.items():
                     # Rename 'total_loss' to 'train_loss' for logging
                     log_key = "train_loss" if key == "total_loss" else f"train_{key}"
                     log_data[log_key] = value / steps_per_epoch
                 self.logger.log_metrics(metrics=log_data, step=self.current_epoch + 1)
-            
+
             self.evaluate()
             self.current_epoch += 1
 
@@ -251,28 +270,30 @@ class AdaptiveAugmentationFixmatch(Agent):
         """Evaluates the model on the validation set."""
         self.model.eval()
         self.metric.reset()
-        
+
         total_val_loss = 0
-        
+
         with torch.no_grad():
             for images_pil, labels in self.val_loader:
-                images = torch.stack([self.val_transform(img) for img in images_pil]).to(self.device)
+                images = torch.stack(
+                    [self.val_transform(img) for img in images_pil]
+                ).to(self.device)
                 labels = labels.to(self.device)
                 preds = self.model(images)
-                
+
                 # Calculate validation loss
                 val_loss = self.sup_loss_fn(preds, labels)
                 total_val_loss += val_loss.item()
-                
+
                 self.metric.update(preds=preds, targets=labels)
-        
+
         # Calculate average validation loss
         avg_val_loss = total_val_loss / len(self.val_loader)
-        
-        metrics = self.metric.compute()
-        metrics['val_loss'] = avg_val_loss
-        
-        print(f"Epoch {self.current_epoch+1} Validation Metrics: {metrics}")
 
-        if hasattr(self, 'logger') and self.logger is not None:
+        metrics = self.metric.compute()
+        metrics["val_loss"] = avg_val_loss
+
+        print(f"Epoch {self.current_epoch + 1} Validation Metrics: {metrics}")
+
+        if hasattr(self, "logger") and self.logger is not None:
             self.logger.log_metrics(metrics=metrics, step=self.current_epoch + 1)

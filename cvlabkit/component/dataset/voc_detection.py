@@ -1,19 +1,36 @@
-import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict
 
-from PIL import Image
 import torch
+from PIL import Image
+from torch.utils.data import Dataset
 from torchvision.transforms import functional as F
 
-from torch.utils.data import Dataset
-
-
 CLASS_NAMES = (
-    "aeroplane", "bird", "boat", "bottle", "cat", "chair", "cow", "diningtable",
-    "dog", "horse", "motorbike", "pottedplant", "sheep", "sofa", "tvmonitor", 
-    "person", "rider", "car", "truck", "bus", "train", "motorcycle", "bicycle"
+    "aeroplane",
+    "bird",
+    "boat",
+    "bottle",
+    "cat",
+    "chair",
+    "cow",
+    "diningtable",
+    "dog",
+    "horse",
+    "motorbike",
+    "pottedplant",
+    "sheep",
+    "sofa",
+    "tvmonitor",
+    "person",
+    "rider",
+    "car",
+    "truck",
+    "bus",
+    "train",
+    "motorcycle",
+    "bicycle",
 )
 
 
@@ -67,7 +84,6 @@ class VOCDetectionDataset(Dataset):
                 "boxes": boxes,
                 "labels": labels,
                 "image_id": idx,
-                "size": (height, width)
-            }
+                "size": (height, width),
+            },
         }
-

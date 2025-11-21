@@ -1,4 +1,5 @@
 from torchvision.datasets import CIFAR10 as TorchCIFAR10
+
 from cvlabkit.component.base import Dataset
 from cvlabkit.core.config import Config
 
@@ -9,6 +10,7 @@ class Cifar10(Dataset):
     This class wraps the `torchvision.datasets.CIFAR10` dataset and handles
     downloading and applying transformations.
     """
+
     def __init__(self, cfg: Config, transform=None):
         """Initializes the Cifar10 dataset.
 
@@ -21,10 +23,7 @@ class Cifar10(Dataset):
         download = cfg.get("download", False)
 
         self.dataset = TorchCIFAR10(
-            root=data_root,
-            train=is_train,
-            download=download,
-            transform=transform
+            root=data_root, train=is_train, download=download, transform=transform
         )
         self.transform = transform
 

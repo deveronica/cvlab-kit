@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional
 
 from cvlabkit.component.base.checkpoint import Checkpoint
 
@@ -88,6 +88,7 @@ class PeriodicCheckpoint(Checkpoint):
         else:
             # Default: save as torch checkpoint
             import torch
+
             torch.save(state, save_path)
 
         self._track_saved_file(save_path)
@@ -143,9 +144,7 @@ class PeriodicCheckpoint(Checkpoint):
 
         if current_step - self._last_saved_step >= self.save_every_n_steps:
             filename = self.name_format.format(
-                prefix=prefix,
-                counter=current_step,
-                ext=ext
+                prefix=prefix, counter=current_step, ext=ext
             )
             save_path = self.save_dir / filename
 
@@ -184,9 +183,7 @@ class PeriodicCheckpoint(Checkpoint):
 
         if current_epoch - self._last_saved_epoch >= self.save_every_n_epochs:
             filename = self.name_format.format(
-                prefix=prefix,
-                counter=current_epoch,
-                ext=ext
+                prefix=prefix, counter=current_epoch, ext=ext
             )
             save_path = self.save_dir / filename
 
@@ -196,7 +193,9 @@ class PeriodicCheckpoint(Checkpoint):
             self._track_saved_file(save_path)
 
             if self.verbose:
-                print(f"[PeriodicCheckpoint] Saved at epoch {current_epoch}: {save_path}")
+                print(
+                    f"[PeriodicCheckpoint] Saved at epoch {current_epoch}: {save_path}"
+                )
 
             return save_path
 
@@ -333,10 +332,7 @@ class ImagePeriodicCheckpoint(PeriodicCheckpoint):
             )
 
         return self.on_step(
-            current_step=current_step,
-            save_fn=save_fn,
-            prefix=prefix,
-            ext=self.format
+            current_step=current_step, save_fn=save_fn, prefix=prefix, ext=self.format
         )
 
     def save_image_on_epoch(
@@ -366,10 +362,7 @@ class ImagePeriodicCheckpoint(PeriodicCheckpoint):
             )
 
         return self.on_epoch(
-            current_epoch=current_epoch,
-            save_fn=save_fn,
-            prefix=prefix,
-            ext=self.format
+            current_epoch=current_epoch, save_fn=save_fn, prefix=prefix, ext=self.format
         )
 
     def save_comparison_on_epoch(
@@ -394,7 +387,9 @@ class ImagePeriodicCheckpoint(PeriodicCheckpoint):
         from torchvision.utils import save_image
 
         def save_fn(path):
-            grid = torch.stack(images) if isinstance(images[0], torch.Tensor) else images
+            grid = (
+                torch.stack(images) if isinstance(images[0], torch.Tensor) else images
+            )
             save_image(
                 grid,
                 path,
@@ -404,8 +399,5 @@ class ImagePeriodicCheckpoint(PeriodicCheckpoint):
             )
 
         return self.on_epoch(
-            current_epoch=current_epoch,
-            save_fn=save_fn,
-            prefix=prefix,
-            ext=self.format
+            current_epoch=current_epoch, save_fn=save_fn, prefix=prefix, ext=self.format
         )

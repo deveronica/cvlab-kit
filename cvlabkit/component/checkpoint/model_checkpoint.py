@@ -126,7 +126,7 @@ class ModelCheckpoint(Checkpoint):
         self,
         model_state: Dict[str, Any],
         metadata: Optional[Dict[str, Any]] = None,
-        filename: str = "model_inference.pt"
+        filename: str = "model_inference.pt",
     ) -> Path:
         """Save lightweight checkpoint for inference (no optimizer).
 
@@ -162,7 +162,9 @@ class ModelCheckpoint(Checkpoint):
         """
         return sorted(self.save_dir.glob(pattern))
 
-    def delete_old_checkpoints(self, keep_last: int = 5, pattern: str = "checkpoint_*.pt"):
+    def delete_old_checkpoints(
+        self, keep_last: int = 5, pattern: str = "checkpoint_*.pt"
+    ):
         """Delete old checkpoints, keeping only the most recent.
 
         Args:

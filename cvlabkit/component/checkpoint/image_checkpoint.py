@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional, Union
 
 import torch
 from einops import rearrange
-from torchvision.utils import save_image, make_grid
+from torchvision.utils import make_grid, save_image
 
 from cvlabkit.component.base.checkpoint import Checkpoint
 
@@ -194,7 +194,11 @@ class ImageCheckpoint(Checkpoint):
             filename = f"{filename}.{self.format}"
 
         save_path = self.save_dir / filename
-        save_image(grid_image, save_path, quality=self.quality if self.format == "jpg" else None)
+        save_image(
+            grid_image,
+            save_path,
+            quality=self.quality if self.format == "jpg" else None,
+        )
 
         if self.verbose:
             print(f"[ImageCheckpoint] Saved grid: {save_path}")

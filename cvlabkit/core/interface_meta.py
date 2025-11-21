@@ -11,7 +11,7 @@ reducing boilerplate code and making it easy to integrate existing libraries
 into the cvlab-kit framework.
 """
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 
 
 class InterfaceMeta(ABCMeta):
@@ -91,12 +91,12 @@ class InterfaceMeta(ABCMeta):
 
             # Store the target on the instance using a private name to avoid
             # conflicts. The dynamically generated methods will use this.
-            setattr(instance, '_delegated_component', delegation_target)
+            instance._delegated_component = delegation_target
 
             delegating_methods = {}
             # Find all methods that need to be delegated.
             for name in dir(delegation_target):
-                if name.startswith('__'):
+                if name.startswith("__"):
                     continue  # Skip magic methods
 
                 # We only need to create a delegate if the method is not already
@@ -117,18 +117,21 @@ class InterfaceMeta(ABCMeta):
                         # (like state_dict()) work correctly. The 'self' parameter is the wrapper
                         # instance, not the actual PyTorch object, so we ignore it.
                         delegating_methods[name] = (
-                            lambda self, *a, _component=delegation_target, _name=name, **kw:
-                                getattr(_component, _name)(*a, **kw)
+                            lambda self,
+                            *a,
+                            _component=delegation_target,
+                            _name=name,
+                            **kw: getattr(_component, _name)(*a, **kw)
                         )
 
             # Add __getattr__ to delegate attribute access
             def __getattr__(self, name):
                 """Delegate attribute access to the wrapped component."""
-                if name == '_delegated_component':
+                if name == "_delegated_component":
                     raise AttributeError(name)
                 return getattr(self._delegated_component, name)
 
-            delegating_methods['__getattr__'] = __getattr__
+            delegating_methods["__getattr__"] = __getattr__
 
             # Create a new class type on the fly.
             # It inherits from the original class and adds the delegating methods.
@@ -148,8 +151,10 @@ class InterfaceMeta(ABCMeta):
             # No delegation target was found. Enforce standard ABC rules.
             # Check if any abstract methods are left unimplemented.
             missing_methods = [
-                name for name in original_abstract_methods
-                if not hasattr(instance, name) or getattr(getattr(instance, name), "__isabstractmethod__", False)
+                name
+                for name in original_abstract_methods
+                if not hasattr(instance, name)
+                or getattr(getattr(instance, name), "__isabstractmethod__", False)
             ]
             if missing_methods:
                 raise TypeError(
@@ -167,4 +172,5 @@ class Interface(metaclass=InterfaceMeta):
     This allows them to be implemented either by directly overriding abstract
     methods or by delegating to another object.
     """
+
     pass

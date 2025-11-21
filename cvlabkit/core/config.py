@@ -1,5 +1,4 @@
-"""
-This module defines the `Config` class, a central component for managing
+"""This module defines the `Config` class, a central component for managing
 experiment configurations within the cvlab-kit framework.
 
 It provides functionalities for loading configurations from YAML files or
@@ -9,11 +8,10 @@ experiments. The `Config` class also integrates with `ConfigProxy` for
 config validation during dry runs.
 """
 
-
-import yaml
-import re
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
+
+import yaml
 
 from cvlabkit.core.config_proxy import ConfigProxy
 
@@ -34,7 +32,9 @@ class Config:
             by the `__getattr__` method when a requested key is not found.
     """
 
-    def __init__(self, source: Union[str, Dict[str, Any]], proxy: ConfigProxy=None) -> None:
+    def __init__(
+        self, source: Union[str, Dict[str, Any]], proxy: ConfigProxy = None
+    ) -> None:
         """Initializes the Config object.
 
         Args:
@@ -130,7 +130,7 @@ class Config:
             # If the value is a dictionary, wrap it in a new Config object
             # to enable further attribute-style access.
             return Config(value, proxy=self.proxy) if isinstance(value, dict) else value
-        
+
         # If the key is not found in _data, try to get it as a regular attribute
         # of the Config object itself (e.g., `proxy`).
         try:
@@ -141,7 +141,9 @@ class Config:
             if self.proxy.active:
                 return self.proxy.resolve_missing(key)
             # If the proxy is not active, raise an AttributeError.
-            raise AttributeError(f"Config has no attribute '{key}' and fast mode is not active.")
+            raise AttributeError(
+                f"Config has no attribute '{key}' and fast mode is not active."
+            )
 
     def __contains__(self, key: str) -> bool:
         """Checks if a key exists in the configuration.
@@ -225,7 +227,9 @@ class Config:
         return expanded_configs
 
     @staticmethod
-    def _flatten(d: Dict[str, Any], parent_key: str = "", sep: str = ".") -> Dict[str, Any]:
+    def _flatten(
+        d: Dict[str, Any], parent_key: str = "", sep: str = "."
+    ) -> Dict[str, Any]:
         """Flattens a nested dictionary into a single-level dictionary.
 
         Keys are concatenated using the specified separator (default: '.').
@@ -297,21 +301,21 @@ class Config:
             keys = key.split(".")
             current_level = template_data
             for i, k in enumerate(keys):
-                if i == len(keys) - 1: # Last key
+                if i == len(keys) - 1:  # Last key
                     current_level[k] = value
                 else:
                     if k not in current_level or not isinstance(current_level[k], dict):
                         current_level[k] = {}
                     current_level = current_level[k]
 
-        with open(file_path, 'w') as f:
+        with open(file_path, "w") as f:
             yaml.dump(template_data, f, default_flow_style=False, sort_keys=False)
 
     def __getstate__(self):
         """Returns the state of the Config object for pickling/deepcopying."""
-        return {'_data': self._data, 'proxy': self.proxy}
+        return {"_data": self._data, "proxy": self.proxy}
 
     def __setstate__(self, state):
         """Restores the state of the Config object from pickling/deepcopying."""
-        self._data = state['_data']
-        self.proxy = state['proxy']
+        self._data = state["_data"]
+        self.proxy = state["proxy"]

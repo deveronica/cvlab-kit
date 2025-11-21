@@ -9,8 +9,8 @@ configuration template.
 """
 
 from __future__ import annotations
+
 import inspect
-import yaml
 from pathlib import Path
 from typing import Any, Dict, Set
 
@@ -30,7 +30,7 @@ class Placeholder:
         proxy: The `ConfigProxy` that created this placeholder.
     """
 
-    def __init__(self, key: str, proxy: "ConfigProxy") -> None:
+    def __init__(self, key: str, proxy: ConfigProxy) -> None:
         """Initializes a Placeholder instance.
 
         Args:
@@ -175,7 +175,7 @@ class ConfigProxy:
             `KeyError`.
     """
 
-    def __init__(self, config: "Config" = None) -> None:
+    def __init__(self, config: Config = None) -> None:
         """Initializes the ConfigProxy instance."""
         self.config = config
         self.missing: Dict[str, Any] = {}
@@ -235,11 +235,11 @@ class ConfigProxy:
                 func = None
 
                 # 1. Prioritize finding a method on a class instance.
-                if 'self' in frame.f_locals:
-                    instance = frame.f_locals['self']
+                if "self" in frame.f_locals:
+                    instance = frame.f_locals["self"]
                     if hasattr(instance, frame_info.function):
                         func = getattr(instance, frame_info.function)
-                
+
                 # 2. Fallback to global functions.
                 if not func and frame_info.function in frame.f_globals:
                     func = frame.f_globals[frame_info.function]
@@ -273,12 +273,18 @@ class ConfigProxy:
             A default value corresponding to the type (e.g., 1 for `int`,
             "" for `str`), or `None` if the type is not recognized.
         """
-        if param_type is int: return 1
-        if param_type is float: return 0.0
-        if param_type is bool: return False
-        if param_type is str: return ""
-        if param_type is list: return []
-        if param_type is dict: return {}
+        if param_type is int:
+            return 1
+        if param_type is float:
+            return 0.0
+        if param_type is bool:
+            return False
+        if param_type is str:
+            return ""
+        if param_type is list:
+            return []
+        if param_type is dict:
+            return {}
         return None
 
     def has_missing(self) -> bool:
@@ -308,12 +314,16 @@ class ConfigProxy:
         """Returns the object's state for pickling.
         Required for deepcopy to work with this custom class.
         """
-        return {'missing': self.missing, 'resolved': self.resolved, 'active': self.active}
+        return {
+            "missing": self.missing,
+            "resolved": self.resolved,
+            "active": self.active,
+        }
 
     def __setstate__(self, state):
         """Restores the object's state from pickling.
         Required for deepcopy to work with this custom class.
         """
-        self.missing = state['missing']
-        self.resolved = state['resolved']
-        self.active = state['active']
+        self.missing = state["missing"]
+        self.resolved = state["resolved"]
+        self.active = state["active"]

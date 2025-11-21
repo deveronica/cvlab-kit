@@ -7,11 +7,12 @@ of their experiment.
 """
 
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import Any
 
-from tqdm import tqdm
 import torch
+from tqdm import tqdm
 
 from cvlabkit.core.config import Config
 
@@ -36,8 +37,9 @@ class Agent(ABC):
         val_loader: The data loader for the validation set.
     """
 
-    def __init__(self, cfg: Config, component_creator: 'ComponentCreator'):
+    def __init__(self, cfg: Config, component_creator: ComponentCreator):
         """Initializes the Agent with configuration and component creator.
+
         Args:
             cfg (Config): Configuration object containing parameters.
             component_creator (ComponentCreator): Creator instance for components.
@@ -64,6 +66,7 @@ class Agent(ABC):
     @abstractmethod
     def train_step(self, batch: Any) -> None:
         """Perform a single training step.
+
         Args:
             batch (Any): A batch of data from the training dataloader.
         """
@@ -71,6 +74,7 @@ class Agent(ABC):
 
     def validate_step(self, batch: Any) -> None:
         """Perform a single validation step.
+
         Args:
             batch (Any): A batch of data from the validation dataloader.
         """
@@ -78,6 +82,7 @@ class Agent(ABC):
 
     def save(self, path: str) -> None:
         """Save the model and training state to the specified path.
+
         Args:
             path (str): Path to save the model and state.
         """
@@ -87,6 +92,7 @@ class Agent(ABC):
 
     def load(self, path: str) -> None:
         """Load the model and training state from the specified path.
+
         Args:
             path (str): Path to load the model and state from.
         """
@@ -100,7 +106,6 @@ class Agent(ABC):
         If 'checkpoint_path' is specified in the configuration, the checkpoint is loaded.
         If 'checkpoint_dir' and 'checkpoint_interval' are specified, the agent state is saved.
         """
-
         # Load a checkpoint if a specific path is provided in the config.
         if hasattr(self.cfg, "checkpoint_path") and self.cfg.checkpoint_path:
             self.load(self.cfg.checkpoint_path)
@@ -119,16 +124,16 @@ class Agent(ABC):
 
             # Check if checkpointing is enabled and if it's time to save.
             should_save = (
-                hasattr(self.cfg, "checkpoint_dir") and
-                hasattr(self.cfg, "checkpoint_interval") and
-                self.cfg.checkpoint_interval > 0 and
-                self.current_epoch % self.cfg.checkpoint_interval == 0
+                hasattr(self.cfg, "checkpoint_dir")
+                and hasattr(self.cfg, "checkpoint_interval")
+                and self.cfg.checkpoint_interval > 0
+                and self.current_epoch % self.cfg.checkpoint_interval == 0
             )
             if should_save:
                 import os
+
                 save_path = os.path.join(
-                    self.cfg.checkpoint_dir,
-                    f"checkpoint_{self.current_epoch}.pt"
+                    self.cfg.checkpoint_dir, f"checkpoint_{self.current_epoch}.pt"
                 )
                 if not os.path.exists(self.cfg.checkpoint_dir):
                     os.makedirs(self.cfg.checkpoint_dir)
@@ -144,14 +149,15 @@ class Agent(ABC):
             raise ValueError("train_loader must be set before training.")
 
         self.model.train()
-        for batch in tqdm(self.train_loader, 
-                          desc=f"Epoch {self.current_epoch + 1} Training"):
+        for batch in tqdm(
+            self.train_loader, desc=f"Epoch {self.current_epoch + 1} Training"
+        ):
             self.train_step(batch)
             self.current_step += 1
 
     def evaluate(self) -> None:
         """Evaluate the model on the validation set.
-        
+
         Raises:
             ValueError: If val_loader is not defined.
         """

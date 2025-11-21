@@ -2,16 +2,15 @@
 
 """Manages dynamic creation of agents and components based on configuration."""
 
+import ast
 import importlib
 import inspect
 import pkgutil
 import re
-from typing import Any, Callable, Dict, Optional, Tuple, List
-import ast
-import os
+from typing import Any, Callable, Dict, Tuple
 
-from cvlabkit.core.agent import Agent
 from cvlabkit.component import base as component_base
+from cvlabkit.core.agent import Agent
 from cvlabkit.core.config import Config
 
 # Regex to parse a string like "name(key1=value1, key2='string_val')"
@@ -97,7 +96,9 @@ class ComponentCreator:
         """
         base_classes = {}
         for name, cls in inspect.getmembers(component_base, inspect.isclass):
-            if hasattr(cls, "__module__") and cls.__module__.startswith("cvlabkit.component.base"):
+            if hasattr(cls, "__module__") and cls.__module__.startswith(
+                "cvlabkit.component.base"
+            ):
                 base_classes[name.lower()] = cls
         return base_classes
 
@@ -121,10 +122,12 @@ class ComponentCreator:
             raise AttributeError(
                 f"'{type(self).__name__}' can not support 'agent' category."
             )
-        
+
         base_class = self._base_classes.get(category)
         if base_class is None:
-             raise AttributeError(f"No base class found for component category '{category}'.")
+            raise AttributeError(
+                f"No base class found for component category '{category}'."
+            )
 
         return _ComponentCategoryLoader(self.cfg, category, base_class)
 
@@ -139,14 +142,13 @@ class _BaseLoader:
         self.implementations: Dict[str, type] = {}
 
     def _get_component_info(self, config_value: Any) -> Tuple[str, Config]:
-        """
-        Parses a configuration value to extract the implementation name and
+        """Parses a configuration value to extract the implementation name and
         its specific parameters using abstract syntax trees (AST).
         This handles simple names, function-call syntax, and dictionary-based configs.
         """
+
         def _safe_eval_node(node):
-            """
-            Safely evaluates an AST node to a Python literal,
+            """Safely evaluates an AST node to a Python literal,
             treating unquoted names as strings.
             """
             try:
@@ -159,13 +161,17 @@ class _BaseLoader:
                     # e.g., for `split=train`, node.id will be 'train'.
                     return node.id
                 # If it's not a simple name, it's an unsupported expression.
-                raise ValueError(f"Unsupported expression in config DSL: {ast.dump(node)}")
+                raise ValueError(
+                    f"Unsupported expression in config DSL: {ast.dump(node)}"
+                )
 
         if isinstance(config_value, str):
-            tree = ast.parse(config_value, mode='eval')
+            tree = ast.parse(config_value, mode="eval")
             if isinstance(tree.body, ast.Call):  # e.g., "resize(size=128)"
                 impl_name = tree.body.func.id
-                kwargs = {kw.arg: _safe_eval_node(kw.value) for kw in tree.body.keywords}
+                kwargs = {
+                    kw.arg: _safe_eval_node(kw.value) for kw in tree.body.keywords
+                }
                 return impl_name, Config(kwargs)
             elif isinstance(tree.body, ast.Name):  # e.g., "resnet18"
                 return tree.body.id, Config({})
@@ -184,29 +190,34 @@ class _BaseLoader:
             impl_name = config_value.pop("_type")
             return impl_name, Config(config_value)
 
-        raise TypeError(f"Unsupported config format for '{self.category}': {type(config_value)}")
+        raise TypeError(
+            f"Unsupported config format for '{self.category}': {type(config_value)}"
+        )
 
     def _resolve_placeholders_recursive(self, value: Any) -> Any:
-        """
-        Recursively traverses a data structure and resolves placeholders
+        """Recursively traverses a data structure and resolves placeholders
         like {{key}} using values from the main configuration.
         """
         if isinstance(value, str):
-            if '{{' not in value:
+            if "{{" not in value:
                 return value
-            
+
             # Handle cases where the entire string is a placeholder,
             # which might resolve to a non-string value (e.g., a list or dict).
             match = re.fullmatch(r"\s*{{s*(.*?)s*}}\s*", value)
             if match:
                 key = match.group(1).strip()
-                return self.cfg.get(key) # Return the raw value
+                return self.cfg.get(key)  # Return the raw value
 
             # Otherwise, substitute placeholders within the string.
-            return re.sub(r"{{s*(.*?)s*}}", lambda m: str(self.cfg.get(m.group(1).strip())), value)
+            return re.sub(
+                r"{{s*(.*?)s*}}", lambda m: str(self.cfg.get(m.group(1).strip())), value
+            )
 
         elif isinstance(value, dict):
-            return {k: self._resolve_placeholders_recursive(v) for k, v in value.items()}
+            return {
+                k: self._resolve_placeholders_recursive(v) for k, v in value.items()
+            }
         elif isinstance(value, list):
             return [self._resolve_placeholders_recursive(v) for v in value]
         else:
@@ -214,7 +225,7 @@ class _BaseLoader:
 
     def _create_instance(
         self, constructor: Callable, component_cfg: Config, *args: Any, **kwargs: Any
-        ) -> Any:
+    ) -> Any:
         """Creates a component instance, injecting dependencies.
 
         This method inspects the component's constructor (`__init__`) and provides
@@ -236,7 +247,7 @@ class _BaseLoader:
         final_params = self.cfg.to_dict()
         final_params.update(component_cfg.to_dict())
         final_params.update(runtime_kwargs)
-        
+
         # 2. Resolve all placeholders recursively
         resolved_params = self._resolve_placeholders_recursive(final_params)
 
@@ -289,11 +300,13 @@ class _ComponentCategoryLoader(_BaseLoader):
                 if issubclass(cls, self.base_class):
                     found_class = cls
                     break
-            
+
             if found_class is None and len(candidate_classes) == 1:
                 found_class = candidate_classes[0]
-                print(f"[Creator] Warning: Component '{impl_name}' in module '{module_full_name}' does not inherit from '{self.base_class.__name__}'. Importing anyway as it's the only concrete class in the module.")
-            
+                print(
+                    f"[Creator] Warning: Component '{impl_name}' in module '{module_full_name}' does not inherit from '{self.base_class.__name__}'. Importing anyway as it's the only concrete class in the module."
+                )
+
             if found_class:
                 self.implementations[cache_key] = found_class
                 return found_class
@@ -316,35 +329,44 @@ class _ComponentCategoryLoader(_BaseLoader):
                 package = importlib.import_module(package_path)
                 for _, name, _ in pkgutil.iter_modules(package.__path__):
                     # Skip legacy folders
-                    if name != 'legacy':
+                    if name != "legacy":
                         available_modules.append(name)
             except (ModuleNotFoundError, IndexError):
                 pass
 
             if available_modules:
-                raise ValueError(f"Component module '{impl_name}' not found for category '{self.category}'. Available modules: {', '.join(available_modules)}")
+                raise ValueError(
+                    f"Component module '{impl_name}' not found for category '{self.category}'. Available modules: {', '.join(available_modules)}"
+                )
             else:
-                raise ValueError(f"Component module '{impl_name}' not found for category '{self.category}'. No modules found in {package_path}.")
+                raise ValueError(
+                    f"Component module '{impl_name}' not found for category '{self.category}'. No modules found in {package_path}."
+                )
         except Exception as e:
-            raise ValueError(f"Failed to load component '{impl_name}' from '{module_full_name}': {e}")
+            raise ValueError(
+                f"Failed to load component '{impl_name}' from '{module_full_name}': {e}"
+            )
 
     def _create_from_dsl(self, dsl_string: str, *args, **kwargs) -> Any:
-        """
-        Parses a pipeline DSL string, creates a list of component instances,
+        """Parses a pipeline DSL string, creates a list of component instances,
         and wraps them in a 'Compose' component for that category.
         """
         component_instances = []
-        component_dsls = [s.strip() for s in dsl_string.split('|')]
+        component_dsls = [s.strip() for s in dsl_string.split("|")]
 
         for component_dsl in component_dsls:
             impl_name, component_cfg = self._get_component_info(component_dsl)
             constructor = self._load_implementation(impl_name)
             # Pass runtime args only if the component's constructor accepts them
             sig = inspect.signature(constructor)
-            if 'params' in sig.parameters or 'model' in sig.parameters: # A bit of a hack for optimizer
-                 instance = self._create_instance(constructor, component_cfg, *args, **kwargs)
+            if (
+                "params" in sig.parameters or "model" in sig.parameters
+            ):  # A bit of a hack for optimizer
+                instance = self._create_instance(
+                    constructor, component_cfg, *args, **kwargs
+                )
             else:
-                 instance = self._create_instance(constructor, component_cfg)
+                instance = self._create_instance(constructor, component_cfg)
 
             component_instances.append(instance)
 
@@ -360,8 +382,7 @@ class _ComponentCategoryLoader(_BaseLoader):
             )
 
     def __getattr__(self, option: str) -> Callable[..., Any]:
-        """
-        Handles calls for named components, e.g., `create.transform.weak()`.
+        """Handles calls for named components, e.g., `create.transform.weak()`.
         This returns a callable that can accept runtime arguments like `model.parameters()`.
         """
         key = f"{self.category}.{option}"
@@ -371,7 +392,7 @@ class _ComponentCategoryLoader(_BaseLoader):
 
         # This lambda ensures that any runtime arguments (*a, **kw) are passed along.
         def creator_lambda(*args, **kwargs):
-            if isinstance(config_value, str) and '|' in config_value:
+            if isinstance(config_value, str) and "|" in config_value:
                 # DSL pipelines do not accept runtime args.
                 return self._create_from_dsl(config_value)
 
@@ -383,22 +404,23 @@ class _ComponentCategoryLoader(_BaseLoader):
         return creator_lambda
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        """
-        Handles calls for a single top-level component, e.g., `create.optimizer()`.
+        """Handles calls for a single top-level component, e.g., `create.optimizer()`.
         This method correctly passes runtime arguments.
         """
         config_value = self.cfg.get(self.category)
         if not config_value:
-             raise ValueError(f"Missing configuration for top-level category '{self.category}'.")
+            raise ValueError(
+                f"Missing configuration for top-level category '{self.category}'."
+            )
 
-        if isinstance(config_value, str) and '|' in config_value:
+        if isinstance(config_value, str) and "|" in config_value:
             return self._create_from_dsl(config_value)
 
         impl_name, component_cfg = self._get_component_info(config_value)
         constructor = self._load_implementation(impl_name)
-        
+
         return self._create_instance(constructor, component_cfg, *args, **kwargs)
-        
+
 
 class _AgentLoader(_BaseLoader):
     """Specialized loader for Agent classes."""
@@ -413,7 +435,7 @@ class _AgentLoader(_BaseLoader):
         super().__init__(cfg, "agent")
         self.component_creator = component_creator
         self.base_class = Agent
-        self.implementations: Dict[str, type] = {} # Cache for loaded agents
+        self.implementations: Dict[str, type] = {}  # Cache for loaded agents
 
     def _load_implementation(self, impl_name: str) -> type:
         """Lazily loads and returns the class for a given agent implementation name.
@@ -435,13 +457,19 @@ class _AgentLoader(_BaseLoader):
 
         try:
             module = importlib.import_module(module_full_name)
-            
+
             for _, cls in inspect.getmembers(module, inspect.isclass):
-                if cls.__module__ == module.__name__ and issubclass(cls, self.base_class) and not inspect.isabstract(cls):
+                if (
+                    cls.__module__ == module.__name__
+                    and issubclass(cls, self.base_class)
+                    and not inspect.isabstract(cls)
+                ):
                     self.implementations[impl_name] = cls
                     return cls
-            
-            raise ValueError(f"No concrete class inheriting from 'Agent' found in module '{module_full_name}'.")
+
+            raise ValueError(
+                f"No concrete class inheriting from 'Agent' found in module '{module_full_name}'."
+            )
 
         except ModuleNotFoundError:
             available_modules = []
@@ -449,17 +477,23 @@ class _AgentLoader(_BaseLoader):
                 package = importlib.import_module(package_path)
                 for _, name, _ in pkgutil.iter_modules(package.__path__):
                     # Skip legacy folders
-                    if name != 'legacy':
+                    if name != "legacy":
                         available_modules.append(name)
             except (ModuleNotFoundError, IndexError):
                 pass
 
             if available_modules:
-                raise ValueError(f"Agent implementation '{impl_name}' not found. Available: {', '.join(available_modules)}")
+                raise ValueError(
+                    f"Agent implementation '{impl_name}' not found. Available: {', '.join(available_modules)}"
+                )
             else:
-                raise ValueError(f"Agent implementation '{impl_name}' not found. No modules found in {package_path}.")
+                raise ValueError(
+                    f"Agent implementation '{impl_name}' not found. No modules found in {package_path}."
+                )
         except Exception as e:
-            raise ValueError(f"Failed to load agent '{impl_name}' from '{module_full_name}': {e}")
+            raise ValueError(
+                f"Failed to load agent '{impl_name}' from '{module_full_name}': {e}"
+            )
 
     def __call__(self, **kwargs: Any) -> Agent:
         """Creates the main agent instance specified by `cfg.agent`.
@@ -479,6 +513,6 @@ class _AgentLoader(_BaseLoader):
             raise ValueError("Configuration key 'agent' is not specified.")
 
         constructor = self._load_implementation(impl_name)
-        
+
         kwargs["component_creator"] = self.component_creator
         return self._create_instance(constructor, Config({}), **kwargs)

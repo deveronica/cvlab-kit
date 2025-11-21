@@ -1,4 +1,5 @@
 import torch
+
 from cvlabkit.component.base import Optimizer
 
 
@@ -10,11 +11,7 @@ class Adam(Optimizer):
         weight_decay = cfg.get("weight_decay", 0)
 
         self.opt = torch.optim.Adam(
-            params,
-            lr=lr,
-            betas=betas,
-            eps=eps,
-            weight_decay=weight_decay
+            params, lr=lr, betas=betas, eps=eps, weight_decay=weight_decay
         )
 
     def step(self):

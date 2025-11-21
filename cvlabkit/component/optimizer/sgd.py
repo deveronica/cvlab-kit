@@ -1,4 +1,5 @@
 import torch
+
 from cvlabkit.component.base import Optimizer
 
 
@@ -9,10 +10,7 @@ class SgdOptimizer(Optimizer):
         weight_decay = float(cfg.weight_decay) if hasattr(cfg, "weight_decay") else 0.0
 
         self.opt = torch.optim.SGD(
-            params,
-            lr=lr,
-            momentum=momentum,
-            weight_decay=weight_decay
+            params, lr=lr, momentum=momentum, weight_decay=weight_decay
         )
 
     def step(self):

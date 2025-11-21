@@ -6,6 +6,7 @@ from cvlabkit.core.creator import Creator
 
 def parse_args():
     """Parse command line arguments for the training script.
+
     Returns:
         argparse.Namespace: Parsed command line arguments.
     """
@@ -57,8 +58,13 @@ def main():
     # Step 2: Create a config template if any configuration has missing keys
     if has_missing_key:
         import time
-        cfg.dump_template(f"config/templates/generated_by_dry_run_{time.strftime('%Y%m%d_%H%M%S')}.yaml")
-        print("Missing keys found. Template generated in config/templates/ directory.\nPlease Rerun after filling config.")
+
+        cfg.dump_template(
+            f"config/templates/generated_by_dry_run_{time.strftime('%Y%m%d_%H%M%S')}.yaml"
+        )
+        print(
+            "Missing keys found. Template generated in config/templates/ directory.\nPlease Rerun after filling config."
+        )
         return
 
     # Step 3: Run training if all configurations are valid

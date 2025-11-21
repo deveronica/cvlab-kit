@@ -1,0 +1,597 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Nord Light Mode */
+    --background: 219 28% 88%;    /* Nord0 - Snow Storm Light */
+    --foreground: 219 28% 18%;    /* Nord6 - Polar Night Dark */
+    --card: 220 13% 91%;          /* Slightly darker than background */
+    --card-foreground: 219 28% 18%;
+    --popover: 219 28% 88%;
+    --popover-foreground: 219 28% 18%;
+    --primary: 213 32% 52%;       /* Nord10 - Frost Blue Dark */
+    --primary-foreground: 219 28% 88%;
+    --secondary: 220 16% 76%;     /* Nord1 - Snow Storm Light */
+    --secondary-foreground: 219 28% 18%;
+    --muted: 219 19% 65%;         /* Nord2 - Snow Storm Medium */
+    --muted-foreground: 220 16% 36%; /* Nord3 - Polar Night Light */
+    --accent: 193 43% 67%;        /* Nord8 - Frost Blue Light */
+    --accent-foreground: 219 28% 18%;
+    --destructive: 354 42% 56%;   /* Nord11 - Aurora Red */
+    --destructive-foreground: 219 28% 88%;
+    --border: 219 19% 65%;        /* Nord2 */
+    --input: 220 16% 76%;         /* Nord1 */
+    --ring: 213 32% 52%;          /* Nord10 */
+    --radius: 0.75rem;
+    --chart-1: 213 32% 52%;       /* Nord10 - Blue */
+    --chart-2: 178 25% 65%;       /* Nord7 - Teal */
+    --chart-3: 92 28% 65%;        /* Nord14 - Green */
+    --chart-4: 14 51% 63%;        /* Nord12 - Orange */
+    --chart-5: 311 20% 63%;       /* Nord15 - Purple */
+
+    /* AG Grid Table Typography & Spacing (shared between CSS and TypeScript) */
+    --ag-cell-font-size: 14px;           /* text-sm */
+    --ag-cell-line-height: 1.5;          /* Line height multiplier */
+    --ag-cell-padding-vertical: 4px;     /* Top + bottom padding per side (compact: 2px each) */
+    --ag-cell-padding-horizontal: 12px;  /* Left + right padding per side */
+  }
+
+  .dark {
+    /* Nord Dark Mode */
+    --background: 219 28% 18%;    /* Nord6 - Polar Night Darkest */
+    --foreground: 219 28% 88%;    /* Nord0 - Snow Storm Light */
+    --card: 220 16% 22%;          /* Nord5 - Polar Night Dark */
+    --card-foreground: 219 28% 88%;
+    --popover: 219 28% 18%;
+    --popover-foreground: 219 28% 88%;
+    --primary: 193 43% 67%;       /* Nord8 - Frost Blue Light */
+    --primary-foreground: 219 28% 18%;
+    --secondary: 219 28% 25%;     /* Nord4 - Polar Night Medium */
+    --secondary-foreground: 219 28% 88%;
+    --muted: 220 16% 36%;         /* Nord3 - Polar Night Light */
+    --muted-foreground: 219 19% 65%; /* Nord2 - Snow Storm Medium */
+    --accent: 210 34% 63%;        /* Nord9 - Frost Blue */
+    --accent-foreground: 219 28% 88%;
+    --destructive: 354 42% 56%;   /* Nord11 - Aurora Red */
+    --destructive-foreground: 219 28% 88%;
+    --border: 220 16% 36%;        /* Nord3 */
+    --input: 219 28% 25%;         /* Nord4 */
+    --ring: 193 43% 67%;          /* Nord8 */
+    --chart-1: 193 43% 67%;       /* Nord8 - Blue Light */
+    --chart-2: 178 25% 65%;       /* Nord7 - Teal */
+    --chart-3: 92 28% 65%;        /* Nord14 - Green */
+    --chart-4: 14 51% 63%;        /* Nord12 - Orange */
+    --chart-5: 311 20% 63%;       /* Nord15 - Purple */
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    height: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  #root {
+    min-height: 100vh;
+    width: 100%;
+    background-color: hsl(var(--background));
+  }
+}
+
+/* Enhanced scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+/* Scrollbar hide utility */
+.scrollbar-hide {
+  /* IE and Edge */
+  -ms-overflow-style: none;
+  /* Firefox */
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  /* Safari and Chrome */
+  display: none;
+}
+
+/* ::-webkit-scrollbar-track {
+  @apply bg-muted/50;
+} */
+
+/* ::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/30 rounded-md transition-colors;
+} */
+
+/* ::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/50;
+} */
+
+/* ::-webkit-scrollbar-corner {
+  @apply bg-muted/50;
+} */
+
+/* Research-focused component styles */
+.research-container {
+  @apply mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.research-card {
+  /* @apply bg-card/80 backdrop-blur-sm border border-border/50 rounded-xl shadow-lg shadow-black/5 transition-all duration-200 hover:shadow-xl hover:shadow-black/10; */
+}
+
+.research-card-header {
+  /* @apply border-b border-border/50 px-6 py-4; */
+}
+
+.research-card-content {
+  @apply p-6;
+}
+
+.research-metric-card {
+  /* @apply research-card p-4 space-y-2; */
+}
+
+.research-stat {
+  @apply text-2xl font-bold tracking-tight;
+}
+
+.research-stat-label {
+  /* @apply text-sm text-muted-foreground font-medium; */
+}
+
+.research-button {
+  @apply inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.research-button-primary {
+  /* @apply research-button bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25 hover:shadow-primary/40; */
+}
+
+.research-button-secondary {
+  /* @apply research-button bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50; */
+}
+
+.research-button-ghost {
+  /* @apply research-button hover:bg-accent/50 hover:text-accent-foreground; */
+}
+
+.research-input {
+  /* @apply flex h-11 w-full rounded-lg border border-input bg-background/50 px-4 py-2 text-sm ring-offset-background backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200; */
+}
+
+.research-table {
+  @apply w-full caption-bottom text-sm border-separate border-spacing-0;
+}
+
+.research-table-header {
+  /* @apply border-b border-border/50; */
+}
+
+.research-table-row {
+  /* @apply border-b border-border/30 transition-all duration-150 hover:bg-muted/30; */
+}
+
+.research-table-head {
+  /* @apply h-12 px-4 text-left align-middle font-semibold text-muted-foreground tracking-wide uppercase text-xs; */
+}
+
+.research-table-cell {
+  @apply p-4 align-middle;
+}
+
+/* Enhanced animation utilities */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(0, 0, 0, 0.15);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* Component-Level Status Colors
+ * Following shadcn/ui minimalist philosophy:
+ * Status colors are managed at component-level, not as semantic tokens.
+ * These carry semantic meaning (green=good, red=bad) that transcends themes.
+ * See CLAUDE.md for rationale and usage guidelines.
+ */
+
+.status-online {
+  @apply bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800/50;
+}
+
+.status-running {
+  @apply bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800/50;
+}
+
+.status-completed {
+  @apply bg-green-50 text-green-700 border border-green-200 dark:bg-green-950/50 dark:text-green-400 dark:border-green-800/50;
+}
+
+.status-warning {
+  @apply bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800/50;
+}
+
+.status-error {
+  @apply bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/50 dark:text-red-400 dark:border-red-800/50;
+}
+
+.status-offline {
+  @apply bg-slate-50 text-slate-700 border border-slate-200 dark:bg-slate-950/50 dark:text-slate-400 dark:border-slate-800/50;
+}
+
+.status-badge {
+  @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all duration-200;
+}
+
+/* Research-specific gradient backgrounds */
+.research-gradient {
+  background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--muted)/20) 100%);
+}
+
+.research-sidebar-gradient {
+  background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--muted)/30) 100%);
+}
+
+
+/* CodeMirror full width fix */
+.cm-editor,
+.cm-theme,
+.cm-theme-light,
+.cm-theme-dark {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.cm-editor {
+  overflow: auto !important;
+  border-radius: 0.5rem !important;
+}
+
+.cm-scroller {
+  width: 100% !important;
+  max-width: none !important;
+  overflow: visible !important;
+}
+
+/* AG Grid Custom Styling - Using Theming API v34+ */
+/* Note: Cell-specific styles are managed in AGGridProjectsTable.tsx <style> tag */
+/* This section only contains global AG Grid fixes */
+
+/* Frozen column shadow */
+.ag-pinned-left-header,
+.ag-pinned-left-cols-container {
+  box-shadow: 2px 0 5px -2px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* AG Grid Scroll Sync Fix - Remove smooth scrolling */
+.ag-root-wrapper,
+.ag-root-wrapper *,
+.ag-body-viewport,
+.ag-body-horizontal-scroll-viewport,
+.ag-header-viewport {
+  scroll-behavior: auto !important;
+}
+
+/* AG Grid Cell Text Handling - Apply to all cells including pinned */
+.ag-cell,
+.ag-pinned-left-cols-container .ag-cell,
+.ag-pinned-right-cols-container .ag-cell {
+  /* Break at hyphens and underscores, not arbitrary characters */
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+  /* Allow breaking at hyphens */
+  hyphens: auto !important;
+
+  /* Always show ellipsis for overflow text */
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+
+  /* Default: Enable wrapping but preserve word boundaries */
+  white-space: normal !important;
+}
+
+/* Ensure ellipsis works with line-clamp - ONLY for body cells, NOT headers */
+/* Apply to all cells including pinned columns */
+.ag-cell:not(.ag-header-cell):not(.ag-header-group-cell).line-clamp-1,
+.ag-pinned-left-cols-container .ag-cell:not(.ag-header-cell):not(.ag-header-group-cell).line-clamp-1,
+.ag-pinned-right-cols-container .ag-cell:not(.ag-header-cell):not(.ag-header-group-cell).line-clamp-1 {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 1 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+  hyphens: auto !important;
+}
+
+.ag-cell:not(.ag-header-cell):not(.ag-header-group-cell).line-clamp-2,
+.ag-pinned-left-cols-container .ag-cell:not(.ag-header-cell):not(.ag-header-group-cell).line-clamp-2,
+.ag-pinned-right-cols-container .ag-cell:not(.ag-header-cell):not(.ag-header-group-cell).line-clamp-2 {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+  hyphens: auto !important;
+}
+
+.ag-cell:not(.ag-header-cell):not(.ag-header-group-cell).line-clamp-3,
+.ag-pinned-left-cols-container .ag-cell:not(.ag-header-cell):not(.ag-header-group-cell).line-clamp-3,
+.ag-pinned-right-cols-container .ag-cell:not(.ag-header-cell):not(.ag-header-group-cell).line-clamp-3 {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 3 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+  hyphens: auto !important;
+}
+
+/* Make AG Grid's internal wrapper transparent for line-clamp to work through cellRenderer */
+/* Apply to all cells including pinned columns */
+.ag-cell.line-clamp-1 .ag-cell-wrapper,
+.ag-cell.line-clamp-2 .ag-cell-wrapper,
+.ag-cell.line-clamp-3 .ag-cell-wrapper,
+.ag-pinned-left-cols-container .ag-cell.line-clamp-1 .ag-cell-wrapper,
+.ag-pinned-left-cols-container .ag-cell.line-clamp-2 .ag-cell-wrapper,
+.ag-pinned-left-cols-container .ag-cell.line-clamp-3 .ag-cell-wrapper,
+.ag-pinned-right-cols-container .ag-cell.line-clamp-1 .ag-cell-wrapper,
+.ag-pinned-right-cols-container .ag-cell.line-clamp-2 .ag-cell-wrapper,
+.ag-pinned-right-cols-container .ag-cell.line-clamp-3 .ag-cell-wrapper {
+  display: contents !important;
+}
+
+/* Ensure cellRenderer span/text wrappers also apply line-clamp, but NOT flex containers */
+/* Apply to all cells including pinned columns */
+.ag-cell.line-clamp-1 .ag-cell-wrapper > div:not([class*="flex"]) > span,
+.ag-cell.line-clamp-1 .ag-cell-wrapper > span,
+.ag-pinned-left-cols-container .ag-cell.line-clamp-1 .ag-cell-wrapper > div:not([class*="flex"]) > span,
+.ag-pinned-left-cols-container .ag-cell.line-clamp-1 .ag-cell-wrapper > span,
+.ag-pinned-right-cols-container .ag-cell.line-clamp-1 .ag-cell-wrapper > div:not([class*="flex"]) > span,
+.ag-pinned-right-cols-container .ag-cell.line-clamp-1 .ag-cell-wrapper > span {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 1 !important;
+  overflow: hidden !important;
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+  hyphens: auto !important;
+}
+
+.ag-cell.line-clamp-2 .ag-cell-wrapper > div:not([class*="flex"]) > span,
+.ag-cell.line-clamp-2 .ag-cell-wrapper > span,
+.ag-pinned-left-cols-container .ag-cell.line-clamp-2 .ag-cell-wrapper > div:not([class*="flex"]) > span,
+.ag-pinned-left-cols-container .ag-cell.line-clamp-2 .ag-cell-wrapper > span,
+.ag-pinned-right-cols-container .ag-cell.line-clamp-2 .ag-cell-wrapper > div:not([class*="flex"]) > span,
+.ag-pinned-right-cols-container .ag-cell.line-clamp-2 .ag-cell-wrapper > span {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+  overflow: hidden !important;
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+  hyphens: auto !important;
+}
+
+.ag-cell.line-clamp-3 .ag-cell-wrapper > div:not([class*="flex"]) > span,
+.ag-cell.line-clamp-3 .ag-cell-wrapper > span,
+.ag-pinned-left-cols-container .ag-cell.line-clamp-3 .ag-cell-wrapper > div:not([class*="flex"]) > span,
+.ag-pinned-left-cols-container .ag-cell.line-clamp-3 .ag-cell-wrapper > span,
+.ag-pinned-right-cols-container .ag-cell.line-clamp-3 .ag-cell-wrapper > div:not([class*="flex"]) > span,
+.ag-pinned-right-cols-container .ag-cell.line-clamp-3 .ag-cell-wrapper > span {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 3 !important;
+  overflow: hidden !important;
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+  hyphens: auto !important;
+}
+
+/* Max mode (1-line): no wrap, show ellipsis - ONLY for body cells, NOT headers */
+.ag-cell:not(.ag-header-cell):not(.ag-header-group-cell).text-ellipsis {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  display: block !important;
+}
+
+/* AG Grid Header Height - Set via headerHeight and floatingFiltersHeight props
+ * No CSS height override - let AG Grid control via props for proper sync
+ */
+
+.ag-header-cell {
+  /* Ensure header text doesn't wrap */
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  padding: 2px 8px !important; /* Very compact: 2px vertical, 8px horizontal */
+
+  /* Ensure consistent vertical alignment between pinned and non-pinned columns */
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* Compact header spacing - let AG Grid control height via props */
+/* CSS only handles alignment and padding, NOT height */
+.ag-header-row.ag-header-row-floating-filter,
+.ag-header-container .ag-header-row:nth-child(2),
+.ag-pinned-left-header .ag-header-row.ag-header-row-floating-filter,
+.ag-pinned-left-header .ag-header-row:nth-child(2),
+.ag-pinned-right-header .ag-header-row.ag-header-row-floating-filter,
+.ag-pinned-right-header .ag-header-row:nth-child(2) {
+  /* Remove extra margins for compact design */
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* First row - let AG Grid control height */
+.ag-header-row:first-child,
+.ag-header-container .ag-header-row:first-child,
+.ag-pinned-left-header .ag-header-row:first-child,
+.ag-pinned-right-header .ag-header-row:first-child {
+  /* No height override - AG Grid controls via headerHeight prop */
+}
+
+.ag-header-row:first-child .ag-header-cell,
+.ag-header-container .ag-header-row:first-child .ag-header-cell,
+.ag-pinned-left-header .ag-header-row:first-child .ag-header-cell,
+.ag-pinned-right-header .ag-header-row:first-child .ag-header-cell {
+  overflow: visible !important;
+  line-height: 1.5 !important;
+}
+
+/* AG Grid Column Resizing Support */
+.ag-header-cell-resize {
+  cursor: col-resize !important;
+  width: 8px !important; /* Make resize handle wider for easier grabbing */
+  opacity: 1 !important;
+}
+
+/* Make resize handle more visible on hover */
+.ag-header-cell:hover .ag-header-cell-resize {
+  background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.dark .ag-header-cell:hover .ag-header-cell-resize {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Prevent focus ring clipping */
+.overflow-visible {
+  overflow: visible !important;
+}
+
+/* Card content overflow handling */
+.card-content-safe {
+  overflow: visible;
+  padding: 1rem;
+}
+
+/* Chart container min heights to prevent clipping */
+.chart-container {
+  min-height: 200px;
+  width: 100%;
+}
+
+/* Recharts responsive container fixes */
+.recharts-responsive-container {
+  min-height: 180px !important;
+}
+
+/* Badge positioning fix for table cells */
+.badge-in-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: fit-content;
+}
+
+/* Z-index for chart selectors and dropdowns */
+.chart-selector {
+  position: relative;
+  z-index: 10;
+}
+
+/* Ensure Select components don't clip */
+.select-no-clip {
+  overflow: visible !important;
+}
+
+.select-no-clip > * {
+  overflow: visible !important;
+}

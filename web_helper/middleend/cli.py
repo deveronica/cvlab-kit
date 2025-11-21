@@ -1,0 +1,79 @@
+"""Middleend CLI - Worker execution entry points."""
+
+import asyncio
+import logging
+import socket
+import sys
+
+from web_helper.middleend.heartbeat import ClientAgent
+
+
+def run_worker(args, daemon=False):
+    """Run middleend worker (heartbeat + job execution + log sync).
+
+    Args:
+        args: Parsed command-line arguments
+        daemon: If True, run as daemon process
+    """
+    if daemon:
+        # Daemon mode: start process in background
+        from web_helper.backend.daemon.process_manager import ProcessManager
+        pm = ProcessManager()
+        pm.start_middleend_daemon(args)
+        return
+
+    # Normal mode: run in foreground
+    try:
+        from web_helper.middleend.device_agent import DeviceAgent
+    except ImportError as e:
+        print(f"❌ Failed to import DeviceAgent: {e}")
+        print("   Make sure all dependencies are installed: uv sync")
+        sys.exit(1)
+
+    agent = DeviceAgent(
+        server_url=args.url,
+        host_id=args.client_host_id or socket.gethostname(),
+        heartbeat_interval=args.client_interval,
+        poll_interval=args.poll_interval,
+    )
+
+    print("💓 Starting full device agent...")
+    print(f"   Server URL: {args.url}")
+    print(f"   Host ID: {agent.host_id}")
+    print(f"   Heartbeat interval: {args.client_interval}s")
+    print(f"   Poll interval: {args.poll_interval}s")
+    print(f"   Workspace: {agent.workspace}")
+
+    try:
+        asyncio.run(agent.start())
+    except KeyboardInterrupt:
+        print("\n👋 Device agent stopped")
+        asyncio.run(agent.stop())
+
+
+def run_heartbeat_only(url: str, interval: int, host_id: str = None):
+    """Run simple client agent (heartbeat-only) for development mode.
+
+    This is used in development mode when backend runs locally and wants
+    to monitor its own GPU stats.
+
+    Args:
+        url: Backend URL
+        interval: Heartbeat interval in seconds
+        host_id: Custom host identifier (default: hostname)
+    """
+    agent = ClientAgent(
+        web_helper_url=url,
+        heartbeat_interval=interval,
+        host_id=host_id,
+    )
+
+    print("💓 Starting heartbeat-only agent...")
+    print(f"   Server URL: {url}")
+    print(f"   Heartbeat interval: {interval}s")
+    print(f"   Host ID: {agent.host_id}")
+
+    try:
+        agent.start()
+    except KeyboardInterrupt:
+        agent.stop()

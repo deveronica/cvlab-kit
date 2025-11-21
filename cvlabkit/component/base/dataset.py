@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 from abc import abstractmethod
 from typing import Any
+
 from torch.utils.data import Dataset as TorchDataset
+
 from cvlabkit.core.interface_meta import InterfaceMeta
 
 

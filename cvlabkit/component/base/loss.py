@@ -1,6 +1,9 @@
 from __future__ import annotations
+
 from abc import abstractmethod
+
 import torch
+
 from cvlabkit.core.interface_meta import InterfaceMeta
 
 

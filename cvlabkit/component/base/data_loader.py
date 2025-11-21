@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 from abc import abstractmethod
-from typing import Iterator
+from collections.abc import Iterator
+
 from torch.utils.data import DataLoader as TorchDataLoader
+
 from cvlabkit.core.interface_meta import InterfaceMeta
 
 
@@ -16,12 +19,10 @@ class DataLoader(TorchDataLoader, metaclass=InterfaceMeta):
 
     @abstractmethod
     def __iter__(self) -> Iterator:
-        """Returns an iterator over the dataset.
-        """
+        """Returns an iterator over the dataset."""
         pass
 
     @abstractmethod
     def __len__(self) -> int:
-        """Returns the number of batches in the data loader.
-        """
+        """Returns the number of batches in the data loader."""
         pass

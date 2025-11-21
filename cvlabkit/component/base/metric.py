@@ -1,12 +1,14 @@
 from __future__ import annotations
+
 from abc import abstractmethod
 from typing import Any, Dict
+
 from cvlabkit.core.interface_meta import InterfaceMeta
 
 
 class Metric(metaclass=InterfaceMeta):
-    """Abstract base class for all metrics.
-    """
+    """Abstract base class for all metrics."""
+
     @abstractmethod
     def update(self, **kwargs: Any) -> None:
         """Updates the metric's internal state with new data.
@@ -27,6 +29,5 @@ class Metric(metaclass=InterfaceMeta):
 
     @abstractmethod
     def reset(self) -> None:
-        """Resets the metric's internal state.
-        """
+        """Resets the metric's internal state."""
         pass

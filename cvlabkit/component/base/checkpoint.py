@@ -1,12 +1,14 @@
 from __future__ import annotations
+
 from abc import abstractmethod
 from typing import Any, Dict
+
 from cvlabkit.core.interface_meta import InterfaceMeta
 
 
 class Checkpoint(metaclass=InterfaceMeta):
-    """Abstract base class for checkpointing functionalities.
-    """
+    """Abstract base class for checkpointing functionalities."""
+
     @abstractmethod
     def save(self, state: Dict[str, Any], file_path: str) -> None:
         """Saves the current state of the experiment.

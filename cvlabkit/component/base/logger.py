@@ -1,12 +1,14 @@
 from __future__ import annotations
+
 from abc import abstractmethod
 from typing import Any, Dict
+
 from cvlabkit.core.interface_meta import InterfaceMeta
 
 
 class Logger(metaclass=InterfaceMeta):
-    """Abstract base class for all loggers.
-    """
+    """Abstract base class for all loggers."""
+
     @abstractmethod
     def log_metrics(self, metrics: Dict[str, float], step: int) -> None:
         """Logs a dictionary of metrics at a given step.
@@ -28,6 +30,5 @@ class Logger(metaclass=InterfaceMeta):
 
     @abstractmethod
     def finalize(self) -> None:
-        """Finalizes the logging process, e.g., closes connections or saves data.
-        """
+        """Finalizes the logging process, e.g., closes connections or saves data."""
         pass

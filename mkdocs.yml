@@ -1,0 +1,162 @@
+site_name: CVLab-Kit Documentation
+site_description: PyTorch-based modular ML experimentation framework with web-based research management platform
+site_author: CVLab-Kit Team
+repo_url: https://github.com/deveronica/cvlab-kit
+repo_name: deveronica/cvlab-kit
+
+# Exclude AI instruction files from documentation
+exclude_docs: |
+  CLAUDE.md
+  GEMINI.md
+
+theme:
+  name: material
+  language: ko
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - navigation.tracking
+    - toc.follow
+    - search.highlight
+    - search.share
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+    - content.tooltips
+
+plugins:
+  - search:
+      lang:
+        - ko
+        - en
+  - swagger-ui-tag
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            docstring_style: google
+            docstring_section_style: table
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            heading_level: 2
+            members_order: source
+            show_signature: false
+            show_signature_annotations: true
+            modernize_annotations: true
+            signature_crossrefs: true
+            separate_signature: false
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - toc:
+      permalink: true
+  - def_list
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - sane_lists
+  - abbr
+
+extra_javascript:
+  - https://unpkg.com/mermaid@10/dist/mermaid.min.js
+  - javascripts/mermaid-init.js
+
+nav:
+  - 홈: README.md
+
+  - 시작하기:
+    - 빠른 시작 가이드: getting_started.md
+    - 배포 가이드: deployment_guide.md
+    - Docker 배포: deployment_docker.md
+    - Synology NAS 배포: deployment_synology.md
+    - 분산 실행 빠른 시작: distributed_execution_quickstart.md
+    - 분산 실행 가이드: distributed_execution_guide.md
+
+  - 핵심 개념:
+    - 아키텍처: architecture.md
+    - 개발 철학: development_philosophy.md
+    - Creator 동작 방식 상세 설명: creator_workflow.md
+    - 설정 가이드: config_guide.md
+
+  - 사용자 가이드:
+    - 실험자 가이드: user_guide_experimenter.md
+    - 개발자 가이드: user_guide_developer.md
+    - 설정 예제: config_examples.md
+    - 성능 튜닝 가이드: performance_tuning.md
+    - 컴포넌트 확장: extending_components.md
+    - Build 개념: build_concept_explained.md
+
+  - 튜토리얼:
+    - 커스텀 모델 작성하기: tutorials/custom_model.md
+    - 커스텀 Loss 작성하기: tutorials/custom_loss.md
+    - 커스텀 Dataset 작성하기: tutorials/custom_dataset.md
+    - Grid Search로 하이퍼파라미터 탐색: tutorials/grid_search.md
+    - 분산 실행 환경 구축하기: tutorials/distributed_setup.md
+
+  - API 레퍼런스:
+    - Core: api/core.md
+    - Agent: api/agent.md
+    - Component: api/component.md
+    - Web Helper Backend: api/web_helper.md
+    - REST API: api/rest_api.md
+
+  - Web Helper:
+    - Web Helper 가이드: web_helper_guide.md
+
+  - 프로젝트 가이드:
+    - 문서화 가이드: documentation_guide.md
+    - GitHub 가이드: github_guide.md
+    - 문제 해결 가이드: troubleshooting.md
+    - FAQ: faq.md
+    - 권장 라이브러리: additional_libraries.md
+
+extra_css:
+  - stylesheets/custom.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/deveronica/cvlab-kit

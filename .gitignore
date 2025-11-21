@@ -403,6 +403,8 @@ scripts/
 # Documentation
 GEMINI.md
 CLAUDE.md
+PRD.md
+ref-design.png
 reports/
 test-results/
 

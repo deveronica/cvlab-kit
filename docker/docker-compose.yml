@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  cvlab-kit:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: cvlab-kit
+    ports:
+      - "8000:8000"    # FastAPI backend
+      - "5173:5173"    # Vite dev server (dev mode only)
+    volumes:
+      # Mount logs and outputs for persistence
+      - ../logs:/app/logs
+      - ../outputs:/app/outputs
+      - ../config:/app/config
+      - ../web_helper/state:/app/web_helper/state
+      - ../web_helper/queue_logs:/app/web_helper/queue_logs
+
+      # Mount source code for hot-reload in dev mode
+      - ../cvlabkit:/app/cvlabkit
+      - ../web_helper:/app/web_helper
+
+    environment:
+      # Load from .env file
+      - WANDB_API_KEY=${WANDB_API_KEY:-}
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+      - PYTHONUNBUFFERED=1
+
+    # Enable GPU support (requires nvidia-docker)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    # Development mode: run with frontend dev server
+    # Uncomment the line below and comment out the default CMD in Dockerfile
+    # command: uv run app.py --dev
+
+    restart: unless-stopped
+
+# Optional: Separate frontend service for production build
+#   frontend:
+#     build:
+#       context: ./web_helper/frontend
+#       dockerfile: Dockerfile
+#     container_name: cvlab-kit-frontend
+#     ports:
+#       - "5173:80"
+#     depends_on:
+#       - cvlab-kit

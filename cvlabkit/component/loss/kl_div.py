@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 
 from cvlabkit.component.base import Loss
@@ -13,9 +12,12 @@ class KlDiv(Loss):
     and applies the log-softmax function to the predictions before computing
     the loss.
     """
+
     def __init__(self, cfg: Config):
         super().__init__()
-        self.reduction = cfg.get("reduction", "batchmean")  # 'batchmean'|'mean'|'sum'|'none'
+        self.reduction = cfg.get(
+            "reduction", "batchmean"
+        )  # 'batchmean'|'mean'|'sum'|'none'
         self.dim = int(cfg.get("dim", 1))
         self.eps = float(cfg.get("eps", 1e-12))
 
@@ -33,5 +35,5 @@ class KlDiv(Loss):
         p = self._to_probs(p).to(dtype=logq.dtype, device=logq.device)
 
         # KL(p || q) = -H(p) + H(p, q)
-        loss = F.kl_div(logq, p, reduction=self.reduction)     # KL(p || q)
+        loss = F.kl_div(logq, p, reduction=self.reduction)  # KL(p || q)
         return torch.nan_to_num(loss)

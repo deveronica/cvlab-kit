@@ -4,8 +4,7 @@ def ciou_loss(
     reduction: str = "none",
     eps: float = 1e-7,
 ) -> torch.Tensor:
-    """
-    Complete Intersection over Union Loss (Zhaohui Zheng et. al)
+    """Complete Intersection over Union Loss (Zhaohui Zheng et. al)
     https://arxiv.org/abs/1911.08287
     Args:
         boxes1, boxes2 (Tensor): box locations in XYXY format, shape (N, 4) or (4,).
@@ -15,7 +14,6 @@ def ciou_loss(
                  'sum': The output will be summed.
         eps (float): small number to prevent division by zero
     """
-
     x1, y1, x2, y2 = boxes1.unbind(dim=-1)
     x1g, y1g, x2g, y2g = boxes2.unbind(dim=-1)
 
@@ -54,7 +52,9 @@ def ciou_loss(
     h_pred = y2 - y1
     w_gt = x2g - x1g
     h_gt = y2g - y1g
-    v = (4 / (math.pi**2)) * torch.pow((torch.atan(w_gt / h_gt) - torch.atan(w_pred / h_pred)), 2)
+    v = (4 / (math.pi**2)) * torch.pow(
+        (torch.atan(w_gt / h_gt) - torch.atan(w_pred / h_pred)), 2
+    )
     with torch.no_grad():
         alpha = v / (1 - iou + v + eps)
 

@@ -1,5 +1,5 @@
 import torch
-import math
+
 from cvlabkit.component.base import Loss
 
 
@@ -17,8 +17,7 @@ def diou_loss(
     reduction: str = "none",
     eps: float = 1e-7,
 ) -> torch.Tensor:
-    """
-    Distance Intersection over Union Loss (Zhaohui Zheng et. al)
+    """Distance Intersection over Union Loss (Zhaohui Zheng et. al)
     https://arxiv.org/abs/1911.08287
     Args:
         boxes1, boxes2 (Tensor): box locations in XYXY format, shape (N, 4) or (4,).
@@ -28,7 +27,6 @@ def diou_loss(
                  'sum': The output will be summed.
         eps (float): small number to prevent division by zero
     """
-
     x1, y1, x2, y2 = boxes1.unbind(dim=-1)
     x1g, y1g, x2g, y2g = boxes2.unbind(dim=-1)
 

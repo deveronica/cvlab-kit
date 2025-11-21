@@ -5,20 +5,16 @@ from cvlabkit.core.config import Config
 
 
 class CrossEntropy(Loss):
-    """
-    A loss component that wraps the standard torch.nn.CrossEntropyLoss.
-    """
+    """A loss component that wraps the standard torch.nn.CrossEntropyLoss."""
+
     def __init__(self, cfg: Config):
-        """
-        Initializes the CrossEntropy loss function.
-        """
+        """Initializes the CrossEntropy loss function."""
         super().__init__()
         reduction = cfg.get("reduction", "mean")
         self.loss_fn = nn.CrossEntropyLoss(reduction=reduction)
 
     def forward(self, preds, targets):
-        """
-        Computes the cross-entropy loss between predictions and targets.
+        """Computes the cross-entropy loss between predictions and targets.
 
         Args:
             preds (torch.Tensor): The model's output logits.

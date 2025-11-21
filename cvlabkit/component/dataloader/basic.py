@@ -1,11 +1,13 @@
 from torch.utils.data import DataLoader as TorchDataLoader
-from cvlabkit.component.base import DataLoader
-from cvlabkit.component.base import Dataset
+
+from cvlabkit.component.base import DataLoader, Dataset
 from cvlabkit.core.config import Config
 
 
 class Basic(DataLoader):
-    def __init__(self, cfg: Config, dataset: Dataset, sampler=None, collate_fn=None, **kwargs):
+    def __init__(
+        self, cfg: Config, dataset: Dataset, sampler=None, collate_fn=None, **kwargs
+    ):
         self.dataset = dataset
 
         batch_size = cfg.get("batch_size", 1)
@@ -24,7 +26,7 @@ class Basic(DataLoader):
             sampler=sampler,
             num_workers=num_workers,
             pin_memory=pin_memory,
-            collate_fn=collate_fn
+            collate_fn=collate_fn,
         )
 
     def __iter__(self):

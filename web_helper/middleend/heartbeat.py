@@ -26,6 +26,7 @@ class ClientAgent:
         web_helper_url: str = "http://localhost:8000",
         heartbeat_interval: int = 10,
         host_id: Optional[str] = None,
+        api_key: Optional[str] = None,
     ):
         """Initialize client agent.
 
@@ -33,55 +34,105 @@ class ClientAgent:
             web_helper_url: URL of web-helper API
             heartbeat_interval: Heartbeat interval in seconds
             host_id: Custom host identifier (defaults to hostname)
+            api_key: API key for authentication (or set CVLABKIT_API_KEY env var)
         """
+        import os
+
         self.web_helper_url = web_helper_url.rstrip("/")
         self.heartbeat_interval = heartbeat_interval
         self.host_id = host_id or socket.gethostname()
         self.running = False
 
+        # API key for authentication
+        self.api_key = api_key or os.environ.get("CVLABKIT_API_KEY")
+        self.headers = {}
+        if self.api_key:
+            self.headers["Authorization"] = f"Bearer {self.api_key}"
+
+        # Backoff configuration for reconnection
+        self.base_backoff = 1.0  # Initial backoff in seconds
+        self.max_backoff = 60.0  # Maximum backoff in seconds
+        self.backoff_factor = 2.0  # Exponential factor
+        self.consecutive_failures = 0
+
         logging.info(f"Client agent initialized for host {self.host_id}")
 
+    def _reset_backoff(self):
+        """Reset backoff to initial values after successful connection."""
+        self.consecutive_failures = 0
+
+    def _calculate_backoff(self) -> float:
+        """Calculate next backoff duration with exponential increase."""
+        self.consecutive_failures += 1
+        backoff = min(
+            self.base_backoff * (self.backoff_factor ** (self.consecutive_failures - 1)),
+            self.max_backoff,
+        )
+        return backoff
+
     def start(self):
-        """Start the heartbeat monitoring loop."""
+        """Start the heartbeat monitoring loop with exponential backoff."""
         self.running = True
         logging.info("Starting heartbeat monitoring...")
 
         while self.running:
             try:
-                self._send_heartbeat()
-                time.sleep(self.heartbeat_interval)
+                success = self._send_heartbeat()
+                if success:
+                    self._reset_backoff()
+                    time.sleep(self.heartbeat_interval)
+                else:
+                    backoff = self._calculate_backoff()
+                    logging.warning(
+                        f"Heartbeat failed, retrying in {backoff:.1f}s "
+                        f"(attempt {self.consecutive_failures})"
+                    )
+                    time.sleep(backoff)
             except KeyboardInterrupt:
                 logging.info("Heartbeat monitoring stopped by user")
                 break
             except Exception as e:
                 logging.error(f"Error in heartbeat loop: {e}")
-                time.sleep(self.heartbeat_interval)
+                backoff = self._calculate_backoff()
+                logging.info(f"Retrying in {backoff:.1f}s...")
+                time.sleep(backoff)
 
     def stop(self):
         """Stop the heartbeat monitoring."""
         self.running = False
         logging.info("Heartbeat monitoring stopped")
 
-    def _send_heartbeat(self):
-        """Send a single heartbeat to the web-helper."""
+    def _send_heartbeat(self) -> bool:
+        """Send a single heartbeat to the web-helper.
+
+        Returns:
+            True if heartbeat was sent successfully, False otherwise.
+        """
         try:
             # Collect system stats
             stats = self._collect_system_stats()
 
             # Send to web-helper
             response = requests.post(
-                f"{self.web_helper_url}/api/devices/heartbeat", json=stats, timeout=5
+                f"{self.web_helper_url}/api/devices/heartbeat",
+                json=stats,
+                headers=self.headers,
+                timeout=5,
             )
 
             if response.status_code == 200:
                 logging.debug(f"Heartbeat sent successfully for {self.host_id}")
+                return True
             else:
                 logging.warning(f"Heartbeat failed with status {response.status_code}")
+                return False
 
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to send heartbeat: {e}")
+            return False
         except Exception as e:
             logging.error(f"Error collecting system stats: {e}")
+            return False
 
     def _collect_system_stats(self) -> dict[str, Any]:
         """Collect system statistics for heartbeat.
@@ -387,7 +438,11 @@ class ClientAgent:
             True if connection successful
         """
         try:
-            response = requests.get(f"{self.web_helper_url}/api/devices", timeout=5)
+            response = requests.get(
+                f"{self.web_helper_url}/api/devices",
+                headers=self.headers,
+                timeout=5,
+            )
             return response.status_code == 200
         except Exception as e:
             logging.error(f"Connection test failed: {e}")

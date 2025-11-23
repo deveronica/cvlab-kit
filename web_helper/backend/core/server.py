@@ -117,6 +117,11 @@ def run_development_servers(args):
         print("[1/3] Starting backend server...")
         backend_env = os.environ.copy()
         backend_env["CVLABKIT_DEV_MODE"] = "true"
+        # Pass API key to backend via environment variable
+        api_key = getattr(args, "api_key", None)
+        if api_key:
+            backend_env["CVLABKIT_API_KEY"] = api_key
+            print("🔐 API key authentication enabled")
         backend_process = subprocess.Popen(
             backend_command, preexec_fn=os.setsid, env=backend_env
         )
@@ -212,11 +217,17 @@ def run_production_server(args, run_client: bool = False):
         args: Parsed command-line arguments
         run_client: If True, also start a local heartbeat agent
     """
-    app = create_app(dev_mode=False)
+    api_key = getattr(args, "api_key", None)
+    app = create_app(dev_mode=False, api_key=api_key)
+
+    # Determine protocol for display URLs
+    ssl_certfile = getattr(args, "ssl_certfile", None)
+    ssl_keyfile = getattr(args, "ssl_keyfile", None)
+    protocol = "https" if (ssl_certfile and ssl_keyfile) else "http"
 
     print("🚀 Starting CVLab-Kit Web Helper (Production Mode)")
-    print(f"📊 Web interface: http://{args.host}:{args.port}")
-    print(f"🔧 API docs: http://{args.host}:{args.port}/docs")
+    print(f"📊 Web interface: {protocol}://{args.host}:{args.port}")
+    print(f"🔧 API docs: {protocol}://{args.host}:{args.port}/docs")
 
     client_thread = None
     if run_client:
@@ -232,6 +243,9 @@ def run_production_server(args, run_client: bool = False):
     else:
         print("💓 Middleend agent: Disabled")
 
+    if ssl_certfile and ssl_keyfile:
+        print(f"🔒 HTTPS enabled (cert: {ssl_certfile})")
+
     print("🛑 Press Ctrl+C to stop\n")
 
     try:
@@ -241,6 +255,8 @@ def run_production_server(args, run_client: bool = False):
             port=args.port,
             log_level=args.log_level,
             reload=args.reload,
+            ssl_certfile=ssl_certfile,
+            ssl_keyfile=ssl_keyfile,
         )
     except KeyboardInterrupt:
         print("\n👋 CVLab-Kit Web Helper stopped")

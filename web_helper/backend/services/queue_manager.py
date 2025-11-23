@@ -132,6 +132,89 @@ class QueueManager:
         """Get job by ID"""
         return self._jobs.get(experiment_uid)
 
+    def get_next_job_for_device(self, host_id: str) -> Optional[QueueJob]:
+        """Get next queued job for a remote device.
+
+        This is used by remote workers to poll for jobs to execute.
+        Returns the highest priority queued job and marks it as assigned.
+        """
+        with self._lock:
+            # Find queued jobs sorted by priority
+            queued_jobs = [
+                job for job in self._jobs.values()
+                if job.status == JobStatus.QUEUED
+            ]
+
+            if not queued_jobs:
+                return None
+
+            # Sort by priority and queue time
+            queued_jobs.sort(
+                key=lambda j: (self._get_priority_value(j.priority), j.queued_at.timestamp())
+            )
+
+            # Get the first job
+            job = queued_jobs[0]
+
+            # Mark as assigned to this device
+            job.status = JobStatus.RUNNING
+            job.assigned_device = host_id
+
+            # Track as running
+            self._running_jobs[job.experiment_uid] = job
+            self._device_assignments[host_id] = job.experiment_uid
+
+            # Remove from queue
+            # Note: We rebuild the queue without this job
+            new_queue = []
+            while not self._job_queue.empty():
+                try:
+                    item = self._job_queue.get_nowait()
+                    if item[2] != job.experiment_uid:
+                        new_queue.append(item)
+                except:
+                    break
+            for item in new_queue:
+                self._job_queue.put(item)
+
+            self._save_state()
+            self._broadcast_job_update_sync(job)
+
+            logger.info(f"Job {job.experiment_uid} assigned to device {host_id}")
+            return job
+
+    def complete_remote_job(self, experiment_uid: str, success: bool, error_message: Optional[str] = None):
+        """Mark a remote job as completed.
+
+        Called by remote workers when job execution finishes.
+        """
+        with self._lock:
+            job = self._jobs.get(experiment_uid)
+            if not job:
+                return
+
+            if success:
+                job.status = JobStatus.COMPLETED
+            else:
+                job.status = JobStatus.FAILED
+                if error_message:
+                    if not job.metadata:
+                        job.metadata = {}
+                    job.metadata["error"] = error_message
+
+            # Free the device
+            if job.assigned_device and job.assigned_device in self._device_assignments:
+                del self._device_assignments[job.assigned_device]
+
+            # Remove from running jobs
+            if experiment_uid in self._running_jobs:
+                del self._running_jobs[experiment_uid]
+
+            self._save_state()
+            self._broadcast_job_update_sync(job)
+
+            logger.info(f"Remote job {experiment_uid} completed: {'success' if success else 'failed'}")
+
     def list_jobs(
         self, status: Optional[JobStatus] = None, project: Optional[str] = None
     ) -> List[QueueJob]:

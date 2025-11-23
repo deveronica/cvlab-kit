@@ -55,6 +55,10 @@ class DeviceAgent:
         host_id: Optional[str] = None,
         heartbeat_interval: int = 10,
         poll_interval: int = 5,
+        api_key: Optional[str] = None,
+        connect_timeout: float = 10.0,
+        request_timeout: float = 30.0,
+        max_jobs: int = 1,
     ):
         """Initialize device agent.
 
@@ -63,19 +67,40 @@ class DeviceAgent:
             host_id: Custom host identifier (default: hostname)
             heartbeat_interval: Heartbeat interval in seconds
             poll_interval: Job polling interval in seconds
+            api_key: API key for authentication (or set CVLABKIT_API_KEY env var)
+            connect_timeout: Connection timeout in seconds (default: 10)
+            request_timeout: Total request timeout in seconds (default: 30)
+            max_jobs: Maximum concurrent jobs to run (default: 1)
         """
         self.server_url = server_url.rstrip("/")
         self.host_id = host_id or socket.gethostname()
         self.heartbeat_interval = heartbeat_interval
         self.poll_interval = poll_interval
+        self.connect_timeout = connect_timeout
+        self.request_timeout = request_timeout
+        self.max_jobs = max_jobs
+
+        # API key for authentication
+        self.api_key = api_key or os.environ.get("CVLABKIT_API_KEY")
 
         # Workspace for logs
         server_name = self._sanitize_server_name(server_url)
         self.workspace = Path(f"logs_{server_name}")
         self.workspace.mkdir(parents=True, exist_ok=True)
 
-        # HTTP client
-        self.http_client = httpx.AsyncClient(timeout=30.0)
+        # HTTP client with optional auth headers and configurable timeout
+        headers = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+            logger.info("🔐 API key authentication enabled")
+
+        timeout = httpx.Timeout(
+            connect=self.connect_timeout,
+            read=self.request_timeout,
+            write=self.request_timeout,
+            pool=self.request_timeout,
+        )
+        self.http_client = httpx.AsyncClient(timeout=timeout, headers=headers)
 
         # Log synchronizer
         self.synchronizer = LogSynchronizer(server_url, self.workspace)
@@ -85,6 +110,13 @@ class DeviceAgent:
 
         # Running flag
         self.running = False
+
+        # Backoff configuration for reconnection
+        self.base_backoff = 1.0  # Initial backoff in seconds
+        self.max_backoff = 60.0  # Maximum backoff in seconds
+        self.backoff_factor = 2.0  # Exponential factor
+        self.current_backoff = self.base_backoff
+        self.consecutive_failures = 0
 
         # Initialize NVIDIA if available
         if NVIDIA_ML_AVAILABLE:
@@ -155,18 +187,48 @@ class DeviceAgent:
         logger.info(f"Received signal {signum}, stopping...")
         self.running = False
 
+    def _reset_backoff(self):
+        """Reset backoff to initial values after successful connection."""
+        self.current_backoff = self.base_backoff
+        self.consecutive_failures = 0
+
+    def _calculate_backoff(self) -> float:
+        """Calculate next backoff duration with exponential increase."""
+        self.consecutive_failures += 1
+        backoff = min(
+            self.base_backoff * (self.backoff_factor ** (self.consecutive_failures - 1)),
+            self.max_backoff,
+        )
+        self.current_backoff = backoff
+        return backoff
+
     async def _heartbeat_loop(self):
-        """Send periodic heartbeats to server."""
+        """Send periodic heartbeats to server with exponential backoff on failures."""
         while self.running:
             try:
-                await self._send_heartbeat()
+                success = await self._send_heartbeat()
+                if success:
+                    self._reset_backoff()
+                    await asyncio.sleep(self.heartbeat_interval)
+                else:
+                    backoff = self._calculate_backoff()
+                    logger.warning(
+                        f"Heartbeat failed, retrying in {backoff:.1f}s "
+                        f"(attempt {self.consecutive_failures})"
+                    )
+                    await asyncio.sleep(backoff)
             except Exception as e:
-                logger.error(f"Heartbeat failed: {e}")
+                logger.error(f"Heartbeat error: {e}")
+                backoff = self._calculate_backoff()
+                logger.info(f"Retrying in {backoff:.1f}s...")
+                await asyncio.sleep(backoff)
 
-            await asyncio.sleep(self.heartbeat_interval)
+    async def _send_heartbeat(self) -> bool:
+        """Send single heartbeat with system stats.
 
-    async def _send_heartbeat(self):
-        """Send single heartbeat with system stats."""
+        Returns:
+            True if heartbeat was sent successfully, False otherwise.
+        """
         try:
             stats = self._collect_system_stats()
 
@@ -176,22 +238,25 @@ class DeviceAgent:
 
             if response.status_code == 200:
                 logger.debug(f"Heartbeat sent: {self.host_id}")
+                return True
             else:
                 logger.warning(
                     f"Heartbeat failed: {response.status_code} {response.text}"
                 )
+                return False
 
         except Exception as e:
             logger.error(f"Failed to send heartbeat: {e}")
+            return False
 
     def _collect_system_stats(self) -> Dict:
         """Collect system statistics."""
         stats = {
             "host_id": self.host_id,
             "cpu_util": psutil.cpu_percent(interval=1),
-            "memory_used": psutil.virtual_memory().used,
-            "memory_total": psutil.virtual_memory().total,
-            "disk_free": psutil.disk_usage("/").free,
+            "memory_used": psutil.virtual_memory().used / (1024**3),  # bytes to GB
+            "memory_total": psutil.virtual_memory().total / (1024**3),  # bytes to GB
+            "disk_free": psutil.disk_usage("/").free / (1024**3),  # bytes to GB
         }
 
         # GPU stats (NVIDIA)
@@ -207,8 +272,8 @@ class DeviceAgent:
                     util = pynvml.nvmlDeviceGetUtilizationRates(handle)
 
                     stats["gpu_util"] = util.gpu
-                    stats["vram_used"] = mem_info.used
-                    stats["vram_total"] = mem_info.total
+                    stats["vram_used"] = mem_info.used / (1024**3)  # bytes to GB
+                    stats["vram_total"] = mem_info.total / (1024**3)  # bytes to GB
 
                     try:
                         temp = pynvml.nvmlDeviceGetTemperature(
@@ -236,8 +301,8 @@ class DeviceAgent:
                             "index": i,
                             "name": name if isinstance(name, str) else name.decode(),
                             "utilization": util.gpu,
-                            "memory_used": mem_info.used,
-                            "memory_total": mem_info.total,
+                            "memory_used": mem_info.used / (1024**3),  # bytes to GB
+                            "memory_total": mem_info.total / (1024**3),  # bytes to GB
                         }
                         gpus.append(gpu_info)
 
@@ -258,9 +323,8 @@ class DeviceAgent:
         """Poll for new jobs to execute."""
         while self.running:
             try:
-                # Check if we have capacity
-                if len(self.active_jobs) >= 1:
-                    # Only run one job at a time for now
+                # Check if we have capacity for more jobs
+                if len(self.active_jobs) >= self.max_jobs:
                     await asyncio.sleep(self.poll_interval)
                     continue
 
@@ -268,6 +332,9 @@ class DeviceAgent:
                 job = await self._poll_next_job()
 
                 if job:
+                    logger.info(
+                        f"Starting job (active: {len(self.active_jobs) + 1}/{self.max_jobs})"
+                    )
                     asyncio.create_task(self._execute_job(job))
 
             except Exception as e:
@@ -486,6 +553,29 @@ async def main():
         default=5,
         help="Job polling interval in seconds (default: 5)",
     )
+    parser.add_argument(
+        "--api-key",
+        default=os.environ.get("CVLABKIT_API_KEY"),
+        help="API key for authentication (or set CVLABKIT_API_KEY env var)",
+    )
+    parser.add_argument(
+        "--connect-timeout",
+        type=float,
+        default=10.0,
+        help="Connection timeout in seconds (default: 10)",
+    )
+    parser.add_argument(
+        "--request-timeout",
+        type=float,
+        default=30.0,
+        help="Request timeout in seconds (default: 30)",
+    )
+    parser.add_argument(
+        "--max-jobs",
+        type=int,
+        default=1,
+        help="Maximum concurrent jobs to run (default: 1)",
+    )
 
     args = parser.parse_args()
 
@@ -494,6 +584,10 @@ async def main():
         host_id=args.host_id,
         heartbeat_interval=args.heartbeat_interval,
         poll_interval=args.poll_interval,
+        api_key=args.api_key,
+        connect_timeout=args.connect_timeout,
+        request_timeout=args.request_timeout,
+        max_jobs=args.max_jobs,
     )
 
     try:

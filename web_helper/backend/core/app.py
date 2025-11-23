@@ -7,10 +7,79 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from web_helper.backend.api import create_router
+
+# Global API key storage (set by create_app)
+_api_key: str | None = None
+
+
+class APIKeyMiddleware(BaseHTTPMiddleware):
+    """Middleware for API key authentication."""
+
+    # Paths that don't require authentication
+    EXEMPT_PATHS = {
+        "/docs",
+        "/openapi.json",
+        "/redoc",
+        "/api/health",
+    }
+
+    # Path prefixes that don't require authentication
+    EXEMPT_PREFIXES = (
+        "/assets/",
+        "/static/",
+    )
+
+    async def dispatch(self, request: Request, call_next):
+        global _api_key
+
+        # Skip auth if no API key is configured
+        if not _api_key:
+            return await call_next(request)
+
+        path = request.url.path
+
+        # Skip auth for exempt paths
+        if path in self.EXEMPT_PATHS:
+            return await call_next(request)
+
+        # Skip auth for exempt prefixes
+        if path.startswith(self.EXEMPT_PREFIXES):
+            return await call_next(request)
+
+        # Skip auth for root and SPA routes (non-API)
+        if not path.startswith("/api/"):
+            return await call_next(request)
+
+        # Check Authorization header
+        auth_header = request.headers.get("Authorization")
+        if not auth_header:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Missing Authorization header"},
+            )
+
+        # Validate Bearer token
+        if not auth_header.startswith("Bearer "):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid Authorization format. Use: Bearer <api-key>"},
+            )
+
+        token = auth_header[7:]  # Remove "Bearer " prefix
+        if token != _api_key:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid API key"},
+            )
+
+        return await call_next(request)
+
+
 from web_helper.backend.models import init_database
 from web_helper.backend.services import file_monitor
 from web_helper.backend.services.indexer import log_indexer
@@ -80,19 +149,31 @@ async def lifespan(app: FastAPI):
     logging.info("👋 CVLab-Kit Web Helper stopping...")
 
 
-def create_app(dev_mode: bool = None):
+def create_app(dev_mode: bool = None, api_key: str = None):
     """Create FastAPI application with modular structure.
 
     Args:
         dev_mode: If True, run in development mode (redirect to Vite).
                  If None, read from CVLABKIT_DEV_MODE env var.
+        api_key: Optional API key for authentication. If provided,
+                all /api/* routes require Authorization: Bearer <api_key> header.
 
     Returns:
         Configured FastAPI application instance.
     """
+    global _api_key
+
     # Determine dev_mode from environment variable if not explicitly passed
     if dev_mode is None:
         dev_mode = os.environ.get("CVLABKIT_DEV_MODE", "false").lower() == "true"
+
+    # Set API key from parameter or environment variable
+    if api_key is None:
+        api_key = os.environ.get("CVLABKIT_API_KEY")
+    _api_key = api_key
+
+    if _api_key:
+        logging.info("🔐 API key authentication enabled")
 
     app = FastAPI(
         title="CVLab-Kit Web Helper",
@@ -129,6 +210,10 @@ def create_app(dev_mode: bool = None):
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Add API key authentication middleware (if api_key is set)
+    if _api_key:
+        app.add_middleware(APIKeyMiddleware)
 
     # Include API routes
     app.include_router(create_router())

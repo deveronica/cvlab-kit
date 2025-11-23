@@ -30,11 +30,20 @@ def run_worker(args, daemon=False):
         print("   Make sure all dependencies are installed: uv sync")
         sys.exit(1)
 
+    api_key = getattr(args, "api_key", None)
+    connect_timeout = getattr(args, "connect_timeout", 10.0)
+    request_timeout = getattr(args, "request_timeout", 30.0)
+    max_jobs = getattr(args, "max_jobs", 1)
+
     agent = DeviceAgent(
         server_url=args.url,
         host_id=args.client_host_id or socket.gethostname(),
         heartbeat_interval=args.client_interval,
         poll_interval=args.poll_interval,
+        api_key=api_key,
+        connect_timeout=connect_timeout,
+        request_timeout=request_timeout,
+        max_jobs=max_jobs,
     )
 
     print("💓 Starting full device agent...")
@@ -42,7 +51,12 @@ def run_worker(args, daemon=False):
     print(f"   Host ID: {agent.host_id}")
     print(f"   Heartbeat interval: {args.client_interval}s")
     print(f"   Poll interval: {args.poll_interval}s")
+    print(f"   Connect timeout: {connect_timeout}s")
+    print(f"   Request timeout: {request_timeout}s")
+    print(f"   Max concurrent jobs: {max_jobs}")
     print(f"   Workspace: {agent.workspace}")
+    if api_key:
+        print("   🔐 API key: configured")
 
     try:
         asyncio.run(agent.start())

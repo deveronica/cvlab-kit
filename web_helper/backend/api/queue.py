@@ -109,6 +109,74 @@ async def get_queue_stats():
         )
 
 
+@router.get("/next_job")
+async def get_next_job(host_id: str = Query(..., description="Device host ID")):
+    """Get the next queued job for a remote device.
+
+    This endpoint is used by remote workers to poll for jobs.
+    Returns the highest priority queued job and marks it as assigned.
+    """
+    try:
+        queue_manager = get_queue_manager()
+        job = queue_manager.get_next_job_for_device(host_id)
+
+        if not job:
+            return success_response({"job": None})
+
+        return success_response({
+            "job": {
+                "experiment_uid": job.experiment_uid,
+                "config_path": job.config_path,
+                "project": job.project,
+                "priority": job.priority.value,
+                "metadata": job.metadata,
+            }
+        })
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=error_response(
+                title="Internal Server Error",
+                status=500,
+                detail=f"Failed to get next job: {str(e)}",
+            ),
+        )
+
+
+class JobCompletionRequest(BaseModel):
+    """Request model for job completion"""
+    experiment_uid: str = Field(..., description="Experiment UID")
+    success: bool = Field(..., description="Whether job succeeded")
+    error_message: Optional[str] = Field(None, description="Error message if failed")
+
+
+@router.post("/complete_job")
+async def complete_job(request: JobCompletionRequest):
+    """Mark a remote job as completed.
+
+    Called by remote workers when job execution finishes.
+    """
+    try:
+        queue_manager = get_queue_manager()
+        queue_manager.complete_remote_job(
+            request.experiment_uid,
+            request.success,
+            request.error_message
+        )
+        return success_response({"message": "Job completion recorded"})
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=error_response(
+                title="Internal Server Error",
+                status=500,
+                detail=f"Failed to complete job: {str(e)}",
+            ),
+        )
+
+
 @router.post("/submit", response_model=JobResponse)
 async def submit_job(submission: JobSubmission):
     """Submit a new job to the queue."""

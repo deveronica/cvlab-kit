@@ -13,19 +13,25 @@ services:
     command: >
       bash -c "
       echo '🔧 Installing dependencies...';
-      apt-get update -qq && apt-get install -y -qq git curl build-essential > /dev/null 2>&1;
+      apt-get update -qq && apt-get install -y -qq git curl build-essential;
       if ! command -v node > /dev/null; then
-        curl -fsSL https://deb.nodesource.com/setup_18.x | bash - > /dev/null 2>&1;
-        apt-get install -y -qq nodejs > /dev/null 2>&1;
+        echo '📦 Installing Node.js...';
+        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -;
+        apt-get install -y -qq nodejs;
       fi;
-      pip install -q uv 2>/dev/null;
+      pip install uv;
 
       if [ ! -d .git ]; then
         echo '📥 Initial setup: Cloning repository...';
-        git clone $$GIT_REPO .;
+
+        # Clone to temp dir, then copy to /app
+        git clone $$GIT_REPO /tmp/cvlab-clone || { echo '❌ Git clone failed!'; exit 1; };
+        cp -a /tmp/cvlab-clone/. /app/ || { echo '❌ File copy failed!'; exit 1; };
+        rm -rf /tmp/cvlab-clone;
+
         mkdir -p logs outputs config web_helper/state web_helper/queue_logs;
-        uv sync --frozen;
-        cd web_helper/frontend && npm ci && npm run build && cd ../..;
+        uv sync --frozen || { echo '❌ uv sync failed!'; exit 1; };
+        cd web_helper/frontend && npm ci && npm run build && cd ../.. || { echo '❌ Frontend build failed!'; exit 1; };
         echo '✅ Setup complete!';
       else
         echo '🔄 Updating from git...';

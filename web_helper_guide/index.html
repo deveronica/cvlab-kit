@@ -1868,6 +1868,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#7-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Components 탭
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-notification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Notification 시스템
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1940,6 +1962,17 @@
     <span class="md-ellipsis">
       
         디바이스 모니터링
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#component" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component 버전 관리
       
     </span>
   </a>
@@ -2495,6 +2528,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#7-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Components 탭
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-notification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Notification 시스템
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2567,6 +2622,17 @@
     <span class="md-ellipsis">
       
         디바이스 모니터링
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#component" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component 버전 관리
       
     </span>
   </a>
@@ -2872,6 +2938,12 @@
 <li>Heartbeat이 3초 이상 끊기면 클라이언트가 오프라인으로 표시됨</li>
 <li>여러 클라이언트 연결 시 부하 분산 자동 처리</li>
 </ul>
+<p><strong>디바이스 삭제</strong>:</p>
+<ul>
+<li>Disconnected 상태 (60초 이상 heartbeat 없음)의 디바이스만 삭제 가능</li>
+<li>카드 우측 상단의 휴지통 아이콘 클릭</li>
+<li>삭제 후 목록에서 자동으로 제거</li>
+</ul>
 <hr />
 <h3 id="6-results">6. Results 탭<a class="headerlink" href="#6-results" title="Permanent link">&para;</a></h3>
 <p><strong>실험 실행 이력 및 결과 분석</strong></p>
@@ -2904,27 +2976,135 @@
 <li><strong>Reindex</strong>: 로그 파일 강제 재스캔</li>
 </ul>
 <hr />
+<h3 id="7-components">7. Components 탭<a class="headerlink" href="#7-components" title="Permanent link">&para;</a></h3>
+<p><strong>Agent 및 Component 버전 관리</strong></p>
+<p><strong>주요 기능</strong>:</p>
+<ul>
+<li>모든 Agent/Component의 버전 히스토리 관리</li>
+<li>코드 뷰어 (Outline 네비게이션 포함)</li>
+<li>버전 비교 및 롤백</li>
+<li>로컬 파일 스캔 및 서버 동기화</li>
+</ul>
+<p><strong>인터페이스 구성</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>┌─────────────────────────────────────────────────────────────┐
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>│  Components                                                  │
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>├──────────────┬──────────────────────────┬───────────────────┤
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>│ Category     │ Code Viewer              │ Outline           │
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>│ ├─ agent     │                          │                   │
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>│ ├─ model     │ # Component 코드         │ ├─ Class          │
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>│ ├─ transform │ class MyModel(Model):    │ │ ├─ __init__     │
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>│ └─ ...       │   def forward(self, x):  │ │ └─ forward      │
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>│              │     ...                   │ └─ Function       │
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>│ Components   │                          │                   │
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>│ ├─ resnet18  │                          │                   │
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>│ └─ unet      │                          │                   │
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>└──────────────┴──────────────────────────┴───────────────────┘
+</code></pre></div>
+<p><strong>워크플로우</strong>:</p>
+<ol>
+<li><strong>카테고리 선택</strong>: 좌측에서 agent, model, transform 등 선택</li>
+<li><strong>컴포넌트 선택</strong>: 해당 카테고리의 컴포넌트 목록에서 선택</li>
+<li><strong>코드 확인</strong>: 중앙 코드 뷰어에서 현재 활성 버전 코드 확인</li>
+<li><strong>Outline 네비게이션</strong>: 우측 Outline에서 클래스/함수 클릭 시 해당 위치로 스크롤</li>
+<li><strong>버전 관리</strong>: Version History에서 과거 버전 확인 및 Activate로 롤백</li>
+</ol>
+<p><strong>버튼</strong>:</p>
+<ul>
+<li><strong>Scan Local</strong>: 로컬 <code>cvlabkit/</code> 폴더 스캔 후 새 버전 등록</li>
+<li><strong>Activate</strong>: 선택한 버전을 활성 버전으로 설정 (롤백)</li>
+<li><strong>View</strong>: 과거 버전 코드 확인</li>
+</ul>
+<p><strong>팁</strong>:</p>
+<ul>
+<li>코드 변경 후 Scan Local로 새 버전 등록</li>
+<li>Outline 클릭으로 긴 파일에서 빠르게 이동</li>
+<li>문제 발생 시 이전 버전으로 즉시 롤백 가능</li>
+</ul>
+<p>자세한 내용: <a href="../component-sync/">Component Sync 문서</a></p>
+<hr />
+<h3 id="8-notification">8. Notification 시스템<a class="headerlink" href="#8-notification" title="Permanent link">&para;</a></h3>
+<p><strong>우측 슬라이드 알림 패널</strong></p>
+<p><strong>주요 기능</strong>:</p>
+<ul>
+<li>사용자 응답이 필요한 알림 관리</li>
+<li>Component 버전 충돌 시 해결 옵션 제공</li>
+<li>미응답 알림 자동 저장 (페이지 새로고침 후에도 유지)</li>
+</ul>
+<p><strong>알림 유형</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>유형</th>
+<th>설명</th>
+<th>액션</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sync_conflict</code></td>
+<td>로컬-서버 버전 충돌</td>
+<td>Upload / Download / Skip</td>
+</tr>
+<tr>
+<td><code>info</code></td>
+<td>일반 정보</td>
+<td>확인</td>
+</tr>
+<tr>
+<td><code>warning</code></td>
+<td>경고</td>
+<td>확인</td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td>오류</td>
+<td>확인</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Sync Conflict 알림</strong>:</p>
+<p>로컬 코드가 서버와 다를 때 Interactive 모드에서 알림 발생:</p>
+<ul>
+<li><strong>Upload to Server</strong>: 로컬 버전을 서버에 업로드하고 활성화</li>
+<li><strong>Download from Server</strong>: 서버 버전으로 로컬 덮어쓰기</li>
+<li><strong>Skip</strong>: 동기화하지 않고 로컬 유지</li>
+</ul>
+<p><strong>사용법</strong>:</p>
+<ol>
+<li>헤더 우측 벨 아이콘 클릭</li>
+<li>알림 패널이 우측에서 슬라이드</li>
+<li>각 알림에서 원하는 액션 선택</li>
+<li>처리된 알림은 자동으로 제거</li>
+</ol>
+<p><strong>미응답 알림</strong>:</p>
+<ul>
+<li>브라우저 localStorage에 자동 저장</li>
+<li>다음 세션에서도 알림 유지</li>
+<li>벨 아이콘에 미읽음 개수 표시</li>
+</ul>
+<hr />
 <h2 id="_9">실시간 기능<a class="headerlink" href="#_9" title="Permanent link">&para;</a></h2>
 <h3 id="sse-server-sent-events">SSE (Server-Sent Events)<a class="headerlink" href="#sse-server-sent-events" title="Permanent link">&para;</a></h3>
 <p>Web Helper는 SSE를 사용하여 다음 정보를 실시간으로 업데이트합니다:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1">// Frontend: SSE 연결 (자동)</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kd">const</span><span class="w"> </span><span class="nx">eventSource</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">EventSource</span><span class="p">(</span><span class="s1">&#39;/events/stream&#39;</span><span class="p">);</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nx">eventSource</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="s1">&#39;device_update&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="c1">// GPU 상태 업데이트</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">});</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="nx">eventSource</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="s1">&#39;queue_update&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="c1">// 큐 상태 업데이트</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="p">});</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="nx">eventSource</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="s1">&#39;metric_update&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="c1">// 메트릭 업데이트</span>
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="p">});</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1">// Frontend: SSE 연결 (자동)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kd">const</span><span class="w"> </span><span class="nx">eventSource</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">EventSource</span><span class="p">(</span><span class="s1">&#39;/events/stream&#39;</span><span class="p">);</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="nx">eventSource</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="s1">&#39;device_update&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="c1">// GPU 상태 업데이트</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">});</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="nx">eventSource</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="s1">&#39;queue_update&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">  </span><span class="c1">// 큐 상태 업데이트</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="p">});</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="nx">eventSource</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="s1">&#39;metric_update&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">  </span><span class="c1">// 메트릭 업데이트</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="p">});</span>
 </code></pre></div>
 <p><strong>업데이트 이벤트</strong>:</p>
 <ul>
 <li><code>device_update</code>: GPU heartbeat (3초마다)</li>
+<li><code>device_removed</code>: 디바이스 삭제 알림</li>
 <li><code>queue_update</code>: 큐 상태 변화 (실험 추가/시작/완료)</li>
 <li><code>metric_update</code>: 새로운 메트릭 기록</li>
 <li><code>log_update</code>: 실행 로그 스트리밍</li>
@@ -2932,71 +3112,103 @@
 <hr />
 <h2 id="api">API 엔드포인트<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
 <h3 id="_10">프로젝트 및 실험<a class="headerlink" href="#_10" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1">## 모든 프로젝트 목록</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>GET<span class="w"> </span>/api/projects
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1">## 특정 프로젝트의 실험 목록</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>GET<span class="w"> </span>/api/runs?project<span class="o">=</span>my_project
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1">## 실험 상세 정보</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>GET<span class="w"> </span>/api/run/<span class="o">{</span>project<span class="o">}</span>/<span class="o">{</span>run_name<span class="o">}</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1">## 실험 재실행</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>POST<span class="w"> </span>/api/run/rerun
-<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="o">{</span>
-<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">  </span><span class="s2">&quot;project&quot;</span>:<span class="w"> </span><span class="s2">&quot;my_project&quot;</span>,
-<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">  </span><span class="s2">&quot;run_name&quot;</span>:<span class="w"> </span><span class="s2">&quot;experiment_1&quot;</span>,
-<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">  </span><span class="s2">&quot;config&quot;</span>:<span class="w"> </span><span class="o">{</span>...<span class="o">}</span>
-<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="o">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">## 모든 프로젝트 목록</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>GET<span class="w"> </span>/api/projects
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1">## 특정 프로젝트의 실험 목록</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>GET<span class="w"> </span>/api/runs?project<span class="o">=</span>my_project
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1">## 실험 상세 정보</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>GET<span class="w"> </span>/api/run/<span class="o">{</span>project<span class="o">}</span>/<span class="o">{</span>run_name<span class="o">}</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1">## 실험 재실행</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>POST<span class="w"> </span>/api/run/rerun
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="o">{</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">  </span><span class="s2">&quot;project&quot;</span>:<span class="w"> </span><span class="s2">&quot;my_project&quot;</span>,
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">  </span><span class="s2">&quot;run_name&quot;</span>:<span class="w"> </span><span class="s2">&quot;experiment_1&quot;</span>,
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">  </span><span class="s2">&quot;config&quot;</span>:<span class="w"> </span><span class="o">{</span>...<span class="o">}</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="o">}</span>
 </code></pre></div>
 <h3 id="_11">큐 관리<a class="headerlink" href="#_11" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">## 큐에 실험 추가</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>POST<span class="w"> </span>/api/queue/add
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="o">{</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="s2">&quot;project&quot;</span>:<span class="w"> </span><span class="s2">&quot;my_project&quot;</span>,
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="s2">&quot;config_yaml&quot;</span>:<span class="w"> </span><span class="s2">&quot;...&quot;</span>,
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="s2">&quot;priority&quot;</span>:<span class="w"> </span><span class="m">0</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="o">}</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="c1">## 큐 목록</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>GET<span class="w"> </span>/api/queue
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="c1">## 실험 취소</span>
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>POST<span class="w"> </span>/api/queue/cancel/<span class="o">{</span>experiment_id<span class="o">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">## 큐에 실험 추가</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>POST<span class="w"> </span>/api/queue/add
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="o">{</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="s2">&quot;project&quot;</span>:<span class="w"> </span><span class="s2">&quot;my_project&quot;</span>,
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="s2">&quot;config_yaml&quot;</span>:<span class="w"> </span><span class="s2">&quot;...&quot;</span>,
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span><span class="s2">&quot;priority&quot;</span>:<span class="w"> </span><span class="m">0</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="o">}</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="c1">## 큐 목록</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>GET<span class="w"> </span>/api/queue
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="c1">## 실험 취소</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>POST<span class="w"> </span>/api/queue/cancel/<span class="o">{</span>experiment_id<span class="o">}</span>
 </code></pre></div>
 <h3 id="_12">디바이스 모니터링<a class="headerlink" href="#_12" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">## 디바이스 목록</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>GET<span class="w"> </span>/api/devices
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1">## Heartbeat 전송 (클라이언트)</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>POST<span class="w"> </span>/api/devices/heartbeat
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="o">{</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="s2">&quot;device_name&quot;</span>:<span class="w"> </span><span class="s2">&quot;gpu_server_01&quot;</span>,
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">  </span><span class="s2">&quot;gpus&quot;</span>:<span class="w"> </span><span class="o">[</span>...<span class="o">]</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="o">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1">## 디바이스 목록</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>GET<span class="w"> </span>/api/devices
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1">## Heartbeat 전송 (클라이언트)</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>POST<span class="w"> </span>/api/devices/heartbeat
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="o">{</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="s2">&quot;device_name&quot;</span>:<span class="w"> </span><span class="s2">&quot;gpu_server_01&quot;</span>,
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span><span class="s2">&quot;gpus&quot;</span>:<span class="w"> </span><span class="o">[</span>...<span class="o">]</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="o">}</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="c1">## 디바이스 삭제 (disconnected 상태만 가능)</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>DELETE<span class="w"> </span>/api/devices/<span class="o">{</span>host_id<span class="o">}</span>
+</code></pre></div>
+<h3 id="component">Component 버전 관리<a class="headerlink" href="#component" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1">## 전체 버전 목록</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>GET<span class="w"> </span>/api/components/versions
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1">## 카테고리별 목록</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>GET<span class="w"> </span>/api/components/versions/<span class="o">{</span>category<span class="o">}</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c1">## 특정 컴포넌트 버전 히스토리</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>GET<span class="w"> </span>/api/components/versions/<span class="o">{</span>category<span class="o">}</span>/<span class="o">{</span>name<span class="o">}</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="c1">## 해시로 코드 조회</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>GET<span class="w"> </span>/api/components/versions/hash/<span class="o">{</span>hash<span class="o">}</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="c1">## 새 버전 업로드</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>POST<span class="w"> </span>/api/components/versions/upload
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="o">{</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w">  </span><span class="s2">&quot;path&quot;</span>:<span class="w"> </span><span class="s2">&quot;agent/classification.py&quot;</span>,
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">  </span><span class="s2">&quot;content&quot;</span>:<span class="w"> </span><span class="s2">&quot;...&quot;</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="o">}</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="c1">## 버전 활성화 (롤백)</span>
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>POST<span class="w"> </span>/api/components/versions/activate
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="o">{</span>
+<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a><span class="w">  </span><span class="s2">&quot;hash&quot;</span>:<span class="w"> </span><span class="s2">&quot;a1b2c3d4e5f6...&quot;</span>
+<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="o">}</span>
+<a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a>
+<a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a><span class="c1">## 로컬 스캔 후 등록</span>
+<a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a>POST<span class="w"> </span>/api/components/versions/scan
 </code></pre></div>
 <h3 id="_13">실시간 이벤트<a class="headerlink" href="#_13" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1">## SSE 스트림 연결</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>GET<span class="w"> </span>/events/stream
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1">## SSE 스트림 연결</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>GET<span class="w"> </span>/events/stream
 </code></pre></div>
 <hr />
 <h2 id="_14">파일 시스템 구조<a class="headerlink" href="#_14" title="Permanent link">&para;</a></h2>
 <p>Web Helper는 파일 기반 통신을 사용하여 cvlabkit과 완전히 분리되어 있습니다.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>logs/
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>├── &lt;project&gt;/
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>│   ├── &lt;run_name&gt;.csv        # 메트릭 (epoch, loss, accuracy, ...)
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>│   ├── &lt;run_name&gt;.yaml       # 실험 설정
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>│   └── &lt;run_name&gt;.pt         # 체크포인트
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>web_helper/
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>├── state/
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>│   └── db.sqlite             # 실험 인덱스, 큐, 디바이스 상태
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>└── queue_logs/
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    └── &lt;project&gt;/
-<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>        └── &lt;experiment_id&gt;/
-<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>            ├── config.yaml   # 큐 실험 설정
-<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>            ├── stdout.log    # 표준 출력
-<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>            └── stderr.log    # 에러 로그
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>logs/
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>├── &lt;project&gt;/
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>│   ├── &lt;run_name&gt;.csv        # 메트릭 (epoch, loss, accuracy, ...)
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>│   ├── &lt;run_name&gt;.yaml       # 실험 설정
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>│   └── &lt;run_name&gt;.pt         # 체크포인트
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>web_helper/
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>├── state/
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>│   └── db.sqlite             # 실험 인덱스, 큐, 디바이스 상태
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>└── queue_logs/
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>    └── &lt;project&gt;/
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>        └── &lt;experiment_id&gt;/
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>            ├── config.yaml   # 큐 실험 설정
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>            ├── stdout.log    # 표준 출력
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>            └── stderr.log    # 에러 로그
 </code></pre></div>
 <p><strong>작동 원리</strong>:</p>
 <ol>
@@ -3009,13 +3221,13 @@
 <h2 id="_15">분산 실행 시나리오<a class="headerlink" href="#_15" title="Permanent link">&para;</a></h2>
 <h3 id="1">시나리오 1: 단일 서버 + 여러 클라이언트<a class="headerlink" href="#1" title="Permanent link">&para;</a></h3>
 <p><strong>서버</strong> (중앙 관리, GPU 없음):
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>uv<span class="w"> </span>run<span class="w"> </span>app.py<span class="w"> </span>--server-only<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>uv<span class="w"> </span>run<span class="w"> </span>app.py<span class="w"> </span>--server-only<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0
 </code></pre></div></p>
 <p><strong>클라이언트 1</strong> (GPU 서버 A):
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>uv<span class="w"> </span>run<span class="w"> </span>app.py<span class="w"> </span>--client-only<span class="w"> </span>--url<span class="w"> </span>http://server:8000
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>uv<span class="w"> </span>run<span class="w"> </span>app.py<span class="w"> </span>--client-only<span class="w"> </span>--url<span class="w"> </span>http://server:8000
 </code></pre></div></p>
 <p><strong>클라이언트 2</strong> (GPU 서버 B):
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>uv<span class="w"> </span>run<span class="w"> </span>app.py<span class="w"> </span>--client-only<span class="w"> </span>--url<span class="w"> </span>http://server:8000
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>uv<span class="w"> </span>run<span class="w"> </span>app.py<span class="w"> </span>--client-only<span class="w"> </span>--url<span class="w"> </span>http://server:8000
 </code></pre></div></p>
 <p><strong>워크플로우</strong>:</p>
 <ol>
@@ -3027,7 +3239,7 @@
 </ol>
 <h3 id="2">시나리오 2: 로컬 통합 환경<a class="headerlink" href="#2" title="Permanent link">&para;</a></h3>
 <p><strong>로컬 GPU가 있는 경우</strong>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>uv<span class="w"> </span>run<span class="w"> </span>app.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>uv<span class="w"> </span>run<span class="w"> </span>app.py
 </code></pre></div></p>
 <p>웹 UI + 로컬 GPU 실행 모두 가능</p>
 <hr />
@@ -3097,7 +3309,7 @@
     <span class="md-icon" title="마지막 업데이트">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="2025년 11월 21일 19:14:03 UTC"><span class="timeago" datetime="2025-11-21T19:14:03+00:00" locale="ko"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="2025년 11월 21일 19:14:03 UTC">2025-11-21</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="2025년 11월 24일 15:23:25 UTC"><span class="timeago" datetime="2025-11-24T15:23:25+00:00" locale="ko"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="2025년 11월 24일 15:23:25 UTC">2025-11-24</span>
   </span>
 
     

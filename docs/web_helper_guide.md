@@ -186,6 +186,12 @@ uv run app.py --client-only --url http://server-ip:8000
 - Heartbeat이 3초 이상 끊기면 클라이언트가 오프라인으로 표시됨
 - 여러 클라이언트 연결 시 부하 분산 자동 처리
 
+**디바이스 삭제**:
+
+- Disconnected 상태 (60초 이상 heartbeat 없음)의 디바이스만 삭제 가능
+- 카드 우측 상단의 휴지통 아이콘 클릭
+- 삭제 후 목록에서 자동으로 제거
+
 ---
 
 ### 6. Results 탭
@@ -223,6 +229,101 @@ uv run app.py --client-only --url http://server-ip:8000
 
 ---
 
+### 7. Components 탭
+
+**Agent 및 Component 버전 관리**
+
+**주요 기능**:
+
+- 모든 Agent/Component의 버전 히스토리 관리
+- 코드 뷰어 (Outline 네비게이션 포함)
+- 버전 비교 및 롤백
+- 로컬 파일 스캔 및 서버 동기화
+
+**인터페이스 구성**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Components                                                  │
+├──────────────┬──────────────────────────┬───────────────────┤
+│ Category     │ Code Viewer              │ Outline           │
+│ ├─ agent     │                          │                   │
+│ ├─ model     │ # Component 코드         │ ├─ Class          │
+│ ├─ transform │ class MyModel(Model):    │ │ ├─ __init__     │
+│ └─ ...       │   def forward(self, x):  │ │ └─ forward      │
+│              │     ...                   │ └─ Function       │
+│ Components   │                          │                   │
+│ ├─ resnet18  │                          │                   │
+│ └─ unet      │                          │                   │
+└──────────────┴──────────────────────────┴───────────────────┘
+```
+
+**워크플로우**:
+
+1. **카테고리 선택**: 좌측에서 agent, model, transform 등 선택
+2. **컴포넌트 선택**: 해당 카테고리의 컴포넌트 목록에서 선택
+3. **코드 확인**: 중앙 코드 뷰어에서 현재 활성 버전 코드 확인
+4. **Outline 네비게이션**: 우측 Outline에서 클래스/함수 클릭 시 해당 위치로 스크롤
+5. **버전 관리**: Version History에서 과거 버전 확인 및 Activate로 롤백
+
+**버튼**:
+
+- **Scan Local**: 로컬 `cvlabkit/` 폴더 스캔 후 새 버전 등록
+- **Activate**: 선택한 버전을 활성 버전으로 설정 (롤백)
+- **View**: 과거 버전 코드 확인
+
+**팁**:
+
+- 코드 변경 후 Scan Local로 새 버전 등록
+- Outline 클릭으로 긴 파일에서 빠르게 이동
+- 문제 발생 시 이전 버전으로 즉시 롤백 가능
+
+자세한 내용: [Component Sync 문서](component-sync.md)
+
+---
+
+### 8. Notification 시스템
+
+**우측 슬라이드 알림 패널**
+
+**주요 기능**:
+
+- 사용자 응답이 필요한 알림 관리
+- Component 버전 충돌 시 해결 옵션 제공
+- 미응답 알림 자동 저장 (페이지 새로고침 후에도 유지)
+
+**알림 유형**:
+
+| 유형 | 설명 | 액션 |
+|------|------|------|
+| `sync_conflict` | 로컬-서버 버전 충돌 | Upload / Download / Skip |
+| `info` | 일반 정보 | 확인 |
+| `warning` | 경고 | 확인 |
+| `error` | 오류 | 확인 |
+
+**Sync Conflict 알림**:
+
+로컬 코드가 서버와 다를 때 Interactive 모드에서 알림 발생:
+
+- **Upload to Server**: 로컬 버전을 서버에 업로드하고 활성화
+- **Download from Server**: 서버 버전으로 로컬 덮어쓰기
+- **Skip**: 동기화하지 않고 로컬 유지
+
+**사용법**:
+
+1. 헤더 우측 벨 아이콘 클릭
+2. 알림 패널이 우측에서 슬라이드
+3. 각 알림에서 원하는 액션 선택
+4. 처리된 알림은 자동으로 제거
+
+**미응답 알림**:
+
+- 브라우저 localStorage에 자동 저장
+- 다음 세션에서도 알림 유지
+- 벨 아이콘에 미읽음 개수 표시
+
+---
+
 ## 실시간 기능
 
 ### SSE (Server-Sent Events)
@@ -249,6 +350,7 @@ eventSource.addEventListener('metric_update', (event) => {
 **업데이트 이벤트**:
 
 - `device_update`: GPU heartbeat (3초마다)
+- `device_removed`: 디바이스 삭제 알림
 - `queue_update`: 큐 상태 변화 (실험 추가/시작/완료)
 - `metric_update`: 새로운 메트릭 기록
 - `log_update`: 실행 로그 스트리밍
@@ -308,6 +410,41 @@ POST /api/devices/heartbeat
   "device_name": "gpu_server_01",
   "gpus": [...]
 }
+
+## 디바이스 삭제 (disconnected 상태만 가능)
+DELETE /api/devices/{host_id}
+```
+
+### Component 버전 관리
+
+```bash
+## 전체 버전 목록
+GET /api/components/versions
+
+## 카테고리별 목록
+GET /api/components/versions/{category}
+
+## 특정 컴포넌트 버전 히스토리
+GET /api/components/versions/{category}/{name}
+
+## 해시로 코드 조회
+GET /api/components/versions/hash/{hash}
+
+## 새 버전 업로드
+POST /api/components/versions/upload
+{
+  "path": "agent/classification.py",
+  "content": "..."
+}
+
+## 버전 활성화 (롤백)
+POST /api/components/versions/activate
+{
+  "hash": "a1b2c3d4e5f6..."
+}
+
+## 로컬 스캔 후 등록
+POST /api/components/versions/scan
 ```
 
 ### 실시간 이벤트

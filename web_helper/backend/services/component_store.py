@@ -269,8 +269,13 @@ class ComponentStore:
             True,
         )
 
-    def activate_version(self, hash: str) -> Optional[ComponentVersionResponse]:
-        """Activate a specific version (rollback)."""
+    def activate_version(self, hash: str, restore_local: bool = True) -> Optional[ComponentVersionResponse]:
+        """Activate a specific version (rollback).
+
+        Args:
+            hash: Content hash of the version to activate
+            restore_local: If True, also restore the local file with version content
+        """
         version = self.db.query(ComponentVersion).filter(ComponentVersion.hash == hash).first()
 
         if not version:
@@ -278,6 +283,16 @@ class ComponentStore:
 
         self._activate_version(version)
         self.db.commit()
+
+        # Restore local file if requested
+        if restore_local and version.content:
+            try:
+                local_path = Path("cvlabkit") / version.path
+                local_path.parent.mkdir(parents=True, exist_ok=True)
+                local_path.write_text(version.content, encoding="utf-8")
+                logger.info(f"Restored local file: {local_path}")
+            except Exception as e:
+                logger.error(f"Failed to restore local file {version.path}: {e}")
 
         return ComponentVersionResponse(
             hash=version.hash,

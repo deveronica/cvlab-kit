@@ -400,8 +400,9 @@ class DeviceAgent:
 
             if response.status_code == 200:
                 data = response.json()
-                if data.get("data"):
-                    return data["data"]
+                # Check for actual job, not just the wrapper {"job": None}
+                if data.get("data") and data["data"].get("job"):
+                    return data["data"]["job"]
             elif response.status_code != 404:
                 logger.warning(f"Poll failed: {response.status_code}")
 

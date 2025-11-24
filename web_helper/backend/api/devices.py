@@ -111,6 +111,7 @@ async def receive_heartbeat(heartbeat_data: Dict, db: Session = Depends(get_db))
         device.disk_free = heartbeat_data.get("disk_free")
         device.torch_version = heartbeat_data.get("torch_version")
         device.cuda_version = heartbeat_data.get("cuda_version")
+        device.code_version = heartbeat_data.get("code_version")  # Reproducibility tracking
         device.status = "online"  # Store raw status, compute display status on read
         device.last_heartbeat = datetime.utcnow()
 
@@ -133,6 +134,7 @@ async def receive_heartbeat(heartbeat_data: Dict, db: Session = Depends(get_db))
                 "disk_free": device.disk_free,
                 "torch_version": device.torch_version,
                 "cuda_version": device.cuda_version,
+                "code_version": device.code_version,
                 "status": "healthy",  # Fresh heartbeat is always healthy
                 "last_heartbeat": device.last_heartbeat.isoformat() + "Z"
                 if device.last_heartbeat
@@ -154,5 +156,64 @@ async def receive_heartbeat(heartbeat_data: Dict, db: Session = Depends(get_db))
                 title="Internal Server Error",
                 status=500,
                 detail=f"Failed to process heartbeat: {str(e)}",
+            ),
+        )
+
+
+@router.delete("/{host_id}")
+async def delete_device(host_id: str, db: Session = Depends(get_db)):
+    """Delete a device. Only disconnected devices can be deleted."""
+    try:
+        device = db.query(Device).filter(Device.host_id == host_id).first()
+        if not device:
+            raise HTTPException(
+                status_code=404,
+                detail=error_response(
+                    title="Not Found",
+                    status=404,
+                    detail=f"Device '{host_id}' not found",
+                ),
+            )
+
+        # Check if device is disconnected (> 60s since last heartbeat)
+        now = datetime.utcnow()
+        if device.last_heartbeat:
+            time_since_heartbeat = (now - device.last_heartbeat).total_seconds()
+            if time_since_heartbeat <= 60:
+                raise HTTPException(
+                    status_code=400,
+                    detail=error_response(
+                        title="Bad Request",
+                        status=400,
+                        detail="Only disconnected devices can be deleted. Wait for the device to disconnect first.",
+                    ),
+                )
+
+        db.delete(device)
+        db.commit()
+
+        # Broadcast device removal via SSE
+        await event_manager.broadcast(
+            {
+                "type": "device_removed",
+                "data": {"host_id": host_id},
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+            }
+        )
+
+        return success_response(
+            {"message": f"Device '{host_id}' deleted successfully"},
+            {"host_id": host_id},
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=error_response(
+                title="Internal Server Error",
+                status=500,
+                detail=f"Failed to delete device: {str(e)}",
             ),
         )

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
 import { useDevices } from '../../hooks/useDevices';
 import {
   AlertCircle,
@@ -11,9 +12,12 @@ import {
   Zap,
   Thermometer,
   HardDrive,
-  Activity
+  Activity,
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { formatRelativeTime } from '../../lib/time-format';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Enhanced progress bar component with gradient and animation
 const MetricBar = ({
@@ -86,10 +90,39 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 export function MonitoringView() {
   const { data: devices = [], isLoading } = useDevices();
+  const queryClient = useQueryClient();
+  const [deletingDevice, setDeletingDevice] = useState<string | null>(null);
 
   // Check if there are devices but none are sending heartbeats (all stale/disconnected)
   // Use backend-computed status instead of recalculating on frontend
   const hasActiveDevices = devices.some(d => d.status === 'healthy');
+
+  const handleDeleteDevice = async (hostId: string) => {
+    if (!confirm(`Delete device "${hostId}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingDevice(hostId);
+    try {
+      const response = await fetch(`/api/devices/${encodeURIComponent(hostId)}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.detail?.detail || 'Failed to delete device');
+        return;
+      }
+
+      // Invalidate devices query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+    } catch (error) {
+      console.error('Failed to delete device:', error);
+      alert('Failed to delete device');
+    } finally {
+      setDeletingDevice(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -159,6 +192,21 @@ export function MonitoringView() {
                           {index === 0 && <StatusBadge status={device.status} />}
                         </div>
                       </div>
+                      {index === 0 && device.status === 'disconnected' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteDevice(device.host_id)}
+                          disabled={deletingDevice === device.host_id}
+                        >
+                          {deletingDevice === device.host_id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
                     </div>
                     <CardDescription className="text-sm pt-2">
                       {gpu.name}
@@ -235,6 +283,21 @@ export function MonitoringView() {
                       </CardTitle>
                       <StatusBadge status={device.status} />
                     </div>
+                    {device.status === 'disconnected' && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeleteDevice(device.host_id)}
+                        disabled={deletingDevice === device.host_id}
+                      >
+                        {deletingDevice === device.host_id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
                   </div>
                   <CardDescription className="text-sm pt-2">
                     Last seen: {formatRelativeTime(device.last_heartbeat)}

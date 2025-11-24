@@ -36,6 +36,9 @@ class Device(Base):
     torch_version = Column(String)
     cuda_version = Column(String)
 
+    # Code version for reproducibility
+    code_version = Column(JSON, nullable=True)  # {git_hash, files_hash, uv_lock_hash, ...}
+
     # Status and timing
     status = Column(String, default="offline")
     last_heartbeat = Column(DateTime, default=datetime.utcnow)

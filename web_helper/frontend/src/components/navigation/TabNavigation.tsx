@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom';
 import { Settings } from 'lucide-react';
 import { ThemeToggle } from '../ui/theme-toggle';
 import { Button } from '../ui/button';
+import { NotificationButton } from '../notifications/NotificationPanel';
 
 interface Tab {
   id: string;
@@ -67,9 +68,10 @@ export function TabNavigation({ tabs, onOpenSettings }: TabNavigationProps) {
             </div>
           </div>
 
-          {/* Theme Toggle and Actions */}
-          <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Theme Toggle, Notifications and Actions */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <ThemeToggle />
+            <NotificationButton />
             <Button
               variant="ghost"
               size="icon"

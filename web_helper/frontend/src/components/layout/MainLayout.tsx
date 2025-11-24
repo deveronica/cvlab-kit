@@ -10,10 +10,12 @@ import {
   ClipboardList,
   BarChart3,
   Settings,
+  Package,
 } from 'lucide-react';
 import { useNavigationStore } from '@/store/navigationStore';
 import { TabNavigation } from '../navigation/TabNavigation';
 import { SettingsModal } from '../modals/settings-modal';
+import { NotificationPanel } from '../notifications/NotificationPanel';
 
 interface Tab {
   id: string;
@@ -63,6 +65,12 @@ const tabs: Tab[] = [
     description: 'Compare experiments within projects',
     icon: <BarChart3 size={20} />,
   },
+  {
+    id: 'components',
+    label: 'Components',
+    description: 'Manage versioned components',
+    icon: <Package size={20} />,
+  },
 ];
 
 export function MainLayout({ _children }: MainLayoutProps) {
@@ -90,6 +98,9 @@ export function MainLayout({ _children }: MainLayoutProps) {
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
       />
+
+      {/* Notification Panel (slides from right) */}
+      <NotificationPanel />
     </div>
   );
 }

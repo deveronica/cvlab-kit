@@ -6,6 +6,7 @@ All implementation logic is in web_helper/ modules.
 """
 
 import argparse
+import os
 import socket
 import sys
 
@@ -88,7 +89,29 @@ Examples:
     parser.add_argument("--log-level", default="info", help="Log level (default: info)")
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
 
+    # Security
+    parser.add_argument(
+        "--api-key",
+        default=os.environ.get("CVLABKIT_API_KEY"),
+        help="API key for authentication (or set CVLABKIT_API_KEY env var)",
+    )
+    parser.add_argument(
+        "--ssl-certfile",
+        default=os.environ.get("CVLABKIT_SSL_CERTFILE"),
+        help="SSL certificate file path for HTTPS",
+    )
+    parser.add_argument(
+        "--ssl-keyfile",
+        default=os.environ.get("CVLABKIT_SSL_KEYFILE"),
+        help="SSL key file path for HTTPS",
+    )
+
     # Middleend configuration
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Enable full worker mode (job execution + log sync). Default: heartbeat-only",
+    )
     parser.add_argument(
         "--url",
         default="http://localhost:8000",
@@ -110,6 +133,24 @@ Examples:
         type=int,
         default=5,
         help="Job polling interval in seconds (default: 5)",
+    )
+    parser.add_argument(
+        "--connect-timeout",
+        type=float,
+        default=10.0,
+        help="Connection timeout in seconds (default: 10)",
+    )
+    parser.add_argument(
+        "--request-timeout",
+        type=float,
+        default=30.0,
+        help="Request timeout in seconds (default: 30)",
+    )
+    parser.add_argument(
+        "--max-jobs",
+        type=int,
+        default=1,
+        help="Maximum concurrent jobs for client mode (default: 1)",
     )
 
     return parser

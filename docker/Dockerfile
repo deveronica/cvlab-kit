@@ -37,18 +37,28 @@ COPY pyproject.toml uv.lock ./
 # Install Python dependencies
 RUN uv sync --frozen
 
-# Copy entire project (excluding node_modules, dist via .dockerignore)
+# Copy entire project (excluding items in .dockerignore)
 COPY . .
 
 # Copy built frontend from stage 1
 COPY --from=frontend-builder /frontend/dist ./web_helper/frontend/dist
 
+# Copy and setup entrypoint script
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Create necessary directories
-RUN mkdir -p logs outputs web_helper/state web_helper/queue_logs
+RUN mkdir -p logs outputs config web_helper/queue_logs
+
+# Configure git for updates (safe directory)
+RUN git config --global --add safe.directory /app
 
 # Expose ports
 # 8000: FastAPI backend (serves both API and frontend)
 EXPOSE 8000
+
+# Entrypoint handles auto-update
+ENTRYPOINT ["/entrypoint.sh"]
 
 # Default command: run web helper in production mode
 CMD ["uv", "run", "app.py"]

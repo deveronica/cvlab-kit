@@ -14,6 +14,7 @@ import { QueueView } from './components/views/QueueView';
 import { ExecuteView } from './components/views/ExecuteView';
 import { ProjectsView } from './components/views/ProjectsView';
 import { ResultsView } from './components/views/ResultsView';
+import { ComponentsView } from './components/views/ComponentsView';
 import { devInfo, devWarn, devError } from './lib/dev-utils';
 
 function App() {
@@ -69,6 +70,11 @@ function App() {
                   <Route path="projects/:projectName" element={
                     <ErrorBoundary level="view" resetKeys={['projects', ':projectName']}>
                       <ProjectsView />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="components" element={
+                    <ErrorBoundary level="view">
+                      <ComponentsView />
                     </ErrorBoundary>
                   } />
                 </Route>

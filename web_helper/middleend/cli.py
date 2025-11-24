@@ -91,3 +91,56 @@ def run_heartbeat_only(url: str, interval: int, host_id: str = None):
         agent.start()
     except KeyboardInterrupt:
         agent.stop()
+
+
+def run_local_worker(
+    url: str,
+    interval: int = 10,
+    poll_interval: int = 5,
+    host_id: str = None,
+    api_key: str = None,
+    max_jobs: int = 1,
+):
+    """Run full local worker (unified execution path).
+
+    This creates a local DeviceAgent that executes jobs and syncs logs,
+    enabling a unified execution path where local experiments use the
+    same flow as remote ones (like Minecraft singleplayer).
+
+    Args:
+        url: Backend URL (usually localhost)
+        interval: Heartbeat interval in seconds
+        poll_interval: Job polling interval in seconds
+        host_id: Custom host identifier (default: hostname)
+        api_key: API key for authentication
+        max_jobs: Maximum concurrent jobs
+    """
+    try:
+        from web_helper.middleend.device_agent import DeviceAgent
+    except ImportError as e:
+        print(f"❌ Failed to import DeviceAgent: {e}")
+        print("   Falling back to heartbeat-only mode")
+        run_heartbeat_only(url, interval, host_id)
+        return
+
+    agent = DeviceAgent(
+        server_url=url,
+        host_id=host_id or socket.gethostname(),
+        heartbeat_interval=interval,
+        poll_interval=poll_interval,
+        api_key=api_key,
+        max_jobs=max_jobs,
+    )
+
+    print("🚀 Starting local worker (unified execution path)...")
+    print(f"   Server URL: {url}")
+    print(f"   Host ID: {agent.host_id}")
+    print(f"   Heartbeat interval: {interval}s")
+    print(f"   Poll interval: {poll_interval}s")
+    print(f"   Max concurrent jobs: {max_jobs}")
+    print(f"   Workspace: {agent.workspace}")
+
+    try:
+        asyncio.run(agent.start())
+    except KeyboardInterrupt:
+        asyncio.run(agent.stop())

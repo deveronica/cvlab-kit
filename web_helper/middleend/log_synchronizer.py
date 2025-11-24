@@ -1,18 +1,39 @@
-"""Log synchronizer for distributed experiment execution."""
+"""Log synchronizer for distributed experiment execution.
+
+Uses xxhash3 for fast file integrity verification during sync.
+Supports delta sync for append-only files and full sync with hash verification.
+"""
 
 import asyncio
 import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import aiofiles
 import httpx
+import xxhash
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
 logger = logging.getLogger(__name__)
+
+
+def calculate_content_hash(content: bytes) -> str:
+    """Calculate xxhash3 of content for integrity verification."""
+    return xxhash.xxh3_64(content).hexdigest()
+
+
+def calculate_file_hash(file_path: Path) -> Optional[str]:
+    """Calculate xxhash3 of a file."""
+    if not file_path.exists():
+        return None
+    try:
+        with open(file_path, "rb") as f:
+            return xxhash.xxh3_64(f.read()).hexdigest()
+    except Exception:
+        return None
 
 
 class LogSynchronizer:
@@ -211,8 +232,10 @@ class LogSynchronizer:
         if not delta_content:
             return
 
-        # Upload delta (different endpoints for experiment vs run)
+        # Upload delta with hash verification
+        content_hash = calculate_content_hash(delta_content)
         files = {"delta": (file_name, delta_content, "application/octet-stream")}
+        headers = {"X-Content-Hash": content_hash}
 
         if sync_type == "experiment":
             # Experiment terminal logs → web_helper/queue_logs/{exp_uid}/
@@ -221,7 +244,7 @@ class LogSynchronizer:
             # Run cvlabkit output → logs/{project}/
             url = f"{self.server_url}/api/sync/run/{experiment_uid}/{file_name}"
 
-        response = await self.http_client.post(url, files=files)
+        response = await self.http_client.post(url, files=files, headers=headers)
 
         if response.status_code == 200:
             logger.debug(
@@ -251,7 +274,10 @@ class LogSynchronizer:
         async with aiofiles.open(file_path, "rb") as f:
             content = await f.read()
 
+        # Upload with hash verification
+        content_hash = calculate_content_hash(content)
         files = {"file": (file_name, content, "application/octet-stream")}
+        headers = {"X-Content-Hash": content_hash}
 
         if sync_type == "experiment":
             # Experiment metadata → web_helper/queue_logs/{exp_uid}/
@@ -260,7 +286,7 @@ class LogSynchronizer:
             # Run results → logs/{project}/
             url = f"{self.server_url}/api/sync/run/{experiment_uid}/{file_name}"
 
-        response = await self.http_client.post(url, files=files)
+        response = await self.http_client.post(url, files=files, headers=headers)
 
         if response.status_code == 200:
             logger.debug(
@@ -275,7 +301,8 @@ class LogSynchronizer:
     async def recover_from_disconnection(self, experiment_uid: str):
         """Recover sync after network disconnection.
 
-        Queries server for current state and uploads missing deltas.
+        Uses hash-based comparison to detect and sync missing data.
+        Handles both Experiment files (terminal logs) and Run files (cvlabkit output).
 
         Args:
             experiment_uid: Experiment to recover
@@ -294,6 +321,7 @@ class LogSynchronizer:
 
             server_state = response.json()["data"]
             server_files = server_state.get("files", {})
+            server_experiment_files = server_state.get("experiment_files", {})
 
             # Compare with local state
             exp_state = self.sync_state["active_experiments"].get(experiment_uid)
@@ -303,37 +331,80 @@ class LogSynchronizer:
 
             project = exp_state["project"]
             run_name = exp_state["run_name"]
+            synced_count = 0
 
-            # Find files that need sync
-            for file_name, local_file_info in exp_state["files"].items():
-                file_path = self.workspace / project / file_name
+            # 1. Recover Experiment files (terminal logs)
+            experiment_dir = self.workspace / "experiments" / experiment_uid
+            if experiment_dir.exists():
+                for file_path in experiment_dir.glob("*.log"):
+                    file_name = file_path.name
+                    server_info = server_experiment_files.get(file_name, {})
 
-                if not file_path.exists():
-                    continue
+                    # Hash-based comparison
+                    local_hash = calculate_file_hash(file_path)
+                    server_hash = server_info.get("hash")
 
-                server_file_info = server_files.get(file_name, {})
+                    if local_hash and local_hash != server_hash:
+                        # Server needs update - use delta sync for logs
+                        server_size = server_info.get("size", 0)
+                        local_size = file_path.stat().st_size
 
-                # Check if server is outdated
-                local_mtime = local_file_info.get("mtime", 0)
-                server_mtime = server_file_info.get("mtime", 0)
+                        if local_size > server_size:
+                            await self._sync_csv_delta(
+                                experiment_uid,
+                                file_path,
+                                file_name,
+                                {"last_offset": server_size},
+                                local_size,
+                                sync_type="experiment",
+                            )
+                            synced_count += 1
+                            logger.debug(f"Recovered experiment file: {file_name}")
 
-                if local_mtime > server_mtime:
-                    # Need to sync
-                    if file_name.endswith((".csv", ".log")):
-                        # Sync from server's last offset (append-only files)
-                        server_size = server_file_info.get("size", 0)
-                        await self._sync_csv_delta(
-                            experiment_uid,
-                            file_path,
-                            file_name,
-                            {"last_offset": server_size},
-                            file_path.stat().st_size,
-                        )
-                    else:
-                        # Full sync for YAML/PT
-                        await self._sync_full_file(experiment_uid, file_path, file_name)
+            # 2. Recover Run files (cvlabkit output)
+            run_dir = self.workspace / "runs" / project
+            if run_dir.exists():
+                for file_path in run_dir.glob(f"{run_name}.*"):
+                    if not file_path.is_file():
+                        continue
 
-            logger.info(f"Recovery complete for {experiment_uid}")
+                    file_name = file_path.name
+                    server_info = server_files.get(file_name, {})
+
+                    # Hash-based comparison
+                    local_hash = calculate_file_hash(file_path)
+                    server_hash = server_info.get("hash")
+
+                    if local_hash and local_hash != server_hash:
+                        # Server needs update
+                        if file_path.suffix in {".csv", ".log"}:
+                            # Delta sync for append-only files
+                            server_size = server_info.get("size", 0)
+                            local_size = file_path.stat().st_size
+
+                            if local_size > server_size:
+                                await self._sync_csv_delta(
+                                    experiment_uid,
+                                    file_path,
+                                    file_name,
+                                    {"last_offset": server_size},
+                                    local_size,
+                                    sync_type="run",
+                                )
+                                synced_count += 1
+                        else:
+                            # Full sync for YAML/PT
+                            await self._sync_full_file(
+                                experiment_uid, file_path, file_name, sync_type="run"
+                            )
+                            synced_count += 1
+
+                        logger.debug(f"Recovered run file: {file_name}")
+
+            if synced_count > 0:
+                logger.info(f"Recovery complete for {experiment_uid}: {synced_count} files synced")
+            else:
+                logger.info(f"Recovery complete for {experiment_uid}: already in sync")
 
         except Exception as e:
             logger.error(f"Failed to recover sync: {e}")

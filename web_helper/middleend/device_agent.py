@@ -39,6 +39,16 @@ except ImportError:
     torch = None
 
 from .log_synchronizer import LogSynchronizer
+from .component_manager import ComponentManager
+
+# Code version tracking for reproducibility
+try:
+    from web_helper.backend.services.hash_utils import get_code_version
+
+    CODE_VERSION_AVAILABLE = True
+except ImportError:
+    CODE_VERSION_AVAILABLE = False
+    get_code_version = None
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -105,6 +115,13 @@ class DeviceAgent:
         # Log synchronizer
         self.synchronizer = LogSynchronizer(server_url, self.workspace)
 
+        # Component manager for version-controlled component sync
+        self.component_manager = ComponentManager(
+            server_url=server_url,
+            base_path=Path.cwd(),
+            api_key=self.api_key,
+        )
+
         # Active jobs
         self.active_jobs: Dict[str, Dict] = {}
 
@@ -170,6 +187,9 @@ class DeviceAgent:
         self.synchronizer.stop()
         await self.synchronizer.close()
 
+        # Close component manager
+        self.component_manager.close()
+
         # Close HTTP client
         await self.http_client.aclose()
 
@@ -189,8 +209,10 @@ class DeviceAgent:
 
     def _reset_backoff(self):
         """Reset backoff to initial values after successful connection."""
+        was_disconnected = self.consecutive_failures > 0
         self.current_backoff = self.base_backoff
         self.consecutive_failures = 0
+        return was_disconnected
 
     def _calculate_backoff(self) -> float:
         """Calculate next backoff duration with exponential increase."""
@@ -208,7 +230,13 @@ class DeviceAgent:
             try:
                 success = await self._send_heartbeat()
                 if success:
-                    self._reset_backoff()
+                    was_disconnected = self._reset_backoff()
+
+                    # Trigger recovery for active experiments after reconnection
+                    if was_disconnected and self.active_jobs:
+                        logger.info("Connection restored, triggering sync recovery...")
+                        await self._trigger_recovery_for_active_jobs()
+
                     await asyncio.sleep(self.heartbeat_interval)
                 else:
                     backoff = self._calculate_backoff()
@@ -222,6 +250,14 @@ class DeviceAgent:
                 backoff = self._calculate_backoff()
                 logger.info(f"Retrying in {backoff:.1f}s...")
                 await asyncio.sleep(backoff)
+
+    async def _trigger_recovery_for_active_jobs(self):
+        """Trigger sync recovery for all active experiments after reconnection."""
+        for experiment_uid in list(self.active_jobs.keys()):
+            try:
+                await self.synchronizer.recover_from_disconnection(experiment_uid)
+            except Exception as e:
+                logger.error(f"Failed to recover sync for {experiment_uid}: {e}")
 
     async def _send_heartbeat(self) -> bool:
         """Send single heartbeat with system stats.
@@ -317,6 +353,14 @@ class DeviceAgent:
             if torch.cuda.is_available():
                 stats["cuda_version"] = torch.version.cuda
 
+        # Code version for reproducibility tracking
+        if CODE_VERSION_AVAILABLE:
+            try:
+                code_version = get_code_version()
+                stats["code_version"] = code_version
+            except Exception as e:
+                logger.debug(f"Failed to collect code version: {e}")
+
         return stats
 
     async def _job_polling_loop(self):
@@ -381,7 +425,22 @@ class DeviceAgent:
                 job["config_path"], experiment_uid
             )
 
-            # 2. Setup directory structure (Experiment vs Run separation)
+            # 2. Sync components from version store
+            sync_result = self.component_manager.sync_from_version_store(config_path)
+            if sync_result["failed"]:
+                logger.warning(
+                    f"Failed to sync some components: {sync_result['failed']}"
+                )
+            if sync_result["synced"]:
+                logger.info(f"Synced components: {sync_result['synced']}")
+
+            # Save experiment manifest for reproducibility
+            if sync_result["component_hashes"]:
+                self.component_manager.save_experiment_manifest(
+                    experiment_uid, sync_result["component_hashes"]
+                )
+
+            # 3. Setup directory structure (Experiment vs Run separation)
             project = job["project"]
             run_name = job.get("meta", {}).get("run_name", experiment_uid)
 
@@ -396,10 +455,10 @@ class DeviceAgent:
             run_dir = self.workspace / "runs" / project
             run_dir.mkdir(parents=True, exist_ok=True)
 
-            # 3. Start synchronization (both Experiment and Run)
+            # 4. Start synchronization (both Experiment and Run)
             self.synchronizer.start_sync(experiment_uid, project, run_name)
 
-            # 4. Execute cvlabkit
+            # 5. Execute cvlabkit
             env = os.environ.copy()
             # cvlabkit writes to runs/ directory
             env["CVLAB_LOG_DIR"] = str(run_dir)
@@ -449,10 +508,10 @@ class DeviceAgent:
 
             logger.info(f"Job {experiment_uid} finished with code {return_code}")
 
-            # 5. Final sync
+            # 6. Final sync
             await self.synchronizer.final_sync(experiment_uid)
 
-            # 6. Cleanup
+            # 7. Cleanup
             del self.active_jobs[experiment_uid]
 
         except Exception as e:

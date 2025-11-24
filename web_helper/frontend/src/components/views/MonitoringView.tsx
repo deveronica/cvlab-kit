@@ -35,7 +35,9 @@ const MetricBar = ({
   color?: string;
   showPercentage?: boolean;
 }) => {
-  const percentage = total ? (value / total) * 100 : value;
+  const safeValue = value ?? 0;
+  const safeTotal = total ?? 0;
+  const percentage = safeTotal ? (safeValue / safeTotal) * 100 : safeValue;
   const colorClasses = {
     blue: 'from-blue-500 to-blue-600',
     purple: 'from-purple-500 to-purple-600',
@@ -52,8 +54,8 @@ const MetricBar = ({
           <span className="text-sm font-medium text-foreground">{label}</span>
         </div>
         <span className="text-sm font-semibold text-foreground">
-          {showPercentage ? `${percentage.toFixed(1)}%` : `${value.toFixed(1)}GB`}
-          {total && <span className="text-muted-foreground font-normal"> / {total.toFixed(1)}GB</span>}
+          {showPercentage ? `${percentage.toFixed(1)}%` : `${safeValue.toFixed(1)}GB`}
+          {safeTotal > 0 && <span className="text-muted-foreground font-normal"> / {safeTotal.toFixed(1)}GB</span>}
         </span>
       </div>
       <div className="relative w-full bg-secondary/50 rounded-full h-2.5 overflow-hidden">
@@ -238,7 +240,7 @@ export function MonitoringView() {
 
                     {/* Temperature & Power - Enhanced Cards */}
                     <div className="grid grid-cols-2 gap-3 pt-2">
-                      {gpu.temperature !== null && (
+                      {gpu.temperature != null && (
                         <div className="bg-secondary/30 rounded-lg p-3 space-y-1">
                           <div className="flex items-center gap-1.5 text-muted-foreground">
                             <Thermometer className="h-3.5 w-3.5" />
@@ -250,7 +252,7 @@ export function MonitoringView() {
                           </div>
                         </div>
                       )}
-                      {gpu.power_usage !== null && (
+                      {gpu.power_usage != null && (
                         <div className="bg-secondary/30 rounded-lg p-3 space-y-1">
                           <div className="flex items-center gap-1.5 text-muted-foreground">
                             <Zap className="h-3.5 w-3.5" />
@@ -305,7 +307,7 @@ export function MonitoringView() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* CPU Utilization */}
-                  {device.cpu_util !== null && device.cpu_util !== undefined && (
+                  {device.cpu_util != null && (
                     <MetricBar
                       label="CPU Utilization"
                       value={device.cpu_util}
@@ -315,7 +317,7 @@ export function MonitoringView() {
                   )}
 
                   {/* RAM Usage */}
-                  {device.memory_used !== null && device.memory_total !== null && (
+                  {device.memory_used != null && device.memory_total != null && (
                     <MetricBar
                       label="RAM"
                       value={device.memory_used}
@@ -361,7 +363,7 @@ export function MonitoringView() {
                                 icon={Gauge}
                                 color="purple"
                               />
-                              {device.vram_used !== null && device.vram_total !== null && (
+                              {device.vram_used != null && device.vram_total != null && (
                                 <MetricBar
                                   label="VRAM"
                                   value={device.vram_used}

@@ -18,11 +18,13 @@ RUN npm run build
 # Stage 2: Python runtime
 FROM python:3.10-slim
 
-# Install system dependencies
+# Install system dependencies including Node.js for frontend builds
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     build-essential \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv (fast Python package installer)

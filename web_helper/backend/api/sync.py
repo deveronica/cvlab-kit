@@ -1,11 +1,21 @@
-"""Distributed log synchronization API endpoints."""
+"""Distributed log synchronization API endpoints.
+
+Handles file synchronization between Server and Worker nodes.
+Uses xxhash3 for fast file integrity verification.
+
+File types:
+- Experiment files: terminal_log.log, terminal_err.log (queue_logs/)
+- Run files: *.csv, *.yaml, *.pt (logs/{project}/)
+"""
 
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 import aiofiles
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+import xxhash
+from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from ..models import get_db
@@ -14,6 +24,33 @@ from ..services.event_manager import event_manager
 from ..utils import error_response, success_response
 
 logger = logging.getLogger(__name__)
+
+
+def calculate_file_hash(file_path: Path) -> Optional[str]:
+    """Calculate xxhash3 of a file for integrity verification."""
+    if not file_path.exists():
+        return None
+    try:
+        with open(file_path, "rb") as f:
+            return xxhash.xxh3_64(f.read()).hexdigest()
+    except Exception:
+        return None
+
+
+def get_file_info(file_path: Path) -> dict:
+    """Get file metadata including hash for sync verification."""
+    if not file_path.exists():
+        return {"exists": False}
+
+    stat = file_path.stat()
+    return {
+        "exists": True,
+        "size": stat.st_size,
+        "mtime": int(stat.st_mtime),
+        "hash": calculate_file_hash(file_path),
+    }
+
+
 router = APIRouter(prefix="/sync")
 
 
@@ -23,6 +60,7 @@ async def upload_experiment_file(
     file_name: str,
     delta: UploadFile = File(...),
     db: Session = Depends(get_db),
+    x_content_hash: Optional[str] = Header(None, description="xxhash3 of content for verification"),
 ):
     """Upload Experiment file (terminal logs).
 
@@ -33,6 +71,7 @@ async def upload_experiment_file(
         experiment_uid: Unique experiment identifier
         file_name: terminal_log.log or terminal_err.log
         delta: Binary content to append
+        x_content_hash: Optional xxhash3 for integrity verification
     """
     try:
         exp = (
@@ -57,6 +96,24 @@ async def upload_experiment_file(
 
         # Append or write
         content = await delta.read()
+
+        # Verify content hash if provided
+        if x_content_hash:
+            actual_hash = xxhash.xxh3_64(content).hexdigest()
+            if actual_hash != x_content_hash:
+                logger.warning(
+                    f"Hash mismatch for {experiment_uid}/{file_name}: "
+                    f"expected {x_content_hash}, got {actual_hash}"
+                )
+                raise HTTPException(
+                    status_code=400,
+                    detail=error_response(
+                        title="Hash Mismatch",
+                        status=400,
+                        detail=f"Content hash mismatch: expected {x_content_hash}, got {actual_hash}",
+                    ),
+                )
+
         mode = "ab" if file_path.suffix == ".log" else "wb"
         async with aiofiles.open(file_path, mode) as f:
             await f.write(content)
@@ -103,6 +160,7 @@ async def upload_run_file(
     file_name: str,
     delta: UploadFile = File(...),
     db: Session = Depends(get_db),
+    x_content_hash: Optional[str] = Header(None, description="xxhash3 of content for verification"),
 ):
     """Upload Run file (cvlabkit output).
 
@@ -113,6 +171,7 @@ async def upload_run_file(
         experiment_uid: Unique experiment identifier
         file_name: run_name.csv, run_name.yaml, run_name.pt
         delta: Binary content (append for CSV, replace for others)
+        x_content_hash: Optional xxhash3 for integrity verification
     """
     try:
         exp = (
@@ -137,6 +196,24 @@ async def upload_run_file(
 
         # CSV: append, Others: replace
         content = await delta.read()
+
+        # Verify content hash if provided
+        if x_content_hash:
+            actual_hash = xxhash.xxh3_64(content).hexdigest()
+            if actual_hash != x_content_hash:
+                logger.warning(
+                    f"Hash mismatch for {experiment_uid}/{file_name}: "
+                    f"expected {x_content_hash}, got {actual_hash}"
+                )
+                raise HTTPException(
+                    status_code=400,
+                    detail=error_response(
+                        title="Hash Mismatch",
+                        status=400,
+                        detail=f"Content hash mismatch: expected {x_content_hash}, got {actual_hash}",
+                    ),
+                )
+
         mode = "ab" if file_path.suffix == ".csv" else "wb"
         async with aiofiles.open(file_path, mode) as f:
             await f.write(content)
@@ -211,15 +288,15 @@ async def upload_full_file(
 async def get_sync_status(experiment_uid: str, db: Session = Depends(get_db)):
     """Query current sync status for reconnection recovery.
 
-    Returns file metadata (mtime, size) for all files associated with
-    the experiment. Used by clients to detect missing deltas after
-    network disconnection.
+    Returns file metadata (mtime, size, hash) for all files associated with
+    the experiment. Used by clients to detect missing data after
+    network disconnection using hash-based comparison.
 
     Args:
         experiment_uid: Unique experiment identifier
 
     Returns:
-        Sync status and file metadata
+        Sync status with both experiment_files and run files metadata
     """
     try:
         exp = (
@@ -238,27 +315,34 @@ async def get_sync_status(experiment_uid: str, db: Session = Depends(get_db)):
                 ),
             )
 
-        # Scan log directory for all related files
+        # 1. Experiment files (terminal logs in queue_logs/)
+        experiment_dir = Path("web_helper/queue_logs") / experiment_uid
+        experiment_files = {}
+
+        if experiment_dir.exists():
+            for file_path in experiment_dir.glob("*.log"):
+                if file_path.is_file():
+                    file_info = get_file_info(file_path)
+                    file_info["synced_at"] = (
+                        exp.last_sync_at.isoformat() + "Z" if exp.last_sync_at else None
+                    )
+                    experiment_files[file_path.name] = file_info
+
+        # 2. Run files (cvlabkit output in logs/)
         log_dir = Path("logs") / exp.project
         files = {}
 
         if log_dir.exists():
             # Find all files matching the experiment's run pattern
-            # Assuming run_name is derived from experiment_uid or stored in meta
             run_name_pattern = exp.meta.get("run_name", "*") if exp.meta else "*"
 
             for file_path in log_dir.glob(f"{run_name_pattern}.*"):
                 if file_path.is_file():
-                    stat = file_path.stat()
-                    files[file_path.name] = {
-                        "mtime": int(stat.st_mtime),
-                        "size": stat.st_size,
-                        "synced_at": (
-                            exp.last_sync_at.isoformat() + "Z"
-                            if exp.last_sync_at
-                            else None
-                        ),
-                    }
+                    file_info = get_file_info(file_path)
+                    file_info["synced_at"] = (
+                        exp.last_sync_at.isoformat() + "Z" if exp.last_sync_at else None
+                    )
+                    files[file_path.name] = file_info
 
         return success_response(
             {
@@ -269,7 +353,8 @@ async def get_sync_status(experiment_uid: str, db: Session = Depends(get_db)):
                     exp.last_sync_at.isoformat() + "Z" if exp.last_sync_at else None
                 ),
                 "server_origin": exp.server_origin,
-                "files": files,
+                "experiment_files": experiment_files,  # Terminal logs
+                "files": files,  # Run results
             },
             {"timestamp": datetime.utcnow().isoformat() + "Z"},
         )

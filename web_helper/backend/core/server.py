@@ -143,17 +143,38 @@ def run_development_servers(args):
 
         # 2. Start middleend agent in development mode (unless disabled)
         if not getattr(args, "server_only", False):
-            print("[2/3] Starting middleend agent (local heartbeat)...")
             server_url = f"http://{args.host}:{args.port}"
-            client_thread = threading.Thread(
-                target=run_local_heartbeat,
-                args=(server_url, args.client_interval, args.client_host_id),
-                daemon=True,
-            )
-            client_thread.start()
-            print(
-                f"💓 Middleend agent started (heartbeat interval: {args.client_interval}s)"
-            )
+            full_mode = getattr(args, "full", False)
+
+            if full_mode:
+                # Full worker mode: job execution + log sync (unified execution path)
+                print("[2/3] Starting full local worker (unified execution path)...")
+                api_key = getattr(args, "api_key", None)
+                poll_interval = getattr(args, "poll_interval", 5)
+                max_jobs = getattr(args, "max_jobs", 1)
+                client_thread = threading.Thread(
+                    target=run_local_worker_thread,
+                    args=(server_url, args.client_interval, poll_interval,
+                          args.client_host_id, api_key, max_jobs),
+                    daemon=True,
+                )
+                client_thread.start()
+                print(
+                    f"🚀 Local worker started (heartbeat: {args.client_interval}s, "
+                    f"poll: {poll_interval}s, max jobs: {max_jobs})"
+                )
+            else:
+                # Heartbeat-only mode: just monitoring
+                print("[2/3] Starting middleend agent (local heartbeat)...")
+                client_thread = threading.Thread(
+                    target=run_local_heartbeat,
+                    args=(server_url, args.client_interval, args.client_host_id),
+                    daemon=True,
+                )
+                client_thread.start()
+                print(
+                    f"💓 Middleend agent started (heartbeat interval: {args.client_interval}s)"
+                )
         else:
             print("[2/3] Middleend agent disabled (--server-only)")
 
@@ -210,6 +231,33 @@ def run_local_heartbeat(url: str, interval: int, host_id: str = None):
     run_heartbeat_only(url, interval, host_id)
 
 
+def run_local_worker_thread(
+    url: str,
+    interval: int = 10,
+    poll_interval: int = 5,
+    host_id: str = None,
+    api_key: str = None,
+    max_jobs: int = 1,
+):
+    """Run full local worker in a thread (unified execution path).
+
+    This creates a local DeviceAgent that executes jobs and syncs logs,
+    enabling a unified execution path where local experiments use the
+    same flow as remote ones.
+
+    Args:
+        url: Backend URL (usually localhost)
+        interval: Heartbeat interval in seconds
+        poll_interval: Job polling interval in seconds
+        host_id: Custom host identifier
+        api_key: API key for authentication
+        max_jobs: Maximum concurrent jobs
+    """
+    from web_helper.middleend.cli import run_local_worker
+
+    run_local_worker(url, interval, poll_interval, host_id, api_key, max_jobs)
+
+
 def run_production_server(args, run_client: bool = False):
     """Runs the FastAPI application in production mode.
 
@@ -231,15 +279,31 @@ def run_production_server(args, run_client: bool = False):
 
     client_thread = None
     if run_client:
-        print("💓 Middleend agent: Enabled (local heartbeat)")
-        # Start middleend agent in a separate thread
         server_url = f"http://{args.host}:{args.port}"
-        client_thread = threading.Thread(
-            target=run_local_heartbeat,
-            args=(server_url, args.client_interval, args.client_host_id),
-            daemon=True,
-        )
-        client_thread.start()
+        full_mode = getattr(args, "full", False)
+
+        if full_mode:
+            # Full worker mode: job execution + log sync (unified execution path)
+            print("🚀 Middleend agent: Enabled (full worker - unified execution path)")
+            api_key = getattr(args, "api_key", None)
+            poll_interval = getattr(args, "poll_interval", 5)
+            max_jobs = getattr(args, "max_jobs", 1)
+            client_thread = threading.Thread(
+                target=run_local_worker_thread,
+                args=(server_url, args.client_interval, poll_interval,
+                      args.client_host_id, api_key, max_jobs),
+                daemon=True,
+            )
+            client_thread.start()
+        else:
+            # Heartbeat-only mode: just monitoring
+            print("💓 Middleend agent: Enabled (local heartbeat)")
+            client_thread = threading.Thread(
+                target=run_local_heartbeat,
+                args=(server_url, args.client_interval, args.client_host_id),
+                daemon=True,
+            )
+            client_thread.start()
     else:
         print("💓 Middleend agent: Disabled")
 

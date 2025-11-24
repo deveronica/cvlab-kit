@@ -44,6 +44,6 @@ def get_session():
 def init_database():
     """Initialize database tables."""
     # Import all models to ensure they're registered with Base
-    from web_helper.backend.daemon.models import ProcessState  # noqa: F401
+    # Note: ProcessState moved to JSON file, no longer in DB
 
     Base.metadata.create_all(bind=engine)

@@ -1,11 +1,10 @@
 """Queue experiment indexer service.
 
 Scans queue_logs/ directory and maintains a database of all experiments
-with MD5 checksums for change detection.
+with xxhash3 checksums for fast change detection.
 """
 
 import asyncio
-import hashlib
 import logging
 import re
 import time
@@ -14,6 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import psutil
+import xxhash
 import yaml
 from sqlalchemy.orm import Session
 
@@ -26,16 +26,16 @@ logger = logging.getLogger(__name__)
 EXPERIMENT_UID_PATTERN = re.compile(r"^\d{8}_[a-f0-9]{4}$")
 
 
-def calculate_md5(file_path: Path) -> Optional[str]:
-    """Calculate MD5 checksum of a file."""
+def calculate_file_hash(file_path: Path) -> Optional[str]:
+    """Calculate xxhash3 checksum of a file for fast change detection."""
     if not file_path.exists():
         return None
 
     try:
         with open(file_path, "rb") as f:
-            return hashlib.md5(f.read()).hexdigest()
+            return xxhash.xxh3_64(f.read()).hexdigest()
     except Exception as e:
-        logger.error(f"Failed to calculate MD5 for {file_path}: {e}")
+        logger.error(f"Failed to calculate hash for {file_path}: {e}")
         return None
 
 
@@ -151,9 +151,9 @@ def extract_experiment_info(
         "config_path": str(config_path) if config_path.exists() else None,
         "log_path": str(log_path) if log_path.exists() else None,
         "error_log_path": str(error_log_path) if error_log_path.exists() else None,
-        "config_md5": calculate_md5(config_path),
-        "log_md5": calculate_md5(log_path),
-        "error_log_md5": calculate_md5(error_log_path),
+        "config_hash": calculate_file_hash(config_path),
+        "log_hash": calculate_file_hash(log_path),
+        "error_log_hash": calculate_file_hash(error_log_path),
     }
 
     # Extract project and name from config.yaml
@@ -234,15 +234,15 @@ def index_queue_experiments(db: Session) -> Dict[str, int]:
             continue
 
         if existing:
-            # Check if any files have changed using MD5 or time-based fields changed
+            # Check if any files have changed using hash or time-based fields changed
             needs_update = False
 
-            # MD5-based file change detection
-            if existing.config_md5 != info["config_md5"]:
+            # Hash-based file change detection (xxhash3)
+            if existing.config_hash != info["config_hash"]:
                 needs_update = True
-            if existing.log_md5 != info["log_md5"]:
+            if existing.log_hash != info["log_hash"]:
                 needs_update = True
-            if existing.error_log_md5 != info["error_log_md5"]:
+            if existing.error_log_hash != info["error_log_hash"]:
                 needs_update = True
 
             # Time-based field changes (status, created_at)
@@ -341,7 +341,7 @@ def check_pending_experiments(db: Session) -> Dict[str, int]:
 
     This is more efficient than full reindexing as it:
     - Only queries pending experiments
-    - Skips MD5 calculation
+    - Skips hash calculation
     - Only updates status field
 
     Returns:
@@ -364,7 +364,7 @@ def check_pending_experiments(db: Session) -> Dict[str, int]:
             if not experiment_dir.exists():
                 continue
 
-            # Re-detect status (lightweight, no MD5)
+            # Re-detect status (lightweight, no hash calculation)
             new_status = detect_status_smart(experiment_dir, db_record=experiment)
 
             # Check if status changed
@@ -401,7 +401,7 @@ def check_pending_experiments(db: Session) -> Dict[str, int]:
 async def periodic_full_reindex(interval_seconds: int = 600):
     """Periodic full reindex task (default: every 10 minutes).
 
-    Provides integrity guarantee by running full MD5-based reindexing
+    Provides integrity guarantee by running full hash-based reindexing
     to catch any missed Watchdog events or file changes.
 
     Args:

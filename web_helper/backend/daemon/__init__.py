@@ -1,6 +1,8 @@
-"""Daemon process management for SSH-independent execution."""
+"""Daemon process management for SSH-independent execution.
 
-from .models import ProcessState
+Uses JSON file (daemon_state.json) instead of database for portability.
+"""
+
 from .process_manager import ProcessManager, show_status, stop_all
 
-__all__ = ["ProcessState", "ProcessManager", "show_status", "stop_all"]
+__all__ = ["ProcessManager", "show_status", "stop_all"]

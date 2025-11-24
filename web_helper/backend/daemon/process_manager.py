@@ -1,5 +1,6 @@
 """Daemon process manager for SSH-independent execution."""
 
+import json
 import logging
 import os
 import signal
@@ -9,24 +10,58 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy.orm import Session
-
-from web_helper.backend.daemon.models import ProcessState
-from web_helper.backend.models.database import get_session
-
 
 class ProcessManager:
     """Manages daemon processes (backend, frontend, middleend).
 
     This allows processes to survive SSH session disconnects by:
     - Starting processes with start_new_session=True
-    - Storing PID in database
+    - Storing PID in JSON file (no DB dependency)
     - Managing process lifecycle independently
     """
 
     def __init__(self):
         self.log_dir = Path("logs")
         self.log_dir.mkdir(exist_ok=True)
+
+        # Use JSON file instead of database for portability
+        # Store in web_helper/ alongside other state files
+        self.state_dir = Path("web_helper")
+        self.state_dir.mkdir(exist_ok=True)
+        self.state_file = self.state_dir / "daemon_state.json"
+
+    def _load_state(self) -> dict:
+        """Load daemon state from JSON file."""
+        if self.state_file.exists():
+            try:
+                with open(self.state_file, "r") as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                return {}
+        return {}
+
+    def _save_state(self, state: dict):
+        """Save daemon state to JSON file."""
+        with open(self.state_file, "w") as f:
+            json.dump(state, f, indent=2, default=str)
+
+    def _update_process_state(self, process_type: str, data: dict):
+        """Update state for a specific process type."""
+        state = self._load_state()
+        state[process_type] = data
+        self._save_state(state)
+
+    def _get_process_state(self, process_type: str) -> dict | None:
+        """Get state for a specific process type."""
+        state = self._load_state()
+        return state.get(process_type)
+
+    def _remove_process_state(self, process_type: str):
+        """Remove state for a specific process type."""
+        state = self._load_state()
+        if process_type in state:
+            del state[process_type]
+            self._save_state(state)
 
     def start_backend_daemon(self, args, dev_mode=False):
         """Start backend server as daemon.
@@ -71,25 +106,25 @@ class ProcessManager:
             env=env,
         )
 
-        # Save to database
-        with get_session() as session:
-            state = ProcessState(
-                process_type="backend",
-                pid=process.pid,
-                status="running",
-                host=args.host,
-                port=args.port,
-                started_at=datetime.utcnow(),
-                config={
+        # Save to state file
+        self._update_process_state(
+            "backend",
+            {
+                "pid": process.pid,
+                "status": "running",
+                "host": args.host,
+                "port": args.port,
+                "started_at": datetime.utcnow().isoformat(),
+                "config": {
                     "dev_mode": dev_mode,
                     "host": args.host,
                     "port": args.port,
                     "log_level": getattr(args, "log_level", "info"),
                 },
-                log_file=str(log_file),
-            )
-            session.add(state)
-            session.commit()
+                "log_file": str(log_file),
+                "err_file": str(err_file),
+            },
+        )
 
         print(f"✅ Backend daemon started (PID: {process.pid})")
         print(f"📊 URL: http://{args.host}:{args.port}")
@@ -123,20 +158,20 @@ class ProcessManager:
             start_new_session=True,  # SSH-independent
         )
 
-        # Save to database
-        with get_session() as session:
-            state = ProcessState(
-                process_type="frontend",
-                pid=process.pid,
-                status="running",
-                host="localhost",
-                port=5173,  # Vite default
-                started_at=datetime.utcnow(),
-                config={"dev_mode": True},
-                log_file=str(log_file),
-            )
-            session.add(state)
-            session.commit()
+        # Save to state file
+        self._update_process_state(
+            "frontend",
+            {
+                "pid": process.pid,
+                "status": "running",
+                "host": "localhost",
+                "port": 5173,
+                "started_at": datetime.utcnow().isoformat(),
+                "config": {"dev_mode": True},
+                "log_file": str(log_file),
+                "err_file": str(err_file),
+            },
+        )
 
         print(f"✅ Frontend daemon started (PID: {process.pid})")
         print(f"📊 URL: http://localhost:5173")
@@ -158,16 +193,26 @@ class ProcessManager:
         cmd = [
             sys.executable,
             "-m",
-            "web_helper.middleend.cli",
-            "--url",
+            "web_helper.middleend.device_agent",
+            "--server",
             args.url,
-            "--client-host-id",
+            "--host-id",
             args.client_host_id or socket.gethostname(),
-            "--client-interval",
+            "--heartbeat-interval",
             str(args.client_interval),
             "--poll-interval",
             str(args.poll_interval),
         ]
+
+        # Add optional arguments if present
+        if getattr(args, "api_key", None):
+            cmd.extend(["--api-key", args.api_key])
+        if getattr(args, "connect_timeout", None):
+            cmd.extend(["--connect-timeout", str(args.connect_timeout)])
+        if getattr(args, "request_timeout", None):
+            cmd.extend(["--request-timeout", str(args.request_timeout)])
+        if getattr(args, "max_jobs", None):
+            cmd.extend(["--max-jobs", str(args.max_jobs)])
 
         # Start daemon process
         log_file = self.log_dir / "middleend.log"
@@ -180,25 +225,25 @@ class ProcessManager:
             start_new_session=True,  # SSH-independent
         )
 
-        # Save to database
-        with get_session() as session:
-            state = ProcessState(
-                process_type="middleend",
-                pid=process.pid,
-                status="running",
-                host=args.client_host_id or socket.gethostname(),
-                port=None,
-                started_at=datetime.utcnow(),
-                config={
+        # Save to state file
+        self._update_process_state(
+            "middleend",
+            {
+                "pid": process.pid,
+                "status": "running",
+                "host": args.client_host_id or socket.gethostname(),
+                "server_url": args.url,
+                "started_at": datetime.utcnow().isoformat(),
+                "config": {
                     "url": args.url,
                     "client_host_id": args.client_host_id,
                     "client_interval": args.client_interval,
                     "poll_interval": args.poll_interval,
                 },
-                log_file=str(log_file),
-            )
-            session.add(state)
-            session.commit()
+                "log_file": str(log_file),
+                "err_file": str(err_file),
+            },
+        )
 
         print(f"✅ Middleend daemon started (PID: {process.pid})")
         print(f"📊 Server: {args.url}")
@@ -231,6 +276,10 @@ class ProcessManager:
                 client_host_id=args.client_host_id,
                 client_interval=args.client_interval,
                 poll_interval=args.poll_interval,
+                api_key=getattr(args, "api_key", None),
+                connect_timeout=getattr(args, "connect_timeout", None),
+                request_timeout=getattr(args, "request_timeout", None),
+                max_jobs=getattr(args, "max_jobs", None),
             )
             self.start_middleend_daemon(middleend_args)
 
@@ -238,38 +287,45 @@ class ProcessManager:
         print("📊 Check status: uv run app.py --status")
         print("🛑 Stop all: uv run app.py --stop")
 
-    def stop_process(self, process_type):
+    def _is_process_running(self, pid: int) -> bool:
+        """Check if a process is still running."""
+        try:
+            os.kill(pid, 0)
+            return True
+        except (ProcessLookupError, PermissionError):
+            return False
+
+    def stop_process(self, process_type: str):
         """Stop a daemon process by type.
 
         Args:
             process_type: "backend", "frontend", or "middleend"
         """
-        with get_session() as session:
-            state = (
-                session.query(ProcessState)
-                .filter_by(process_type=process_type, status="running")
-                .first()
-            )
+        state = self._get_process_state(process_type)
 
-            if not state:
-                print(f"⚠️  No running {process_type} found")
-                return
+        if not state or state.get("status") != "running":
+            print(f"⚠️  No running {process_type} found")
+            return
 
-            try:
-                os.kill(state.pid, signal.SIGTERM)
-                state.status = "stopped"
-                state.stopped_at = datetime.utcnow()
-                session.commit()
-                print(f"✅ {process_type} stopped (PID: {state.pid})")
-            except ProcessLookupError:
-                # Process already dead
-                state.status = "stopped"
-                state.stopped_at = datetime.utcnow()
-                session.commit()
-                print(f"⚠️  {process_type} process not found (PID: {state.pid})")
-            except Exception as e:
-                logging.error(f"Failed to stop {process_type}: {e}")
-                print(f"❌ Failed to stop {process_type}: {e}")
+        pid = state.get("pid")
+        if not pid:
+            print(f"⚠️  No PID found for {process_type}")
+            self._remove_process_state(process_type)
+            return
+
+        try:
+            os.kill(pid, signal.SIGTERM)
+            print(f"✅ {process_type} stopped (PID: {pid})")
+        except ProcessLookupError:
+            print(f"⚠️  {process_type} process not found (PID: {pid})")
+        except Exception as e:
+            logging.error(f"Failed to stop {process_type}: {e}")
+            print(f"❌ Failed to stop {process_type}: {e}")
+
+        # Update state
+        state["status"] = "stopped"
+        state["stopped_at"] = datetime.utcnow().isoformat()
+        self._update_process_state(process_type, state)
 
     def stop_all(self):
         """Stop all running daemon processes."""
@@ -282,22 +338,45 @@ class ProcessManager:
 
     def show_status(self):
         """Show status of all daemon processes."""
-        with get_session() as session:
-            states = session.query(ProcessState).filter_by(status="running").all()
+        state = self._load_state()
 
-            if not states:
-                print("No running processes")
-                return
+        if not state:
+            print("No daemon processes registered")
+            return
 
-            print("Running processes:\n")
-            for state in states:
-                print(f"  📦 {state.process_type} (PID: {state.pid})")
-                print(f"     Started: {state.started_at}")
-                if state.host and state.port:
-                    print(f"     URL: http://{state.host}:{state.port}")
-                if state.log_file:
-                    print(f"     Log: {state.log_file}")
-                print()
+        running_count = 0
+        print("Daemon processes:\n")
+
+        for ptype, pstate in state.items():
+            pid = pstate.get("pid")
+            status = pstate.get("status", "unknown")
+
+            # Check if process is actually running
+            if pid and status == "running":
+                if self._is_process_running(pid):
+                    icon = "🟢"
+                    actual_status = "running"
+                    running_count += 1
+                else:
+                    icon = "🔴"
+                    actual_status = "dead (not responding)"
+            else:
+                icon = "⚪"
+                actual_status = status
+
+            print(f"  {icon} {ptype} (PID: {pid}) - {actual_status}")
+            if pstate.get("started_at"):
+                print(f"     Started: {pstate['started_at']}")
+            if pstate.get("host") and pstate.get("port"):
+                print(f"     URL: http://{pstate['host']}:{pstate['port']}")
+            elif pstate.get("server_url"):
+                print(f"     Server: {pstate['server_url']}")
+            if pstate.get("log_file"):
+                print(f"     Log: {pstate['log_file']}")
+            print()
+
+        if running_count == 0:
+            print("No processes currently running")
 
 
 # Convenience functions for module-level imports

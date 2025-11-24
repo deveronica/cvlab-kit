@@ -12,7 +12,7 @@ from pathlib import Path
 
 def migrate():
     """Apply migration."""
-    db_path = Path("web_helper/state/db.sqlite")
+    db_path = Path("web_helper/web_helper.db")
 
     if not db_path.exists():
         print(f"Database not found: {db_path}")

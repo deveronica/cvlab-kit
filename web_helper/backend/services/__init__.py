@@ -3,6 +3,7 @@
 from .event_manager import EventManager
 from .file_monitor import FileMonitor, file_monitor
 from .queue_file_monitor import QueueFileMonitor, queue_file_monitor
+from .component_store import ComponentStore
 
 __all__ = [
     "EventManager",
@@ -10,4 +11,5 @@ __all__ = [
     "file_monitor",
     "QueueFileMonitor",
     "queue_file_monitor",
+    "ComponentStore",
 ]

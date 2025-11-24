@@ -785,7 +785,7 @@ async def list_queue_experiments(
     """List all queue experiments from queue_logs/ directory.
 
     This endpoint provides access to all experiment execution history,
-    indexed from the queue_logs/ directory with MD5-based change detection.
+    indexed from the queue_logs/ directory with hash-based change detection.
     """
     try:
         # Build query

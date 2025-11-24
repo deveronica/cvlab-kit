@@ -38,10 +38,10 @@ class QueueExperiment(Base):
     pid = Column(Integer, nullable=True)  # Process ID for running jobs
     exit_code = Column(Integer, nullable=True)
 
-    # File checksums for change detection
-    config_md5 = Column(String, nullable=True)
-    log_md5 = Column(String, nullable=True)
-    error_log_md5 = Column(String, nullable=True)
+    # File checksums for change detection (xxhash3)
+    config_hash = Column(String, nullable=True)
+    log_hash = Column(String, nullable=True)
+    error_log_hash = Column(String, nullable=True)
 
     # Additional metadata (renamed to avoid SQLAlchemy reserved word)
     meta = Column(JSON, nullable=True)

@@ -1,7 +1,6 @@
 """Advanced queue management service"""
 
 import asyncio
-import hashlib
 import json
 import logging
 import os
@@ -15,6 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 import psutil
+import xxhash
 
 from ..models import Device
 from ..models.database import SessionLocal
@@ -35,7 +35,7 @@ def generate_experiment_uid() -> str:
     """Generate unique experiment UID in format {YYYYMMDD}_{hash4}"""
     date_str = datetime.now().strftime("%Y%m%d")
     random_str = str(random.randint(0, 999999))
-    hash_hex = hashlib.md5(random_str.encode()).hexdigest()
+    hash_hex = xxhash.xxh3_64(random_str.encode()).hexdigest()
     return f"{date_str}_{hash_hex[:4]}"
 
 

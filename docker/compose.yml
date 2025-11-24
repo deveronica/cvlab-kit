@@ -1,0 +1,44 @@
+services:
+  cvlab-kit:
+    image: python:3.10-slim
+    container_name: cvlab-kit
+    ports:
+      - "8000:8000"
+    volumes:
+      # Host paths (Docker auto-creates if missing)
+      - /volume1/docker/cvlab-kit:/app
+    working_dir: /app
+    environment:
+      - GIT_REPO=https://github.com/deveronica/cvlab-kit.git
+    command: >
+      bash -c "
+      echo '🔧 Installing dependencies...';
+      apt-get update -qq && apt-get install -y -qq git curl build-essential > /dev/null 2>&1;
+      if ! command -v node > /dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_18.x | bash - > /dev/null 2>&1;
+        apt-get install -y -qq nodejs > /dev/null 2>&1;
+      fi;
+      pip install -q uv 2>/dev/null;
+
+      if [ ! -d .git ]; then
+        echo '📥 Initial setup: Cloning repository...';
+        git clone $$GIT_REPO .;
+        mkdir -p logs outputs config web_helper/state web_helper/queue_logs;
+        uv sync --frozen;
+        cd web_helper/frontend && npm ci && npm run build && cd ../..;
+        echo '✅ Setup complete!';
+      else
+        echo '🔄 Updating from git...';
+        mkdir -p logs outputs config web_helper/state web_helper/queue_logs;
+        git pull;
+        uv sync --frozen;
+        if git diff --name-only HEAD@{1} HEAD 2>/dev/null | grep -q 'web_helper/frontend/src'; then
+          echo '🎨 Frontend changed, rebuilding...';
+          cd web_helper/frontend && npm run build && cd ../..;
+        fi;
+      fi;
+
+      echo '🚀 Starting application...';
+      exec uv run app.py
+      "
+    restart: unless-stopped

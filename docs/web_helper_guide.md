@@ -39,6 +39,39 @@ uv run app.py --dev
 
 브라우저에서 `http://localhost:8000`에 접속하세요.
 
+### Synology NAS 배포
+
+**1. compose.yml 다운로드:**
+- 브라우저에서 [`docker/compose.yml`](https://raw.githubusercontent.com/deveronica/cvlab-kit/main/docker/compose.yml) 열기
+- 우클릭 → 다른 이름으로 저장 → `compose.yml`
+
+**2. File Station 업로드:**
+- File Station → `/docker/` 폴더 생성
+- `compose.yml` 업로드
+
+**3. Container Manager 프로젝트 생성:**
+- Container Manager → **프로젝트** 탭 → **새로 만들기**
+- 경로: `/docker` 선택
+- 파일: `compose.yml` 선택
+- 프로젝트 이름: `cvlab-kit` 입력
+- **완료** → 자동 빌드 (5분 소요)
+
+**4. 접속:**
+```
+http://nas-ip:8000
+```
+
+**업데이트:**
+- Container Manager → 컨테이너 선택 → **재시작** (자동 git pull)
+
+**데이터 위치:**
+- 로그: `/docker/cvlab-kit/logs/`
+- 출력: `/docker/cvlab-kit/outputs/`
+- DB: `/docker/cvlab-kit/web_helper/state/`
+
+**설정 변경 (선택):**
+- `compose.yml`에서 `GIT_REPO` 수정 → 본인 repository 사용
+
 ### 분산 실행
 
 **서버** (중앙 관리):

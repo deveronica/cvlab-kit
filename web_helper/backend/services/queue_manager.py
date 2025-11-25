@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 import psutil
+import yaml
 import xxhash
 
 from ..models import Device
@@ -37,6 +38,46 @@ def generate_experiment_uid() -> str:
     random_str = str(random.randint(0, 999999))
     hash_hex = xxhash.xxh3_64(random_str.encode()).hexdigest()
     return f"{date_str}_{hash_hex[:4]}"
+
+
+def override_config_device(config_path: str, device_id: str) -> None:
+    """Override device field in config YAML.
+
+    Args:
+        config_path: Path to config YAML file
+        device_id: Device ID (e.g., "gnode-3:0" or "gnode-3")
+    """
+    try:
+        config_file = Path(config_path)
+        if not config_file.exists():
+            logger.warning(f"Config file not found: {config_path}")
+            return
+
+        # Load config
+        with open(config_file, 'r') as f:
+            config = yaml.safe_load(f)
+
+        if config is None:
+            config = {}
+
+        # Extract GPU ID from device_id
+        if ":" in device_id:
+            # Virtual device format: "gnode-3:0" → GPU 0
+            gpu_id = int(device_id.split(":")[-1])
+            config['device'] = gpu_id
+            logger.info(f"Overriding config device to GPU {gpu_id} for {config_path}")
+        else:
+            # Single device format: keep as is or use all GPUs
+            # Don't override if not specific GPU assignment
+            logger.debug(f"No GPU override needed for single device: {device_id}")
+            return
+
+        # Save config
+        with open(config_file, 'w') as f:
+            yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False)
+
+    except Exception as e:
+        logger.error(f"Failed to override config device: {e}", exc_info=True)
 
 
 class QueueManager:
@@ -349,6 +390,9 @@ class QueueManager:
             # cvlabkit writes directly to logs/ via default behavior
             run_dir = Path("logs") / job.project
             run_dir.mkdir(parents=True, exist_ok=True)
+
+            # 3. Override config device before execution
+            override_config_device(job.config_path, device)
 
             command = (
                 f"nohup uv run main.py --config {job.config_path} --fast "
@@ -668,12 +712,17 @@ class QueueManager:
     def _get_available_devices(self) -> List[str]:
         """Get list of available and healthy devices.
 
+        For Multi-GPU devices, each GPU is treated as a virtual device.
+        Returns device IDs in format:
+        - Single GPU: "host_id" (e.g., "gnode-1")
+        - Multi-GPU: "host_id:gpu_id" (e.g., "gnode-3:0", "gnode-3:1")
+
         Only returns devices that:
         1. Have sent a heartbeat within the last 3 seconds (healthy)
-        2. Are not currently assigned to max concurrent jobs
+        2. Are not currently assigned to a job
 
         Returns:
-            List of device host_ids that are available for job assignment
+            List of device IDs (including virtual devices) available for job assignment
         """
         db = SessionLocal()
         try:
@@ -692,20 +741,38 @@ class QueueManager:
                     # Device is stale or disconnected
                     continue
 
-                # Device is healthy, check if it's available
-                device_id = device.host_id
-                assigned_jobs = self._device_assignments.get(device_id, [])
+                # Device is healthy - expand to virtual devices if Multi-GPU
+                if device.gpu_count and device.gpu_count > 1:
+                    # Multi-GPU: treat each GPU as a virtual device
+                    for gpu_id in range(device.gpu_count):
+                        virtual_device_id = f"{device.host_id}:{gpu_id}"
 
-                # Filter out completed/cancelled jobs
-                active_jobs = [
-                    experiment_uid
-                    for experiment_uid in assigned_jobs
-                    if experiment_uid in self._jobs
-                    and self._jobs[experiment_uid].status == JobStatus.RUNNING
-                ]
+                        # Check if this virtual device is available
+                        assigned_jobs = self._device_assignments.get(virtual_device_id, [])
+                        active_jobs = [
+                            experiment_uid
+                            for experiment_uid in assigned_jobs
+                            if experiment_uid in self._jobs
+                            and self._jobs[experiment_uid].status == JobStatus.RUNNING
+                        ]
 
-                if len(active_jobs) < 1:  # Only one job per device
-                    available.append(device_id)
+                        if len(active_jobs) < 1:  # Only one job per GPU
+                            available.append(virtual_device_id)
+                else:
+                    # Single GPU or CPU-only: use host_id directly
+                    device_id = device.host_id
+                    assigned_jobs = self._device_assignments.get(device_id, [])
+
+                    # Filter out completed/cancelled jobs
+                    active_jobs = [
+                        experiment_uid
+                        for experiment_uid in assigned_jobs
+                        if experiment_uid in self._jobs
+                        and self._jobs[experiment_uid].status == JobStatus.RUNNING
+                    ]
+
+                    if len(active_jobs) < 1:  # Only one job per device
+                        available.append(device_id)
 
             if not available:
                 logger.debug("No healthy devices available for job dispatch")

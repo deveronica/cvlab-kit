@@ -21,6 +21,7 @@ from typing import Dict, Optional
 
 import httpx
 import psutil
+import yaml
 
 try:
     import pynvml
@@ -459,16 +460,33 @@ class DeviceAgent:
             # 4. Start synchronization (both Experiment and Run)
             self.synchronizer.start_sync(experiment_uid, project, run_name)
 
-            # 5. Execute cvlabkit
+            # 5. Override config device if GPU-specific assignment
+            assigned_device = job.get("assigned_device")
+            if assigned_device and ":" in assigned_device:
+                # Virtual device format: "gnode-3:0" → GPU 0
+                try:
+                    gpu_id = int(assigned_device.split(":")[-1])
+
+                    # Override config device field
+                    with open(config_path, 'r') as f:
+                        config = yaml.safe_load(f)
+
+                    if config is None:
+                        config = {}
+
+                    config['device'] = gpu_id
+
+                    with open(config_path, 'w') as f:
+                        yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False)
+
+                    logger.info(f"Overrode config device to GPU {gpu_id}")
+                except Exception as e:
+                    logger.error(f"Failed to override config device: {e}")
+
+            # 6. Execute cvlabkit
             env = os.environ.copy()
             # cvlabkit writes to runs/ directory
             env["CVLAB_LOG_DIR"] = str(run_dir)
-
-            # Override CUDA_VISIBLE_DEVICES if specified
-            assigned_device = job.get("assigned_device")
-            if assigned_device and assigned_device.startswith("cuda:"):
-                gpu_id = assigned_device.split(":")[-1]
-                env["CUDA_VISIBLE_DEVICES"] = gpu_id
 
             process = await asyncio.create_subprocess_exec(
                 "uv",

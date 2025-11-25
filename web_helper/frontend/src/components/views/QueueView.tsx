@@ -7,6 +7,19 @@ import { apiClient } from '../../lib/api-client';
 
 import { useNavigationStore } from '@/store/navigationStore';
 
+// Helper function to parse and format device info
+const formatDeviceInfo = (device: string | undefined): string => {
+  if (!device) return 'Unknown';
+
+  if (device.includes(':')) {
+    // Virtual device format: "gnode-3:0" → "gnode-3 (GPU 0)"
+    const [host, gpu] = device.split(':');
+    return `${host} (GPU ${gpu})`;
+  }
+
+  return device;
+};
+
 export function QueueView() {
   const { navigateToExperiment } = useNavigationStore();
   const queryClient = useQueryClient();
@@ -134,7 +147,7 @@ export function QueueView() {
                     <div>
                       <p className="font-medium">{job.config_path || 'Experiment'}</p>
                       <p className="text-sm text-muted-foreground">
-                        Device: {job.assigned_device || 'Unknown'} • Started: {job.started_at || 'Unknown'}
+                        Device: {formatDeviceInfo(job.assigned_device)} • Started: {job.started_at || 'Unknown'}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

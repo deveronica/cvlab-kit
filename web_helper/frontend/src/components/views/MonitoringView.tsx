@@ -172,12 +172,12 @@ export function MonitoringView() {
             </Card>
           ))
         ) : devices.length > 0 ? (
-          devices.flatMap((device) => {
-            // Multi-GPU device: render individual GPU cards
+          devices.map((device) => {
+            // Multi-GPU device: render single card with all GPUs inside
             if (device.gpu_count && device.gpu_count > 1 && device.gpus && device.gpus.length > 0) {
-              return device.gpus.map((gpu, index) => (
+              return (
                 <Card
-                  key={`${device.host_id}-gpu-${gpu.id}`}
+                  key={device.host_id}
                   className="hover:shadow-lg transition-all duration-300 border-l-4 border-l-purple-500"
                 >
                   <CardHeader className="pb-4">
@@ -189,12 +189,12 @@ export function MonitoringView() {
                         </CardTitle>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="font-mono text-xs">
-                            GPU {gpu.id}
+                            {device.gpu_count} GPUs
                           </Badge>
-                          {index === 0 && <StatusBadge status={device.status} />}
+                          <StatusBadge status={device.status} />
                         </div>
                       </div>
-                      {index === 0 && device.status === 'disconnected' && (
+                      {device.status === 'disconnected' && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -211,63 +211,91 @@ export function MonitoringView() {
                       )}
                     </div>
                     <CardDescription className="text-sm pt-2">
-                      {gpu.name}
-                      {index === 0 && (
-                        <span className="block text-xs text-muted-foreground mt-1">
-                          Last seen: {formatRelativeTime(device.last_heartbeat)}
-                        </span>
-                      )}
+                      <span className="block text-xs text-muted-foreground">
+                        Last seen: {formatRelativeTime(device.last_heartbeat)}
+                      </span>
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* GPU Utilization */}
-                    <MetricBar
-                      label="GPU Utilization"
-                      value={gpu.util}
-                      icon={Gauge}
-                      color="blue"
-                    />
+                  <CardContent className="space-y-6">
+                    {/* CPU & RAM */}
+                    {device.cpu_util != null && (
+                      <MetricBar
+                        label="CPU Utilization"
+                        value={device.cpu_util}
+                        icon={Cpu}
+                        color="green"
+                      />
+                    )}
+                    {device.memory_used != null && device.memory_total != null && (
+                      <MetricBar
+                        label="RAM"
+                        value={device.memory_used}
+                        total={device.memory_total}
+                        icon={MemoryStick}
+                        color="blue"
+                        showPercentage={false}
+                      />
+                    )}
 
-                    {/* VRAM */}
-                    <MetricBar
-                      label="VRAM"
-                      value={gpu.vram_used}
-                      total={gpu.vram_total}
-                      icon={MemoryStick}
-                      color="purple"
-                      showPercentage={false}
-                    />
-
-                    {/* Temperature & Power - Enhanced Cards */}
-                    <div className="grid grid-cols-2 gap-3 pt-2">
-                      {gpu.temperature != null && (
-                        <div className="bg-secondary/30 rounded-lg p-3 space-y-1">
-                          <div className="flex items-center gap-1.5 text-muted-foreground">
-                            <Thermometer className="h-3.5 w-3.5" />
-                            <span className="text-xs font-medium">Temperature</span>
+                    {/* GPU Sections */}
+                    <div className="border-t pt-4 space-y-6">
+                      {device.gpus.map((gpu) => (
+                        <div key={gpu.id} className="space-y-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Badge variant="outline" className="font-mono text-xs bg-purple-50 dark:bg-purple-950/30">
+                              GPU {gpu.id}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">{gpu.name}</span>
                           </div>
-                          <div className="text-2xl font-bold">
-                            {gpu.temperature}
-                            <span className="text-sm text-muted-foreground">°C</span>
+
+                          <MetricBar
+                            label="GPU Utilization"
+                            value={gpu.util}
+                            icon={Gauge}
+                            color="purple"
+                          />
+
+                          <MetricBar
+                            label="VRAM"
+                            value={gpu.vram_used}
+                            total={gpu.vram_total}
+                            icon={MemoryStick}
+                            color="orange"
+                            showPercentage={false}
+                          />
+
+                          <div className="grid grid-cols-2 gap-3">
+                            {gpu.temperature != null && (
+                              <div className="bg-secondary/30 rounded-lg p-3 space-y-1">
+                                <div className="flex items-center gap-1.5 text-muted-foreground">
+                                  <Thermometer className="h-3.5 w-3.5" />
+                                  <span className="text-xs font-medium">Temperature</span>
+                                </div>
+                                <div className="text-2xl font-bold">
+                                  {gpu.temperature}
+                                  <span className="text-sm text-muted-foreground">°C</span>
+                                </div>
+                              </div>
+                            )}
+                            {gpu.power_usage != null && (
+                              <div className="bg-secondary/30 rounded-lg p-3 space-y-1">
+                                <div className="flex items-center gap-1.5 text-muted-foreground">
+                                  <Zap className="h-3.5 w-3.5" />
+                                  <span className="text-xs font-medium">Power</span>
+                                </div>
+                                <div className="text-2xl font-bold">
+                                  {gpu.power_usage.toFixed(0)}
+                                  <span className="text-sm text-muted-foreground">W</span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      )}
-                      {gpu.power_usage != null && (
-                        <div className="bg-secondary/30 rounded-lg p-3 space-y-1">
-                          <div className="flex items-center gap-1.5 text-muted-foreground">
-                            <Zap className="h-3.5 w-3.5" />
-                            <span className="text-xs font-medium">Power</span>
-                          </div>
-                          <div className="text-2xl font-bold">
-                            {gpu.power_usage.toFixed(0)}
-                            <span className="text-sm text-muted-foreground">W</span>
-                          </div>
-                        </div>
-                      )}
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
-              ));
+              );
             }
 
             // Single GPU or legacy device: render single card

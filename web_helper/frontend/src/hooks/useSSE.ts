@@ -44,16 +44,17 @@ export function useSSE(options: SSEOptions = {}) {
   const handleDeviceUpdate = useCallback((data: any) => {
     // Update device cache with real-time data
     queryClient.setQueryData(queryKeys.devices, (oldDevices: any[] = []) => {
-      const updatedDevices = oldDevices.map(device =>
-        device.host_id === data.host_id ? { ...device, ...data } : device
-      );
+      const existingIndex = oldDevices.findIndex(d => d.host_id === data.host_id);
 
-      // Add new device if not exists
-      if (!updatedDevices.find(d => d.host_id === data.host_id)) {
-        updatedDevices.push(data);
+      if (existingIndex !== -1) {
+        // Update existing device
+        const updated = [...oldDevices];
+        updated[existingIndex] = { ...updated[existingIndex], ...data };
+        return updated;
+      } else {
+        // Add new device
+        return [...oldDevices, data];
       }
-
-      return updatedDevices;
     });
   }, [queryClient]);
 
@@ -168,11 +169,20 @@ export function useSSE(options: SSEOptions = {}) {
   }, [onDisconnect]);
 
   // Connect on mount, disconnect on unmount
-  // Dependencies array is intentionally empty to prevent infinite reconnection loop
-  // that would occur if connect/disconnect functions are recreated
   useEffect(() => {
     connect();
-    return () => disconnect();
+
+    // Cleanup: disconnect when component unmounts
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

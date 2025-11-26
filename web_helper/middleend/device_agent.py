@@ -335,12 +335,27 @@ class DeviceAgent:
                         name = pynvml.nvmlDeviceGetName(handle)
 
                         gpu_info = {
-                            "index": i,
+                            "id": i,  # Frontend expects "id"
                             "name": name if isinstance(name, str) else name.decode(),
-                            "utilization": util.gpu,
-                            "memory_used": mem_info.used / (1024**3),  # bytes to GB
-                            "memory_total": mem_info.total / (1024**3),  # bytes to GB
+                            "util": util.gpu,  # Frontend expects "util"
+                            "vram_used": mem_info.used / (1024**3),  # Frontend expects "vram_used"
+                            "vram_total": mem_info.total / (1024**3),  # Frontend expects "vram_total"
                         }
+
+                        # Add temperature if available
+                        try:
+                            temp = pynvml.nvmlDeviceGetTemperature(handle, 0)
+                            gpu_info["temperature"] = temp
+                        except Exception:
+                            pass
+
+                        # Add power usage if available
+                        try:
+                            power = pynvml.nvmlDeviceGetPowerUsage(handle)
+                            gpu_info["power_usage"] = power / 1000.0  # mW to W
+                        except Exception:
+                            pass
+
                         gpus.append(gpu_info)
 
                     stats["gpus"] = gpus

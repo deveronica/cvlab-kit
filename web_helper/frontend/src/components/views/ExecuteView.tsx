@@ -167,11 +167,22 @@ const ExecuteView = memo(function ExecuteView() {
                       className="w-full mt-2 p-2 text-sm border border-border rounded-lg bg-background focus:ring-2 focus:ring-primary focus:border-transparent"
                     >
                       <option value="any">Any Available</option>
-                      {devices.map(device => {
-                        const gpuInfo = device.gpus && device.gpus.length > 0
-                          ? device.gpus.map(gpu => gpu.name).join(', ')
-                          : 'No GPU';
+                      {devices.flatMap(device => {
                         const statusEmoji = device.status === 'healthy' ? '🟢' : device.status === 'stale' ? '🟡' : '🔴';
+
+                        // Multi-GPU: create option for each GPU
+                        if (device.gpu_count && device.gpu_count > 1 && device.gpus && device.gpus.length > 0) {
+                          return device.gpus.map(gpu => (
+                            <option key={`${device.host_id}:${gpu.id}`} value={`${device.host_id}:${gpu.id}`}>
+                              {statusEmoji} {device.host_id} - GPU {gpu.id} ({gpu.name})
+                            </option>
+                          ));
+                        }
+
+                        // Single GPU or no GPU info
+                        const gpuInfo = device.gpus && device.gpus.length > 0
+                          ? device.gpus[0].name
+                          : 'No GPU';
                         return (
                           <option key={device.host_id} value={device.host_id}>
                             {statusEmoji} {device.host_id} - {gpuInfo}

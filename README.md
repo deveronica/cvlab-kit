@@ -64,6 +64,9 @@ git clone https://github.com/deveronica/cvlab-kit.git
 cd cvlab-kit
 uv sync
 
+# GPU 환경 (NVIDIA GPU 사용 시)
+uv sync --extra gpu
+
 # CLI 실험 실행
 uv run main.py --config config/example.yaml --fast
 
@@ -108,7 +111,8 @@ class FocalLoss(Loss):
 # 중앙 서버 (Synology NAS 등)
 uv run app.py --server-only
 
-# GPU 워커
+# GPU 워커 (NVIDIA GPU 환경에서는 --extra gpu로 pynvml 설치)
+uv sync --extra gpu  # GPU 통계 수집을 위한 pynvml 설치
 uv run app.py --client-only --url http://server:8000 --full
 ```
 

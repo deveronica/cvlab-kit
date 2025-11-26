@@ -30,21 +30,31 @@ services:
         rm -rf /tmp/cvlab-clone;
 
         mkdir -p logs outputs config web_helper/state web_helper/queue_logs;
-        uv sync --frozen || { echo '❌ uv sync failed!'; exit 1; };
+        if command -v nvidia-smi > /dev/null; then
+          echo '🎮 NVIDIA GPU detected, installing GPU support...';
+          uv sync --frozen --extra gpu || { echo '❌ uv sync failed!'; exit 1; };
+        else
+          uv sync --frozen || { echo '❌ uv sync failed!'; exit 1; };
+        fi;
         cd web_helper/frontend && npm ci && npm run build && cd ../.. || { echo '❌ Frontend build failed!'; exit 1; };
         echo '✅ Setup complete!';
       else
         echo '🔄 Updating from git...';
         mkdir -p logs outputs config web_helper/state web_helper/queue_logs;
         git pull;
-        uv sync --frozen;
+        if command -v nvidia-smi > /dev/null; then
+          echo '🎮 NVIDIA GPU detected, installing GPU support...';
+          uv sync --frozen --extra gpu;
+        else
+          uv sync --frozen;
+        fi;
         if git diff --name-only HEAD@{1} HEAD 2>/dev/null | grep -q 'web_helper/frontend/src'; then
           echo '🎨 Frontend changed, rebuilding...';
           cd web_helper/frontend && npm run build && cd ../..;
         fi;
       fi;
 
-      echo '🚀 Starting application...';
-      exec uv run app.py
+      echo '🚀 Starting server (server-only mode)...';
+      exec uv run app.py --server-only
       "
     restart: unless-stopped

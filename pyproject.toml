@@ -43,6 +43,11 @@ dependencies = [
     "xxhash>=3.6.0",
 ]
 
+[project.optional-dependencies]
+gpu = [
+    "pynvml>=11.5.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/deveronica/cvlab-kit"
 Documentation = "https://deveronica.github.io/cvlab-kit"

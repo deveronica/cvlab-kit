@@ -1,0 +1,105 @@
+# Ablation Study for 3-Factor Curriculum SSL
+# Tests the contribution of each factor independently and in combination
+#
+# Ablation Grid:
+#   Physical Sampling | Adaptive Aug | Dynamic τ | Expected Δ
+#   -------------------|-------------|----------|------------
+#         ✗           |      ✗      |    ✗     | Baseline (FixMatch)
+#         ✓           |      ✗      |    ✗     | +Curriculum
+#         ✗           |      ✓      |    ✗     | +AdaptiveAug
+#         ✗           |      ✗      |    ✓     | +DynamicThreshold
+#         ✓           |      ✓      |    ✗     | +Curriculum+AdaptiveAug
+#         ✓           |      ✗      |    ✓     | +Curriculum+DynamicThreshold
+#         ✗           |      ✓      |    ✓     | +AdaptiveAug+DynamicThreshold
+#         ✓           |      ✓      |    ✓     | Full (Proposed)
+
+run_name: ablation_{{ablation_name}}_{{date}}_{{num_labeled}}
+description: "Ablation Study: 3-Factor Curriculum SSL"
+author: Hyunseo Choung
+date: "2025-11"
+
+agent: curriculum_adaptive_ssl
+device: 0
+
+# === Base Configuration ===
+epochs: 100
+batch_size: 16
+num_workers: 4
+data_root: "./data/mstar"
+size: 128
+num_classes: 10
+pretrained: false
+padding: 16
+padding_mode: reflect
+mean: !!python/tuple [0.1414, 0.1414, 0.1414]
+std: !!python/tuple [0.1258, 0.1258, 0.1258]
+lr: 0.003
+weight_decay: 0
+log_dir: "./logs/ablation_study"
+
+steps_per_epoch: 256
+num_labeled: 100  # Fixed for ablation
+mu: 7
+lambda_u: 1.0
+confidence_threshold: 0.95
+
+# === Ablation Grid Search ===
+# Each combination creates a separate experiment
+
+# Ablation configuration
+ablation_name: [
+  "baseline",           # None enabled (FixMatch baseline)
+  "curriculum_only",    # Factor 1 only
+  "adaptive_only",      # Factor 2 only
+  "threshold_only",     # Factor 3 only
+  "curriculum_adaptive", # Factor 1 + 2
+  "curriculum_threshold", # Factor 1 + 3
+  "adaptive_threshold",  # Factor 2 + 3
+  "full_proposed"       # All factors (proposed)
+]
+
+# Factor configurations (resolved from ablation_name by agent)
+curriculum:
+  weight_strategy: fisher
+  start_ratio: 0.3
+  saturation_epoch: 50
+  schedule: linear
+
+adaptive_augment:
+  scale_a: 10.0
+
+dynamic_threshold:
+  initial_threshold: 0.7
+  warmup_epochs: 10
+  flex_coefficient: 0.95
+
+# === Components ===
+model: resnet18
+optimizer: adam
+
+dataset:
+  train: mstar(split="train")
+  val: mstar(split="test")
+
+dataloader:
+  labeled: basic
+  unlabeled: basic
+  val: basic
+
+sampler:
+  labeled: subset_random
+  unlabeled: subset_random
+
+transform:
+  weak: "resize | random_flip | random_crop | to_tensor | normalize"
+  strong: "resize | random_flip | random_crop | adaptive_rand_augment(magnitude_min=0, magnitude_max=30) | to_tensor | normalize"
+  val: "resize | to_tensor | normalize"
+
+loss:
+  supervised: cross_entropy(reduction="mean")
+  unsupervised: cross_entropy(reduction="none")
+
+metric:
+  val: accuracy
+
+logger: csv

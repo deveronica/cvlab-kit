@@ -1,0 +1,97 @@
+# Curriculum-Based Difficulty-Aware Augmentation for SAR Semi-Supervised Learning
+# 3-Factor Framework Configuration
+#
+# Factors:
+#   1. Physical Indicator-based Curriculum Sampling
+#   2. Entropy-based Adaptive Augmentation
+#   3. Class-wise Dynamic Threshold (FlexMatch-style)
+#
+# Reference: Master's Thesis - Curriculum-Based Difficulty-Aware Augmentation for SAR SSL
+
+# === General Configuration ===
+run_name: curriculum_adaptive_ssl_{{date}}_{{num_labeled}}
+description: "3-Factor Curriculum SSL for SAR Target Recognition"
+author: Hyunseo Choung
+date: "2025-11"
+
+agent: curriculum_adaptive_ssl
+device: 0
+
+# === Global Hyperparameters ===
+epochs: 100
+batch_size: 16
+num_workers: 4
+data_root: "./data/mstar"
+size: 128
+num_classes: 10
+pretrained: false
+padding: 16
+padding_mode: reflect
+
+# MSTAR normalization
+mean: !!python/tuple [0.1414, 0.1414, 0.1414]
+std: !!python/tuple [0.1258, 0.1258, 0.1258]
+
+lr: 0.003
+weight_decay: 0
+log_dir: "./logs/curriculum_adaptive_ssl"
+
+# === SSL Hyperparameters ===
+steps_per_epoch: 256
+num_labeled: [50, 100, 200]  # Grid search over different labeled amounts
+mu: 7
+lambda_u: 1.0
+confidence_threshold: 0.95
+
+# === Factor 1: Physical Indicator-based Curriculum Sampling ===
+curriculum:
+  enabled: true
+  weight_strategy: fisher  # 'fisher', 'xgboost', or 'equal'
+  start_ratio: 0.3  # Start with 30% easiest samples
+  saturation_epoch: 50  # Reach 100% samples at epoch 50
+  schedule: linear  # 'linear' or 'exponential'
+
+# === Factor 2: Entropy-based Adaptive Augmentation ===
+# Uses exponential mapping: f(H) = (C^a * exp(-a*H) - 1) / (C^a - 1)
+adaptive_augment:
+  enabled: true
+  scale_a: 10.0  # Exponential scaling slope (higher = sharper transition)
+
+# === Factor 3: Class-wise Dynamic Threshold ===
+dynamic_threshold:
+  enabled: true
+  initial_threshold: 0.7  # Start with lower threshold
+  warmup_epochs: 10  # Linear warmup to base threshold
+  flex_coefficient: 0.95  # FlexMatch flexibility (0=fixed, 1=fully flexible)
+
+# === Component Selections ===
+model: resnet18
+
+optimizer: adam
+
+dataset:
+  train: mstar(split="train")
+  val: mstar(split="test")
+
+dataloader:
+  labeled: basic
+  unlabeled: basic
+  val: basic
+
+sampler:
+  labeled: subset_random
+  unlabeled: subset_random
+
+transform:
+  weak: "resize | random_flip | random_crop | to_tensor | normalize"
+  strong: "resize | random_flip | random_crop | adaptive_rand_augment(magnitude_min=0, magnitude_max=30) | to_tensor | normalize"
+  val: "resize | to_tensor | normalize"
+
+loss:
+  supervised: cross_entropy(reduction="mean")
+  unsupervised: cross_entropy(reduction="none")
+
+metric:
+  val: accuracy
+
+logger: csv

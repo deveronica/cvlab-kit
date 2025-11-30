@@ -7,8 +7,10 @@ from cvlabkit.core.config import Config
 
 
 class AdaptiveRandAugment(Transform):
-    """A transform component that applies RandAugment with a dynamically calculated
-    magnitude based on a continuous difficulty score.
+    """Apply RandAugment with adaptive magnitude based on difficulty score.
+
+    The magnitude is dynamically calculated from a continuous difficulty score,
+    where higher difficulty results in stronger augmentation.
     """
 
     def __init__(self, cfg: Config):

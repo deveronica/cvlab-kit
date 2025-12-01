@@ -144,6 +144,48 @@ async def get_next_job(host_id: str = Query(..., description="Device host ID")):
         )
 
 
+class JobStartedRequest(BaseModel):
+    """Request model for job start confirmation"""
+    experiment_uid: str = Field(..., description="Experiment UID")
+    pid: int = Field(..., description="Process ID of running job")
+
+
+@router.post("/confirm_started")
+async def confirm_job_started(request: JobStartedRequest):
+    """Confirm job has started with a PID.
+
+    Called by worker after successfully spawning the process.
+    Only then is the job marked as RUNNING.
+    """
+    try:
+        queue_manager = get_queue_manager()
+        success = queue_manager.confirm_job_started(request.experiment_uid, request.pid)
+
+        if not success:
+            raise HTTPException(
+                status_code=400,
+                detail=error_response(
+                    title="Bad Request",
+                    status=400,
+                    detail=f"Failed to confirm job start for {request.experiment_uid}",
+                ),
+            )
+
+        return success_response({"message": "Job start confirmed", "experiment_uid": request.experiment_uid})
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=error_response(
+                title="Internal Server Error",
+                status=500,
+                detail=f"Failed to confirm job start: {str(e)}",
+            ),
+        )
+
+
 class JobCompletionRequest(BaseModel):
     """Request model for job completion"""
     experiment_uid: str = Field(..., description="Experiment UID")

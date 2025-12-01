@@ -537,6 +537,9 @@ class DeviceAgent:
                 "stderr_log": stderr_log,
             }
 
+            # Confirm job started with PID to server
+            await self._confirm_job_started(experiment_uid, process.pid)
+
             # Stream output to log files
             asyncio.create_task(
                 self._stream_output(
@@ -623,6 +626,26 @@ class DeviceAgent:
 
         except Exception as e:
             logger.error(f"Error streaming {stream_name} for {experiment_uid}: {e}")
+
+    async def _confirm_job_started(self, experiment_uid: str, pid: int):
+        """Confirm job started with PID to server.
+
+        This changes the job status from ASSIGNED to RUNNING.
+        """
+        try:
+            response = await self.http_client.post(
+                f"{self.server_url}/api/queue/confirm_started",
+                json={
+                    "experiment_uid": experiment_uid,
+                    "pid": pid,
+                },
+            )
+            if response.status_code == 200:
+                logger.info(f"Confirmed job {experiment_uid} started with PID {pid}")
+            else:
+                logger.warning(f"Failed to confirm job start: {response.status_code}")
+        except Exception as e:
+            logger.error(f"Error confirming job start: {e}")
 
     async def _report_job_completion(
         self, experiment_uid: str, success: bool, error: Optional[str] = None

@@ -180,7 +180,8 @@ class QueueManager:
         """Get next queued job for a remote device.
 
         This is used by remote workers to poll for jobs to execute.
-        Returns the highest priority queued job and marks it as assigned.
+        Returns the highest priority queued job and marks it as ASSIGNED.
+        Worker must call confirm_job_started() with PID to mark as RUNNING.
         """
         with self._lock:
             # Find queued jobs sorted by priority
@@ -200,24 +201,27 @@ class QueueManager:
             # Get the first job
             job = queued_jobs[0]
 
-            # Mark as assigned to this device
-            job.status = JobStatus.RUNNING
+            # Mark as ASSIGNED (not RUNNING yet - wait for PID confirmation)
+            job.status = JobStatus.ASSIGNED
             job.assigned_device = host_id
-            job.started_at = datetime.now()
 
-            # Track as running
-            self._running_jobs[job.experiment_uid] = job
+            # Track assignment time for timeout detection
+            if not job.metadata:
+                job.metadata = {}
+            job.metadata["assigned_at"] = datetime.now().isoformat()
+
+            # Track assignment
             self._device_assignments[host_id] = job.experiment_uid
 
             # Update DB for Queue-Results consistency
+            # Use started_at for assignment time (will be overwritten when confirmed)
             self._update_experiment_status_in_db(
-                job.experiment_uid, "running",
-                started_at=job.started_at,
+                job.experiment_uid, "assigned",
                 assigned_device=host_id,
+                started_at=datetime.now(),  # For timeout detection
             )
 
             # Remove from queue
-            # Note: We rebuild the queue without this job
             new_queue = []
             while not self._job_queue.empty():
                 try:
@@ -234,6 +238,45 @@ class QueueManager:
 
             logger.info(f"Job {job.experiment_uid} assigned to device {host_id}")
             return job
+
+    def confirm_job_started(self, experiment_uid: str, pid: int) -> bool:
+        """Confirm job has started with a PID.
+
+        Called by worker after successfully spawning the process.
+        Only then is the job marked as RUNNING.
+        """
+        with self._lock:
+            job = self._jobs.get(experiment_uid)
+            if not job:
+                logger.warning(f"Job {experiment_uid} not found for start confirmation")
+                return False
+
+            if job.status != JobStatus.ASSIGNED:
+                logger.warning(f"Job {experiment_uid} not in ASSIGNED state: {job.status}")
+                return False
+
+            job.status = JobStatus.RUNNING
+            job.started_at = datetime.now()
+
+            # Store PID in metadata for monitoring
+            if not job.metadata:
+                job.metadata = {}
+            job.metadata["pid"] = pid
+
+            # Track as running
+            self._running_jobs[experiment_uid] = job
+
+            # Update DB
+            self._update_experiment_status_in_db(
+                experiment_uid, "running",
+                started_at=job.started_at,
+            )
+
+            self._save_state()
+            self._broadcast_job_update_sync(job)
+
+            logger.info(f"Job {experiment_uid} confirmed running with PID {pid}")
+            return True
 
     def complete_remote_job(self, experiment_uid: str, success: bool, error_message: Optional[str] = None):
         """Mark a remote job as completed.

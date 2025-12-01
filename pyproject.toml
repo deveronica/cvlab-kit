@@ -23,6 +23,7 @@ dependencies = [
     "pandas>=2.3.2",
     "pillow>=11.3.0",
     "psutil>=7.0.0",
+    "pynvml>=13.0.1",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
     "python-multipart>=0.0.20",

@@ -56,10 +56,18 @@ def detect_status_smart(
     config_path = experiment_dir / "config.yaml"
 
     # Statuses managed by QueueManager - preserve these
-    MANAGED_STATUSES = {"running", "cancelled", "paused", "queued"}
+    MANAGED_STATUSES = {"assigned", "running", "cancelled", "paused", "queued"}
 
     # 1. Check DB record first (Queue Manager managed jobs)
     if db_record and db_record.status in MANAGED_STATUSES:
+        if db_record.status == "assigned":
+            # Assigned but not confirmed - timeout after 60 seconds
+            if db_record.started_at:
+                assigned_time = (datetime.utcnow() - db_record.started_at).total_seconds()
+                if assigned_time > 60:
+                    logger.warning(f"Job {experiment_dir.name} assigned but not started for {assigned_time}s")
+                    return "failed"
+            return "assigned"
         if db_record.status == "running":
             # Remote job: trust status if assigned_device is set (pid is on worker)
             if db_record.assigned_device:

@@ -12,7 +12,8 @@ class JobStatus(str, Enum):
 
     PENDING = "pending"
     QUEUED = "queued"
-    RUNNING = "running"
+    ASSIGNED = "assigned"  # Assigned to worker, waiting for PID confirmation
+    RUNNING = "running"    # Confirmed running with PID
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"

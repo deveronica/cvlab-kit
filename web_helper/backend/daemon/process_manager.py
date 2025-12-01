@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -214,9 +215,13 @@ class ProcessManager:
         if getattr(args, "max_jobs", None):
             cmd.extend(["--max-jobs", str(args.max_jobs)])
 
-        # Start daemon process
-        log_file = self.log_dir / "middleend.log"
-        err_file = self.log_dir / "middleend.err"
+        # Use server-specific log directory (same as DeviceAgent workspace)
+        server_name = self._sanitize_server_name(args.url)
+        middleend_log_dir = Path(f"logs_{server_name}")
+        middleend_log_dir.mkdir(parents=True, exist_ok=True)
+
+        log_file = middleend_log_dir / "daemon.log"
+        err_file = middleend_log_dir / "daemon.err"
 
         process = subprocess.Popen(
             cmd,
@@ -294,6 +299,15 @@ class ProcessManager:
             return True
         except (ProcessLookupError, PermissionError):
             return False
+
+    @staticmethod
+    def _sanitize_server_name(url: str) -> str:
+        """Sanitize server URL for directory name."""
+        match = re.search(r"://([^:/]+)", url)
+        if match:
+            hostname = match.group(1)
+            return re.sub(r"[^a-zA-Z0-9_-]", "_", hostname)
+        return "default"
 
     def stop_process(self, process_type: str):
         """Stop a daemon process by type.

@@ -515,6 +515,10 @@ class DeviceAgent:
             # cvlabkit writes to runs/ directory
             env["CVLAB_LOG_DIR"] = str(run_dir)
 
+            working_dir = Path.cwd()
+            logger.info(f"Executing job in working directory: {working_dir}")
+            logger.info(f"Config path: {config_path}")
+
             process = await asyncio.create_subprocess_exec(
                 "uv",
                 "run",
@@ -525,7 +529,7 @@ class DeviceAgent:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env=env,
-                cwd=Path.cwd(),
+                cwd=working_dir,
             )
 
             # Track active job

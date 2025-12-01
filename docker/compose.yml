@@ -57,10 +57,7 @@ services:
 
           echo '📁 Copying source (preserving mounted volumes)...'
           cd /tmp/cvlab-clone
-          for item in $(ls -A | grep -v -E '^(logs|web_helper)$'); do
-            cp -a "$item" /app/
-          done
-          cp -a web_helper/* /app/web_helper/ 2>/dev/null || true
+          tar --exclude='logs' --exclude='web_helper/queue_logs' --exclude='web_helper/state' -cf - . | tar -xf - -C /app
           rm -rf /tmp/cvlab-clone
           cd /app
 

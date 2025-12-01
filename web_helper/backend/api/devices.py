@@ -1,16 +1,52 @@
 """Device management API endpoints."""
 
+import logging
 from datetime import datetime
-from typing import Dict
+from typing import Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..models import Device, get_db
+from ..models.queue_experiment import QueueExperiment
 from ..services.event_manager import event_manager
 from ..utils import error_response, success_response
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/devices")
+
+
+async def _validate_running_jobs(db: Session, host_id: str, active_jobs: List[str]):
+    """Validate that jobs marked as running on this device are actually running.
+
+    If a job is marked as running on this device but not in active_jobs,
+    it means the worker isn't running it anymore (crashed, etc).
+    """
+    try:
+        # Find jobs marked as running on this device (including virtual devices like gnode-3:0)
+        running_jobs = (
+            db.query(QueueExperiment)
+            .filter(
+                QueueExperiment.status == "running",
+                QueueExperiment.assigned_device.like(f"{host_id}%")
+            )
+            .all()
+        )
+
+        for job in running_jobs:
+            if job.experiment_uid not in active_jobs:
+                logger.warning(
+                    f"Job {job.experiment_uid} marked as running on {host_id} "
+                    f"but not in worker's active_jobs. Marking as crashed."
+                )
+                job.status = "crashed"
+                job.completed_at = datetime.utcnow()
+
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to validate running jobs for {host_id}: {e}")
+        db.rollback()
 
 
 @router.get("/")
@@ -112,10 +148,14 @@ async def receive_heartbeat(heartbeat_data: Dict, db: Session = Depends(get_db))
         device.torch_version = heartbeat_data.get("torch_version")
         device.cuda_version = heartbeat_data.get("cuda_version")
         device.code_version = heartbeat_data.get("code_version")  # Reproducibility tracking
+        device.active_jobs = heartbeat_data.get("active_jobs")  # Jobs running on this device
         device.status = "online"  # Store raw status, compute display status on read
         device.last_heartbeat = datetime.utcnow()
 
         db.commit()
+
+        # Validate running jobs - mark stale jobs as crashed
+        await _validate_running_jobs(db, host_id, device.active_jobs or [])
 
         # Broadcast device update via SSE (with real-time status)
         await event_manager.send_device_update(

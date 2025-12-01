@@ -377,6 +377,10 @@ class DeviceAgent:
             except Exception as e:
                 logger.debug(f"Failed to collect code version: {e}")
 
+        # Active jobs for server-side validation
+        if self.active_jobs:
+            stats["active_jobs"] = list(self.active_jobs.keys())
+
         return stats
 
     async def _job_polling_loop(self):

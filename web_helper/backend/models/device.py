@@ -42,3 +42,6 @@ class Device(Base):
     # Status and timing
     status = Column(String, default="offline")
     last_heartbeat = Column(DateTime, default=datetime.utcnow)
+
+    # Active jobs reported by worker
+    active_jobs = Column(JSON, nullable=True)  # List of experiment_uids

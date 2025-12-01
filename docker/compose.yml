@@ -1,3 +1,29 @@
+# CVLab-Kit Docker Compose
+#
+# Directory structure (on host):
+#   /volume1/docker/cvlab-kit/
+#   ├── compose.yml          # This file (copy from repo, persistent)
+#   ├── data/                # Persistent data (NEVER delete)
+#   │   ├── logs/            # Run logs
+#   │   ├── queue_logs/      # Experiment logs
+#   │   ├── web_helper.db    # SQLite database
+#   │   └── queue_state.json # Queue state
+#   └── src/                 # Source code (can delete & re-clone)
+#
+# First time setup:
+#   mkdir -p /volume1/docker/cvlab-kit/{data/logs,data/queue_logs,src}
+#   touch /volume1/docker/cvlab-kit/data/web_helper.db
+#   touch /volume1/docker/cvlab-kit/data/queue_state.json
+#   # Copy this compose.yml to /volume1/docker/cvlab-kit/
+#   docker compose up -d
+#
+# Update code:
+#   docker compose restart
+#
+# Force re-clone (if git broken):
+#   rm -rf /volume1/docker/cvlab-kit/src/*
+#   docker compose restart
+
 services:
   cvlab-kit:
     image: python:3.10-slim
@@ -5,56 +31,69 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Host paths (Docker auto-creates if missing)
-      - /volume1/docker/cvlab-kit:/app
+      # Source code (disposable)
+      - /volume1/docker/cvlab-kit/src:/app
+      # Persistent data (mounted over source paths)
+      - /volume1/docker/cvlab-kit/data/logs:/app/logs
+      - /volume1/docker/cvlab-kit/data/queue_logs:/app/web_helper/queue_logs
+      - /volume1/docker/cvlab-kit/data/web_helper.db:/app/web_helper/web_helper.db
+      - /volume1/docker/cvlab-kit/data/queue_state.json:/app/web_helper/queue_state.json
     working_dir: /app
     environment:
       - GIT_REPO=https://github.com/deveronica/cvlab-kit.git
     command: >
       bash -c "
-      echo '🔧 Installing dependencies...';
-      apt-get update -qq && apt-get install -y -qq git curl build-essential;
+      set -e;
+
+      echo '🔧 Installing system dependencies...';
+      apt-get update -qq && apt-get install -y -qq git curl build-essential >/dev/null;
       if ! command -v node > /dev/null; then
         echo '📦 Installing Node.js...';
-        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -;
-        apt-get install -y -qq nodejs;
+        curl -fsSL https://deb.nodesource.com/setup_18.x | bash - >/dev/null;
+        apt-get install -y -qq nodejs >/dev/null;
       fi;
-      pip install uv;
+      pip install -q uv;
 
-      if [ ! -d .git ]; then
-        echo '📥 Initial setup: Cloning repository...';
-
-        # Clone to temp dir, then copy to /app
-        git clone $$GIT_REPO /tmp/cvlab-clone || { echo '❌ Git clone failed!'; exit 1; };
-        cp -a /tmp/cvlab-clone/. /app/ || { echo '❌ File copy failed!'; exit 1; };
+      clone_and_setup() {
+        echo '📥 Cloning repository...';
         rm -rf /tmp/cvlab-clone;
+        git clone --depth 1 $$GIT_REPO /tmp/cvlab-clone;
 
-        mkdir -p logs outputs config web_helper/state web_helper/queue_logs;
-        if command -v nvidia-smi > /dev/null; then
-          echo '🎮 NVIDIA GPU detected, installing GPU support...';
-          uv sync --frozen --extra gpu || { echo '❌ uv sync failed!'; exit 1; };
-        else
-          uv sync --frozen || { echo '❌ uv sync failed!'; exit 1; };
-        fi;
-        cd web_helper/frontend && npm ci && npm run build && cd ../.. || { echo '❌ Frontend build failed!'; exit 1; };
-        echo '✅ Setup complete!';
+        echo '📁 Copying source (preserving mounted volumes)...';
+        cd /tmp/cvlab-clone;
+        find . -maxdepth 1 ! -name . ! -name logs ! -name web_helper -exec cp -a {} /app/ \;;
+        cp -a web_helper/* /app/web_helper/ 2>/dev/null || true;
+        rm -rf /tmp/cvlab-clone;
+        cd /app;
+
+        echo '📦 Installing Python dependencies...';
+        uv sync --frozen;
+
+        echo '🎨 Building frontend...';
+        cd web_helper/frontend && npm ci --silent && npm run build && cd ../..;
+      };
+
+      if [ ! -f /app/pyproject.toml ]; then
+        echo '🆕 First time setup...';
+        clone_and_setup;
       else
-        echo '🔄 Updating from git...';
-        mkdir -p logs outputs config web_helper/state web_helper/queue_logs;
-        git pull;
-        if command -v nvidia-smi > /dev/null; then
-          echo '🎮 NVIDIA GPU detected, installing GPU support...';
-          uv sync --frozen --extra gpu;
-        else
-          uv sync --frozen;
-        fi;
-        if git diff --name-only HEAD@{1} HEAD 2>/dev/null | grep -q 'web_helper/frontend/src'; then
+        echo '🔄 Updating code...';
+        cd /app;
+        OLD_HEAD=$$(git rev-parse HEAD);
+        git fetch origin main;
+        git reset --hard origin/main;
+        NEW_HEAD=$$(git rev-parse HEAD);
+
+        echo '📦 Syncing dependencies...';
+        uv sync --frozen;
+
+        if [ "$$OLD_HEAD" != "$$NEW_HEAD" ] && git diff --name-only $$OLD_HEAD $$NEW_HEAD | grep -q 'web_helper/frontend'; then
           echo '🎨 Frontend changed, rebuilding...';
           cd web_helper/frontend && npm run build && cd ../..;
         fi;
       fi;
 
-      echo '🚀 Starting server (server-only mode)...';
+      echo '✅ Ready!';
       exec uv run app.py --server-only
       "
     restart: unless-stopped

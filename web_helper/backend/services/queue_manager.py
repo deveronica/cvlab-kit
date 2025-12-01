@@ -164,6 +164,9 @@ class QueueManager:
         logger.info(f"Experiment {experiment_uid} ({job.name}) submitted to queue")
         self._save_state()
 
+        # Create experiment in DB for Queue-Results consistency
+        self._create_experiment_in_db(job)
+
         # Broadcast job submission
         self._broadcast_job_update_sync(job, "job_submitted")
 
@@ -200,10 +203,18 @@ class QueueManager:
             # Mark as assigned to this device
             job.status = JobStatus.RUNNING
             job.assigned_device = host_id
+            job.started_at = datetime.now()
 
             # Track as running
             self._running_jobs[job.experiment_uid] = job
             self._device_assignments[host_id] = job.experiment_uid
+
+            # Update DB for Queue-Results consistency
+            self._update_experiment_status_in_db(
+                job.experiment_uid, "running",
+                started_at=job.started_at,
+                assigned_device=host_id,
+            )
 
             # Remove from queue
             # Note: We rebuild the queue without this job
@@ -580,19 +591,48 @@ class QueueManager:
                 if experiment_uid in device_jobs:
                     device_jobs.remove(experiment_uid)
 
+    def _create_experiment_in_db(self, job: QueueJob):
+        """Create experiment entry in database for Queue-Results consistency."""
+        db = SessionLocal()
+        try:
+            existing = (
+                db.query(QueueExperiment)
+                .filter(QueueExperiment.experiment_uid == job.experiment_uid)
+                .first()
+            )
+            if existing:
+                existing.status = job.status.value
+                existing.name = job.name
+                existing.project = job.project
+                existing.config_path = job.config_path
+                db.commit()
+            else:
+                db_experiment = QueueExperiment(
+                    experiment_uid=job.experiment_uid,
+                    name=job.name,
+                    project=job.project,
+                    status=job.status.value,
+                    config_path=job.config_path,
+                    created_at=job.created_at,
+                )
+                db.add(db_experiment)
+                db.commit()
+            logger.debug(f"Created/updated DB entry for {job.experiment_uid}")
+        except Exception as e:
+            logger.error(f"Failed to create DB entry for {job.experiment_uid}: {e}")
+            db.rollback()
+        finally:
+            db.close()
+
     def _update_experiment_status_in_db(
-        self, experiment_uid: str, status: str, completed_at: Optional[datetime] = None
+        self,
+        experiment_uid: str,
+        status: str,
+        completed_at: Optional[datetime] = None,
+        started_at: Optional[datetime] = None,
+        assigned_device: Optional[str] = None,
     ):
-        """Update experiment status in database for Queue-Results consistency.
-
-        This ensures that both Queue tab (in-memory QueueJob) and Results tab
-        (database QueueExperiment) show the same status.
-
-        Args:
-            experiment_uid: Unique experiment identifier
-            status: New status ('completed', 'failed', 'cancelled')
-            completed_at: Completion timestamp (optional)
-        """
+        """Update experiment status in database for Queue-Results consistency."""
         db = SessionLocal()
         try:
             db_experiment = (
@@ -605,6 +645,10 @@ class QueueManager:
                 db_experiment.status = status
                 if completed_at:
                     db_experiment.completed_at = completed_at
+                if started_at:
+                    db_experiment.started_at = started_at
+                if assigned_device:
+                    db_experiment.assigned_device = assigned_device
                 db.commit()
                 logger.debug(f"Updated DB status for {experiment_uid}: {status}")
             else:

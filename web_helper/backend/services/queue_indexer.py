@@ -55,15 +55,21 @@ def detect_status_smart(
     error_log_path = experiment_dir / "terminal_err.log"
     config_path = experiment_dir / "config.yaml"
 
+    # Statuses managed by QueueManager - preserve these
+    MANAGED_STATUSES = {"running", "cancelled", "paused", "queued"}
+
     # 1. Check DB record first (Queue Manager managed jobs)
-    if db_record and db_record.status == "running":
-        # Verify process is still alive
-        if db_record.pid and psutil.pid_exists(db_record.pid):
-            return "running"
-        else:
-            # Process died without proper cleanup → crashed
-            logger.warning(f"Process {db_record.pid} died for {experiment_dir.name}")
-            return "crashed"
+    if db_record and db_record.status in MANAGED_STATUSES:
+        if db_record.status == "running":
+            # Verify process is still alive
+            if db_record.pid and psutil.pid_exists(db_record.pid):
+                return "running"
+            else:
+                # Process died without proper cleanup → crashed
+                logger.warning(f"Process {db_record.pid} died for {experiment_dir.name}")
+                return "crashed"
+        # Preserve other managed statuses (cancelled, paused, queued)
+        return db_record.status
 
     # 2. Check log file modification time (within 1 minute = likely running)
     if log_path.exists() and log_path.stat().st_size > 0:

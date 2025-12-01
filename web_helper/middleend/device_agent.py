@@ -577,6 +577,11 @@ class DeviceAgent:
 
         except Exception as e:
             logger.error(f"Failed to execute job {experiment_uid}: {e}")
+            # Sync logs even on failure
+            try:
+                await self.synchronizer.final_sync(experiment_uid)
+            except Exception as sync_err:
+                logger.error(f"Failed to sync logs on error: {sync_err}")
             if experiment_uid in self.active_jobs:
                 del self.active_jobs[experiment_uid]
             await self._report_job_completion(experiment_uid, success=False, error=str(e))

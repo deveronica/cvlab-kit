@@ -425,12 +425,25 @@ class LogSynchronizer:
                 return
 
             project = exp_state["project"]
-            experiment_dir = self.workspace / project
+            run_name = exp_state.get("run_name", "")
 
-            # Sync all files one last time
-            for file_path in experiment_dir.glob("*"):
-                if file_path.is_file():
-                    await self.sync_file_change(experiment_uid, file_path, "modified")
+            # 1. Sync experiment terminal logs (workspace/experiments/{exp_uid}/)
+            experiment_dir = self.workspace / "experiments" / experiment_uid
+            if experiment_dir.exists():
+                for file_path in experiment_dir.glob("*"):
+                    if file_path.is_file():
+                        await self.sync_file_change(
+                            experiment_uid, file_path, "modified", sync_type="experiment"
+                        )
+
+            # 2. Sync run output files (workspace/runs/{project}/)
+            run_dir = self.workspace / "runs" / project
+            if run_dir.exists():
+                for file_path in run_dir.glob(f"{run_name}*"):
+                    if file_path.is_file():
+                        await self.sync_file_change(
+                            experiment_uid, file_path, "modified", sync_type="run"
+                        )
 
             exp_state["sync_status"] = "completed"
             self._save_sync_state()

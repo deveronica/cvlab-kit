@@ -255,7 +255,7 @@ class DynamicThresholdScheduler:
         pseudo_labels: torch.Tensor,
     ) -> torch.Tensor:
         """Compute mask for pseudo-label selection using dynamic thresholds."""
-        thresholds = self.get_thresholds()
+        thresholds = self.get_thresholds().to(pseudo_labels.device)
         per_sample_thresholds = thresholds[pseudo_labels]
         mask = (max_probs >= per_sample_thresholds.to(max_probs.device)).float()
         return mask

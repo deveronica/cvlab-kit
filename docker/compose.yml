@@ -41,8 +41,6 @@ services:
       - |
         set -e
 
-        GIT_REPO="https://github.com/deveronica/cvlab-kit.git"
-
         echo '🔧 Installing system dependencies...'
         apt-get update -qq && apt-get install -y -qq git curl build-essential >/dev/null
         if ! command -v node > /dev/null; then
@@ -55,7 +53,7 @@ services:
         clone_and_setup() {
           echo '📥 Cloning repository...'
           rm -rf /tmp/cvlab-clone
-          git clone --depth 1 "$GIT_REPO" /tmp/cvlab-clone || { echo "❌ Git clone failed"; exit 1; }
+          git clone --depth 1 https://github.com/deveronica/cvlab-kit.git /tmp/cvlab-clone
 
           echo '📁 Copying source (preserving mounted volumes)...'
           cd /tmp/cvlab-clone

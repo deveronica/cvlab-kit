@@ -61,13 +61,15 @@ def detect_status_smart(
     # 1. Check DB record first (Queue Manager managed jobs)
     if db_record and db_record.status in MANAGED_STATUSES:
         if db_record.status == "running":
-            # Verify process is still alive
+            # Remote job: trust status if assigned_device is set (pid is on worker)
+            if db_record.assigned_device:
+                return "running"
+            # Local job: verify process is still alive
             if db_record.pid and psutil.pid_exists(db_record.pid):
                 return "running"
-            else:
-                # Process died without proper cleanup → crashed
-                logger.warning(f"Process {db_record.pid} died for {experiment_dir.name}")
-                return "crashed"
+            # Process died without proper cleanup → crashed
+            logger.warning(f"Process {db_record.pid} died for {experiment_dir.name}")
+            return "crashed"
         # Preserve other managed statuses (cancelled, paused, queued)
         return db_record.status
 

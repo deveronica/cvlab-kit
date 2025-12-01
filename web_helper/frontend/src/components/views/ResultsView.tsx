@@ -1,6 +1,7 @@
 import React from "react";
 import { useState, useMemo, useEffect} from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -170,7 +171,7 @@ export function ResultsView() {
   const { navigateToProject } = useNavigationStore();
 
   const { data: jobs = [], isLoading, error } = useQuery<QueueJob[]>({
-    queryKey: ['queueJobs'],
+    queryKey: queryKeys.queueJobs,
     queryFn: fetchAllJobs,
     refetchInterval: 10000,
   });

@@ -286,7 +286,11 @@ class QueueManager:
         with self._lock:
             job = self._jobs.get(experiment_uid)
             if not job:
+                logger.warning(f"Job {experiment_uid} not found for completion")
                 return
+
+            # Set completion time
+            job.completed_at = datetime.now()
 
             if success:
                 job.status = JobStatus.COMPLETED
@@ -309,6 +313,12 @@ class QueueManager:
             self._broadcast_job_update_sync(job)
 
             logger.info(f"Remote job {experiment_uid} completed: {'success' if success else 'failed'}")
+
+        # Update database for Queue-Results consistency (outside lock)
+        status_str = "completed" if success else "failed"
+        self._update_experiment_status_in_db(
+            experiment_uid, status_str, completed_at=job.completed_at
+        )
 
     def list_jobs(
         self, status: Optional[JobStatus] = None, project: Optional[str] = None
@@ -530,6 +540,13 @@ class QueueManager:
                 job.status = JobStatus.FAILED
                 job.error_message = f"Failed to start: {str(e)}"
                 job.completed_at = datetime.now()
+
+            # Update database for Queue-Results consistency
+            self._update_experiment_status_in_db(
+                job.experiment_uid, "failed", completed_at=job.completed_at
+            )
+            self._broadcast_job_update_sync(job, "job_failed")
+            self._save_state()
             return False
 
     def _monitor_job(self, experiment_uid: str):
@@ -784,6 +801,8 @@ class QueueManager:
                         self._update_experiment_status_in_db(
                             experiment_uid, "failed", job.completed_at
                         )
+                        # Note: broadcast may not reach clients during startup, but included for consistency
+                        self._broadcast_job_update_sync(job, "job_failed")
 
                 elif job.status == JobStatus.QUEUED:
                     priority_value = self._get_priority_value(job.priority)

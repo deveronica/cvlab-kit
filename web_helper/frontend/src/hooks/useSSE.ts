@@ -70,8 +70,10 @@ export function useSSE(options: SSEOptions = {}) {
   }, [queryClient]);
 
   const handleQueueUpdate = useCallback((_data: any) => {
-    // Invalidate queue cache to trigger refetch
+    // Invalidate all queue-related caches to trigger refetch
+    // This ensures both Queue tab and Results tab get updated
     queryClient.invalidateQueries({ queryKey: queryKeys.queue });
+    queryClient.invalidateQueries({ queryKey: queryKeys.queueJobs });
   }, [queryClient]);
 
   const handleSSEMessage = useCallback((event: MessageEvent) => {

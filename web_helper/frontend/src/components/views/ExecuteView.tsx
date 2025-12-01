@@ -91,7 +91,7 @@ const ExecuteView = memo(function ExecuteView() {
       updateLogMessages([
         ...state.logMessages,
         '✅ Successfully added to the queue.',
-        `Job ID: ${job.job_id}`,
+        `Experiment: ${job.experiment_uid}`,
         `Status: ${job.status}`,
         `Project: ${job.project}`
       ]);

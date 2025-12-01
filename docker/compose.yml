@@ -3,17 +3,17 @@
 # Directory structure (on host):
 #   /volume1/docker/cvlab-kit/
 #   ├── compose.yml          # This file (copy from repo, persistent)
-#   ├── data/                # Persistent data (NEVER delete)
-#   │   ├── logs/            # Run logs
-#   │   ├── queue_logs/      # Experiment logs
-#   │   ├── web_helper.db    # SQLite database
-#   │   └── queue_state.json # Queue state
+#   ├── data/                 # Persistent data (NEVER delete)
+#   │   ├── logs/             # Run logs
+#   │   ├── queue_logs/       # Experiment logs
+#   │   ├── web_helper.db     # SQLite database
+#   │   ├── queue_state.json  # Queue state
+#   │   └── daemon_state.json # Daemon PID state
 #   └── src/                 # Source code (can delete & re-clone)
 #
 # First time setup:
 #   mkdir -p /volume1/docker/cvlab-kit/{data/logs,data/queue_logs,src}
-#   touch /volume1/docker/cvlab-kit/data/web_helper.db
-#   touch /volume1/docker/cvlab-kit/data/queue_state.json
+#   touch /volume1/docker/cvlab-kit/data/{web_helper.db,queue_state.json,daemon_state.json}
 #   # Copy this compose.yml to /volume1/docker/cvlab-kit/
 #   docker compose up -d
 #
@@ -38,6 +38,7 @@ services:
       - /volume1/docker/cvlab-kit/data/queue_logs:/app/web_helper/queue_logs
       - /volume1/docker/cvlab-kit/data/web_helper.db:/app/web_helper/web_helper.db
       - /volume1/docker/cvlab-kit/data/queue_state.json:/app/web_helper/queue_state.json
+      - /volume1/docker/cvlab-kit/data/daemon_state.json:/app/web_helper/daemon_state.json
     working_dir: /app
     environment:
       - GIT_REPO=https://github.com/deveronica/cvlab-kit.git

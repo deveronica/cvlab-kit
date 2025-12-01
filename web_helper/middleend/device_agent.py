@@ -553,13 +553,22 @@ class DeviceAgent:
             # 6. Final sync
             await self.synchronizer.final_sync(experiment_uid)
 
-            # 7. Cleanup
+            # 7. Report completion to server
+            if return_code == 0:
+                await self._report_job_completion(experiment_uid, success=True)
+            else:
+                await self._report_job_completion(
+                    experiment_uid, success=False, error=f"Exit code: {return_code}"
+                )
+
+            # 8. Cleanup
             del self.active_jobs[experiment_uid]
 
         except Exception as e:
             logger.error(f"Failed to execute job {experiment_uid}: {e}")
             if experiment_uid in self.active_jobs:
                 del self.active_jobs[experiment_uid]
+            await self._report_job_completion(experiment_uid, success=False, error=str(e))
 
     async def _download_config(self, config_path: str, experiment_uid: str) -> Path:
         """Download config file from server.
@@ -610,6 +619,26 @@ class DeviceAgent:
 
         except Exception as e:
             logger.error(f"Error streaming {stream_name} for {experiment_uid}: {e}")
+
+    async def _report_job_completion(
+        self, experiment_uid: str, success: bool, error: Optional[str] = None
+    ):
+        """Report job completion to server."""
+        try:
+            response = await self.http_client.post(
+                f"{self.server_url}/api/queue/complete_job",
+                json={
+                    "experiment_uid": experiment_uid,
+                    "success": success,
+                    "error_message": error,
+                },
+            )
+            if response.status_code == 200:
+                logger.info(f"Reported job {experiment_uid} completion: {'success' if success else 'failed'}")
+            else:
+                logger.warning(f"Failed to report job completion: {response.status_code}")
+        except Exception as e:
+            logger.error(f"Error reporting job completion: {e}")
 
     async def _monitor_active_jobs(self):
         """Monitor active jobs and handle failures."""

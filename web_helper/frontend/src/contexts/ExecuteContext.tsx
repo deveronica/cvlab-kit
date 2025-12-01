@@ -3,7 +3,7 @@
  * State is preserved during tab switches but reset on page refresh
  */
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
 interface ExecuteState {
   yamlConfig: string;
@@ -38,37 +38,37 @@ const ExecuteContext = createContext<ExecuteContextType | undefined>(undefined);
 export function ExecuteProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ExecuteState>(defaultState);
 
-  const updateYamlConfig = (config: string) => {
+  const updateYamlConfig = useCallback((config: string) => {
     setState(prev => ({ ...prev, yamlConfig: config }));
-  };
+  }, []);
 
-  const updateSelectedConfigFile = (file: string) => {
+  const updateSelectedConfigFile = useCallback((file: string) => {
     setState(prev => ({ ...prev, selectedConfigFile: file }));
-  };
+  }, []);
 
-  const updateSelectedDevice = (device: string) => {
+  const updateSelectedDevice = useCallback((device: string) => {
     setState(prev => ({ ...prev, selectedDevice: device }));
-  };
+  }, []);
 
-  const updateSelectedPriority = (priority: string) => {
+  const updateSelectedPriority = useCallback((priority: string) => {
     setState(prev => ({ ...prev, selectedPriority: priority }));
-  };
+  }, []);
 
-  const updateLogMessages = (messages: string[]) => {
+  const updateLogMessages = useCallback((messages: string[]) => {
     setState(prev => ({ ...prev, logMessages: messages }));
-  };
+  }, []);
 
-  const addLogMessage = (message: string) => {
+  const addLogMessage = useCallback((message: string) => {
     setState(prev => ({ ...prev, logMessages: [...prev.logMessages, message] }));
-  };
+  }, []);
 
-  const clearLogs = () => {
+  const clearLogs = useCallback(() => {
     setState(prev => ({ ...prev, logMessages: [] }));
-  };
+  }, []);
 
-  const resetState = () => {
+  const resetState = useCallback(() => {
     setState(defaultState);
-  };
+  }, []);
 
   return (
     <ExecuteContext.Provider

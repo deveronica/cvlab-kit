@@ -2,23 +2,18 @@
 #
 # Directory structure (on host):
 #   /volume1/docker/cvlab-kit/
-#   ├── compose.yml          # This file (copy from repo, persistent)
+#   ├── compose.yml          # This file
 #   ├── data/                 # Persistent data (NEVER delete)
 #   │   ├── logs/             # Run logs
 #   │   ├── queue_logs/       # Experiment logs
-#   │   └── state/            # DB and JSON state files (auto-created)
-#   └── src/                 # Source code (can delete & re-clone)
+#   │   └── state/            # DB and JSON state files
+#   └── src/                  # Source code (can delete & re-clone)
 #
 # First time setup:
 #   mkdir -p /volume1/docker/cvlab-kit/{data/logs,data/queue_logs,data/state,src}
-#   # Copy this compose.yml to /volume1/docker/cvlab-kit/
 #   docker compose up -d
 #
 # Update code:
-#   docker compose restart
-#
-# Force re-clone (if git broken):
-#   rm -rf /volume1/docker/cvlab-kit/src/*
 #   docker compose restart
 
 services:
@@ -28,9 +23,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Source code (disposable)
       - /volume1/docker/cvlab-kit/src:/app
-      # Persistent data (mounted over source paths)
       - /volume1/docker/cvlab-kit/data/logs:/app/logs
       - /volume1/docker/cvlab-kit/data/queue_logs:/app/web_helper/queue_logs
       - /volume1/docker/cvlab-kit/data/state:/app/web_helper/state
@@ -39,51 +32,55 @@ services:
       - bash
       - -c
       - |
-        set -e
+        set -ex
 
-        echo '🔧 Installing system dependencies...'
-        apt-get update -qq && apt-get install -y -qq git curl build-essential >/dev/null
+        # Install system dependencies
+        apt-get update -qq
+        apt-get install -y -qq git curl build-essential >/dev/null
+
+        # Install Node.js if not present
         if ! command -v node > /dev/null; then
-          echo '📦 Installing Node.js...'
           curl -fsSL https://deb.nodesource.com/setup_18.x | bash - >/dev/null
           apt-get install -y -qq nodejs >/dev/null
         fi
+
+        # Install uv
         pip install -q uv
 
-        clone_and_setup() {
-          echo '📥 Cloning repository...'
+        # Clone or update repository
+        if [ ! -f /app/pyproject.toml ]; then
+          echo '=== First time setup ==='
           rm -rf /tmp/cvlab-clone
           git clone --depth 1 https://github.com/deveronica/cvlab-kit.git /tmp/cvlab-clone
-
-          echo '📁 Copying source (preserving mounted volumes)...'
           cd /tmp/cvlab-clone
           tar --exclude='logs' --exclude='web_helper/queue_logs' --exclude='web_helper/state' -cf - . | tar -xf - -C /app
           rm -rf /tmp/cvlab-clone
-          cd /app
-
-          echo '📦 Installing Python dependencies...'
-          uv sync --frozen
-
-          echo '🎨 Building frontend...'
-          cd web_helper/frontend && npm ci --silent && npm run build && cd ../..
-        }
-
-        if [ ! -f /app/pyproject.toml ]; then
-          echo '🆕 First time setup...'
-          clone_and_setup
         else
-          echo '🔄 Updating code...'
+          echo '=== Updating code ==='
           cd /app
           git fetch origin main
           git reset --hard origin/main
-
-          echo '📦 Syncing dependencies...'
-          uv sync --frozen
-
-          echo '🎨 Rebuilding frontend...'
-          cd web_helper/frontend && npm run build && cd ../..
         fi
 
-        echo '✅ Ready!'
-        exec uv run app.py --server-only
+        cd /app
+
+        # Python dependencies
+        echo '=== Installing Python dependencies ==='
+        uv sync --frozen
+
+        # Frontend build
+        echo '=== Building frontend ==='
+        cd /app/web_helper/frontend
+        npm ci
+        npm run build
+        cd /app
+
+        # Verify
+        echo '=== Verification ==='
+        ls -la /app/app.py
+        ls -la /app/web_helper/frontend/dist/
+
+        # Start server
+        echo '=== Starting server ==='
+        exec uv run python app.py --server-only
     restart: unless-stopped

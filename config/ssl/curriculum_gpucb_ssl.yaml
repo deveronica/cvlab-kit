@@ -1,0 +1,108 @@
+# Curriculum SSL with GP-UCB Online Hyperparameter Optimization
+#
+# This configuration uses Gaussian Process Upper Confidence Bound (GP-UCB)
+# to dynamically optimize hyperparameters during training:
+#   1. curriculum_ratio: Hard sample ratio
+#   2. scale_a: Augmentation sensitivity
+#   3. tau_base: Pseudo-label threshold
+#
+# Reference: Srinivas et al., "GP Optimization in the Bandit Setting" (ICML 2010)
+
+run_name: "gpucb_ssl_{{date}}_{{num_labeled}}"
+description: "Curriculum SSL with GP-UCB Online Optimization"
+author: Hyunseo Choung
+date: "2025-11"
+
+agent: curriculum_gpucb_ssl
+device: 0
+
+# === Training Configuration ===
+epochs: 128
+batch_size: 16
+num_workers: 4
+steps_per_epoch: 256
+
+# === Dataset ===
+data_root: "./data/mstar"
+size: 128
+num_classes: 10
+num_labeled: 100
+mu: 7  # unlabeled batch = batch_size * mu
+
+# === Loss Weights ===
+lambda_u: 1.0       # Unsupervised loss weight
+lambda_kl: 0.5      # KL divergence (consistency) loss weight
+confidence_threshold: 0.95  # Initial threshold
+
+# === Image Preprocessing ===
+pretrained: false
+padding: 16
+padding_mode: reflect
+mean: !!python/tuple [0.1414, 0.1414, 0.1414]
+std: !!python/tuple [0.1258, 0.1258, 0.1258]
+
+# === Optimizer ===
+lr: 0.003
+weight_decay: 0
+
+# === Factor 1: Curriculum Sampling ===
+curriculum:
+  weight_strategy: fisher
+  start_ratio: 0.3  # Initial ratio (will be optimized by GP-UCB)
+
+# === Factor 2: Adaptive Augmentation ===
+adaptive_augment:
+  scale_a: 10.0  # Initial value (will be optimized by GP-UCB)
+
+# === Factor 3: Dynamic Threshold ===
+dynamic_threshold:
+  initial_threshold: 0.7
+  warmup_epochs: 10
+  flex_coefficient: 0.95
+
+# === GP-UCB Optimization ===
+# Updates every epoch based on training accuracy improvement
+gpucb:
+  # Exploration-exploitation trade-off (higher = more exploration)
+  beta: 2.0
+
+  # RBF kernel length scale
+  length_scale: 0.2
+
+  # Parameter search bounds
+  curriculum_ratio_bounds: [0.2, 1.0]
+  scale_a_bounds: [5.0, 15.0]
+  tau_base_bounds: [0.85, 0.98]
+
+# === Logging ===
+log_dir: "./logs/gpucb_ssl"
+logger: csv
+
+# === Components ===
+model: resnet18
+optimizer: adam
+
+dataset:
+  train: mstar(split="train")
+  val: mstar(split="test")
+
+dataloader:
+  labeled: basic
+  unlabeled: basic
+  val: basic
+
+sampler:
+  labeled: subset_random
+  unlabeled: subset_random
+
+transform:
+  weak: "resize | random_flip | random_crop | to_tensor | normalize"
+  strong: "resize | random_flip | random_crop | adaptive_rand_augment(magnitude_min=0, magnitude_max=30) | to_tensor | normalize"
+  val: "resize | to_tensor | normalize"
+
+loss:
+  supervised: cross_entropy(reduction="mean")
+  unsupervised: cross_entropy(reduction="none")
+
+metric:
+  val: accuracy

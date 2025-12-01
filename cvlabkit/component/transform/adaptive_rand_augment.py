@@ -31,6 +31,12 @@ class AdaptiveRandAugment(Transform):
                 "AdaptiveRandAugment requires 'magnitude_min' and 'magnitude_max' parameters."
             )
 
+        # Pre-create RandAugment objects for all possible magnitudes (cache)
+        self._augmenters = {
+            mag: transforms.RandAugment(num_ops=self.num_ops, magnitude=mag)
+            for mag in range(self.magnitude_min, self.magnitude_max + 1)
+        }
+
     def __call__(self, sample, **kwargs):
         """Applies RandAugment with a magnitude interpolated from the difficulty score.
 
@@ -55,10 +61,9 @@ class AdaptiveRandAugment(Transform):
             + (self.magnitude_max - self.magnitude_min) * difficulty_score
         )
 
-        # Ensure magnitude is an integer for RandAugment
+        # Ensure magnitude is an integer and clamp to valid range
         final_magnitude = int(round(magnitude))
+        final_magnitude = max(self.magnitude_min, min(self.magnitude_max, final_magnitude))
 
-        augmenter = transforms.RandAugment(
-            num_ops=self.num_ops, magnitude=final_magnitude
-        )
-        return augmenter(sample)
+        # Use cached augmenter instead of creating new object
+        return self._augmenters[final_magnitude](sample)

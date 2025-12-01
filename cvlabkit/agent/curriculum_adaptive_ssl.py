@@ -12,6 +12,8 @@ Reference: Curriculum-Based Difficulty-Aware Augmentation for SAR Semi-Supervise
 
 import json
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -532,18 +534,40 @@ class CurriculumAdaptiveSSL(Agent):
             {"weight_strategy": weight_strategy}
         )
 
-        # Compute difficulty scores for unlabeled data
-        print(f"  Computing difficulty scores ({weight_strategy})...")
-        self.unlabeled_difficulty_scores = {}
-        for idx in tqdm(unlabeled_indices, desc="  Computing difficulty"):
-            img, _ = dataset[idx]
-            score = self.difficulty_metric._compute_single(img)
-            self.unlabeled_difficulty_scores[idx] = score
+        # Cache file path for difficulty scores
+        log_dir = self.cfg.get("log_dir", "./logs")
+        dataset_name = self.cfg.dataset.train.split("(")[0]
+        cache_file = Path(log_dir) / f"{dataset_name}_difficulty_scores_{weight_strategy}.json"
+
+        # Load or compute difficulty scores
+        if cache_file.exists():
+            print(f"  Loading cached difficulty scores from {cache_file}")
+            with open(cache_file) as f:
+                cached_scores = json.load(f)
+            # Convert string keys back to int
+            self.unlabeled_difficulty_scores = {int(k): v for k, v in cached_scores.items()}
+            print(f"  ✓ Loaded {len(self.unlabeled_difficulty_scores)} cached scores")
+        else:
+            print(f"  Computing difficulty scores ({weight_strategy})...")
+            self.unlabeled_difficulty_scores = {}
+            for idx in tqdm(unlabeled_indices, desc="  Computing difficulty"):
+                img, _ = dataset[idx]
+                score = self.difficulty_metric._compute_single(img)
+                self.unlabeled_difficulty_scores[idx] = score
+
+            # Save to cache
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(cache_file, "w") as f:
+                json.dump(self.unlabeled_difficulty_scores, f)
+            print(f"  ✓ Saved difficulty scores to {cache_file}")
 
         # Sort indices by difficulty (easy → hard)
-        sorted_items = sorted(
-            self.unlabeled_difficulty_scores.items(), key=lambda x: x[1]
-        )
+        # Only use scores for current unlabeled indices
+        scores_for_unlabeled = {
+            idx: self.unlabeled_difficulty_scores.get(idx, 0.0)
+            for idx in unlabeled_indices
+        }
+        sorted_items = sorted(scores_for_unlabeled.items(), key=lambda x: x[1])
         self.sorted_unlabeled_indices = [item[0] for item in sorted_items]
 
         # Curriculum parameters
@@ -551,7 +575,7 @@ class CurriculumAdaptiveSSL(Agent):
         self.curriculum_saturation_epoch = curriculum_cfg.get("saturation_epoch", 50)
         self.curriculum_schedule = curriculum_cfg.get("schedule", "linear")
 
-        print(f"  ✓ Difficulty scores computed: {len(unlabeled_indices)} samples")
+        print(f"  Curriculum samples: {len(unlabeled_indices)}")
         print(f"  Start ratio: {self.curriculum_start_ratio:.1%}")
         print(f"  Saturation epoch: {self.curriculum_saturation_epoch}")
         print(f"  Schedule: {self.curriculum_schedule}")
@@ -653,16 +677,14 @@ class CurriculumAdaptiveSSL(Agent):
         labeled_images_pil, labels = labeled_batch
         unlabeled_images_pil, _ = unlabeled_batch
 
-        # Apply weak transform to labeled data
-        labeled_images = torch.stack(
-            [self.weak_transform(img) for img in labeled_images_pil]
-        ).to(self.device)
-        labels = labels.to(self.device)
+        # Apply weak transform in parallel
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            labeled_images_list = list(executor.map(self.weak_transform, labeled_images_pil))
+            unlabeled_weak_list = list(executor.map(self.weak_transform, unlabeled_images_pil))
 
-        # Apply weak transform to unlabeled data (for pseudo-label generation)
-        unlabeled_weak = torch.stack(
-            [self.weak_transform(img) for img in unlabeled_images_pil]
-        ).to(self.device)
+        labeled_images = torch.stack(labeled_images_list).to(self.device)
+        labels = labels.to(self.device)
+        unlabeled_weak = torch.stack(unlabeled_weak_list).to(self.device)
 
         # === 1. Supervised Loss ===
         sup_preds = self.model(labeled_images)
@@ -698,20 +720,22 @@ class CurriculumAdaptiveSSL(Agent):
             threshold = self.cfg.get("confidence_threshold", 0.95)
             mask = max_probs.ge(threshold).float()
 
-        # === Factor 2: Apply entropy-adaptive strong augmentation ===
-        unlabeled_strong_list = []
+        # === Factor 2: Apply entropy-adaptive strong augmentation (parallel) ===
+        if self.adaptive_aug_enabled and difficulty_scores is not None:
+            # Prepare (image, difficulty_score) pairs
+            difficulty_list = difficulty_scores.cpu().tolist()
 
-        for i, img in enumerate(unlabeled_images_pil):
-            if self.adaptive_aug_enabled and difficulty_scores is not None:
-                # Pass difficulty score to strong transform
-                aug_img = self.strong_transform(
-                    img, difficulty_score=difficulty_scores[i].item()
+            def apply_strong_with_difficulty(args):
+                img, diff = args
+                return self.strong_transform(img, difficulty_score=diff)
+
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                unlabeled_strong_list = list(
+                    executor.map(apply_strong_with_difficulty, zip(unlabeled_images_pil, difficulty_list))
                 )
-            else:
-                # Fixed strong augmentation
-                aug_img = self.strong_transform(img)
-
-            unlabeled_strong_list.append(aug_img)
+        else:
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                unlabeled_strong_list = list(executor.map(self.strong_transform, unlabeled_images_pil))
 
         unlabeled_strong = torch.stack(unlabeled_strong_list).to(self.device)
 

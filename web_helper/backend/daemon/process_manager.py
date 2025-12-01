@@ -25,9 +25,9 @@ class ProcessManager:
         self.log_dir.mkdir(exist_ok=True)
 
         # Use JSON file instead of database for portability
-        # Store in web_helper/ alongside other state files
-        self.state_dir = Path("web_helper")
-        self.state_dir.mkdir(exist_ok=True)
+        # Store in web_helper/state/ for easy Docker volume mounting
+        self.state_dir = Path("web_helper/state")
+        self.state_dir.mkdir(parents=True, exist_ok=True)
         self.state_file = self.state_dir / "daemon_state.json"
 
     def _load_state(self) -> dict:

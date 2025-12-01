@@ -664,8 +664,8 @@ class QueueManager:
     def _save_state(self):
         """Save queue state to disk"""
         try:
-            state_file = Path("web_helper/queue_state.json")
-            state_file.parent.mkdir(exist_ok=True)
+            state_file = Path("web_helper/state/queue_state.json")
+            state_file.parent.mkdir(parents=True, exist_ok=True)
 
             with self._lock:
                 serializable_jobs = {}
@@ -692,7 +692,7 @@ class QueueManager:
 
     def _load_state(self):
         """Load queue state and recover running jobs."""
-        state_file = Path("web_helper/queue_state.json")
+        state_file = Path("web_helper/state/queue_state.json")
         if not state_file.exists():
             return
 

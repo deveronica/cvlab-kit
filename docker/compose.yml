@@ -6,14 +6,11 @@
 #   ├── data/                 # Persistent data (NEVER delete)
 #   │   ├── logs/             # Run logs
 #   │   ├── queue_logs/       # Experiment logs
-#   │   ├── web_helper.db     # SQLite database
-#   │   ├── queue_state.json  # Queue state
-#   │   └── daemon_state.json # Daemon PID state
+#   │   └── state/            # DB and JSON state files (auto-created)
 #   └── src/                 # Source code (can delete & re-clone)
 #
 # First time setup:
-#   mkdir -p /volume1/docker/cvlab-kit/{data/logs,data/queue_logs,src}
-#   touch /volume1/docker/cvlab-kit/data/{web_helper.db,queue_state.json,daemon_state.json}
+#   mkdir -p /volume1/docker/cvlab-kit/{data/logs,data/queue_logs,data/state,src}
 #   # Copy this compose.yml to /volume1/docker/cvlab-kit/
 #   docker compose up -d
 #
@@ -36,9 +33,7 @@ services:
       # Persistent data (mounted over source paths)
       - /volume1/docker/cvlab-kit/data/logs:/app/logs
       - /volume1/docker/cvlab-kit/data/queue_logs:/app/web_helper/queue_logs
-      - /volume1/docker/cvlab-kit/data/web_helper.db:/app/web_helper/web_helper.db
-      - /volume1/docker/cvlab-kit/data/queue_state.json:/app/web_helper/queue_state.json
-      - /volume1/docker/cvlab-kit/data/daemon_state.json:/app/web_helper/daemon_state.json
+      - /volume1/docker/cvlab-kit/data/state:/app/web_helper/state
     working_dir: /app
     environment:
       - GIT_REPO=https://github.com/deveronica/cvlab-kit.git
@@ -88,7 +83,7 @@ services:
         echo '📦 Syncing dependencies...';
         uv sync --frozen;
 
-        if [ "$$OLD_HEAD" != "$$NEW_HEAD" ] && git diff --name-only $$OLD_HEAD $$NEW_HEAD | grep -q 'web_helper/frontend'; then
+        if [ \"$$OLD_HEAD\" != \"$$NEW_HEAD\" ] && git diff --name-only $$OLD_HEAD $$NEW_HEAD | grep -q 'web_helper/frontend'; then
           echo '🎨 Frontend changed, rebuilding...';
           cd web_helper/frontend && npm run build && cd ../..;
         fi;

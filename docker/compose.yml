@@ -74,18 +74,14 @@ services:
         else
           echo '🔄 Updating code...'
           cd /app
-          OLD_HEAD=$(git rev-parse HEAD)
           git fetch origin main
           git reset --hard origin/main
-          NEW_HEAD=$(git rev-parse HEAD)
 
           echo '📦 Syncing dependencies...'
           uv sync --frozen
 
-          if [ "$OLD_HEAD" != "$NEW_HEAD" ] && git diff --name-only $OLD_HEAD $NEW_HEAD | grep -q 'web_helper/frontend'; then
-            echo '🎨 Frontend changed, rebuilding...'
-            cd web_helper/frontend && npm run build && cd ../..
-          fi
+          echo '🎨 Rebuilding frontend...'
+          cd web_helper/frontend && npm run build && cd ../..
         fi
 
         echo '✅ Ready!'

@@ -82,5 +82,5 @@ services:
 
         # Start server
         echo '=== Starting server ==='
-        exec uv run python app.py --server-only
+        exec uv run app.py --server-only
     restart: unless-stopped

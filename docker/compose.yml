@@ -37,59 +37,62 @@ services:
     working_dir: /app
     environment:
       - GIT_REPO=https://github.com/deveronica/cvlab-kit.git
-    command: >
-      bash -c "
-      set -e;
+    command:
+      - bash
+      - -c
+      - |
+        set -e
 
-      echo '🔧 Installing system dependencies...';
-      apt-get update -qq && apt-get install -y -qq git curl build-essential >/dev/null;
-      if ! command -v node > /dev/null; then
-        echo '📦 Installing Node.js...';
-        curl -fsSL https://deb.nodesource.com/setup_18.x | bash - >/dev/null;
-        apt-get install -y -qq nodejs >/dev/null;
-      fi;
-      pip install -q uv;
+        echo '🔧 Installing system dependencies...'
+        apt-get update -qq && apt-get install -y -qq git curl build-essential >/dev/null
+        if ! command -v node > /dev/null; then
+          echo '📦 Installing Node.js...'
+          curl -fsSL https://deb.nodesource.com/setup_18.x | bash - >/dev/null
+          apt-get install -y -qq nodejs >/dev/null
+        fi
+        pip install -q uv
 
-      clone_and_setup() {
-        echo '📥 Cloning repository...';
-        rm -rf /tmp/cvlab-clone;
-        git clone --depth 1 $$GIT_REPO /tmp/cvlab-clone;
+        clone_and_setup() {
+          echo '📥 Cloning repository...'
+          rm -rf /tmp/cvlab-clone
+          git clone --depth 1 $GIT_REPO /tmp/cvlab-clone
 
-        echo '📁 Copying source (preserving mounted volumes)...';
-        cd /tmp/cvlab-clone;
-        find . -maxdepth 1 ! -name . ! -name logs ! -name web_helper -exec cp -a {} /app/ \;;
-        cp -a web_helper/* /app/web_helper/ 2>/dev/null || true;
-        rm -rf /tmp/cvlab-clone;
-        cd /app;
+          echo '📁 Copying source (preserving mounted volumes)...'
+          cd /tmp/cvlab-clone
+          for item in $(ls -A | grep -v -E '^(logs|web_helper)$'); do
+            cp -a "$item" /app/
+          done
+          cp -a web_helper/* /app/web_helper/ 2>/dev/null || true
+          rm -rf /tmp/cvlab-clone
+          cd /app
 
-        echo '📦 Installing Python dependencies...';
-        uv sync --frozen;
+          echo '📦 Installing Python dependencies...'
+          uv sync --frozen
 
-        echo '🎨 Building frontend...';
-        cd web_helper/frontend && npm ci --silent && npm run build && cd ../..;
-      };
+          echo '🎨 Building frontend...'
+          cd web_helper/frontend && npm ci --silent && npm run build && cd ../..
+        }
 
-      if [ ! -f /app/pyproject.toml ]; then
-        echo '🆕 First time setup...';
-        clone_and_setup;
-      else
-        echo '🔄 Updating code...';
-        cd /app;
-        OLD_HEAD=$$(git rev-parse HEAD);
-        git fetch origin main;
-        git reset --hard origin/main;
-        NEW_HEAD=$$(git rev-parse HEAD);
+        if [ ! -f /app/pyproject.toml ]; then
+          echo '🆕 First time setup...'
+          clone_and_setup
+        else
+          echo '🔄 Updating code...'
+          cd /app
+          OLD_HEAD=$(git rev-parse HEAD)
+          git fetch origin main
+          git reset --hard origin/main
+          NEW_HEAD=$(git rev-parse HEAD)
 
-        echo '📦 Syncing dependencies...';
-        uv sync --frozen;
+          echo '📦 Syncing dependencies...'
+          uv sync --frozen
 
-        if [ \"$$OLD_HEAD\" != \"$$NEW_HEAD\" ] && git diff --name-only $$OLD_HEAD $$NEW_HEAD | grep -q 'web_helper/frontend'; then
-          echo '🎨 Frontend changed, rebuilding...';
-          cd web_helper/frontend && npm run build && cd ../..;
-        fi;
-      fi;
+          if [ "$OLD_HEAD" != "$NEW_HEAD" ] && git diff --name-only $OLD_HEAD $NEW_HEAD | grep -q 'web_helper/frontend'; then
+            echo '🎨 Frontend changed, rebuilding...'
+            cd web_helper/frontend && npm run build && cd ../..
+          fi
+        fi
 
-      echo '✅ Ready!';
-      exec uv run app.py --server-only
-      "
+        echo '✅ Ready!'
+        exec uv run app.py --server-only
     restart: unless-stopped

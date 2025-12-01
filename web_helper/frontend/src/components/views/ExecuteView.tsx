@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, memo } from 'react';
+import React, { useEffect, useCallback, memo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
@@ -43,6 +43,9 @@ const ExecuteView = memo(function ExecuteView() {
 
   const [isStarting, setIsStarting] = React.useState(false);
 
+  // Track the last loaded config file to prevent overwriting user edits
+  const lastLoadedConfigRef = useRef<string>('');
+
   const { data: configContent, isLoading: isLoadingContent } = useQuery<string | null, Error>({
     queryKey: ['configContent', state.selectedConfigFile],
     queryFn: () => fetchConfigContent(state.selectedConfigFile),
@@ -50,11 +53,13 @@ const ExecuteView = memo(function ExecuteView() {
   });
 
   useEffect(() => {
-    if (configContent) {
+    // Only update YAML when a NEW config file is selected
+    if (configContent && state.selectedConfigFile !== lastLoadedConfigRef.current) {
       updateYamlConfig(configContent);
-      updateLogMessages([]); // Clear logs on new content
+      updateLogMessages([]);
+      lastLoadedConfigRef.current = state.selectedConfigFile;
     }
-  }, [configContent, updateYamlConfig, updateLogMessages]);
+  }, [configContent, state.selectedConfigFile, updateYamlConfig, updateLogMessages]);
 
   const onYamlChange = useCallback((value: string) => {
     updateYamlConfig(value);

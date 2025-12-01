@@ -20,7 +20,7 @@ interface WebSocketOptions {
 
 export function useWebSocket(options: WebSocketOptions = {}) {
   const {
-    url = `ws://${window.location.host}/ws`,
+    url = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`,
     autoReconnect = true,
     maxReconnectAttempts = 5,
     reconnectInterval = 3000,

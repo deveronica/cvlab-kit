@@ -1,8 +1,11 @@
 """Advanced queue management API endpoints."""
 
 import asyncio
+import logging
 from pathlib import Path
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import (
     APIRouter,
@@ -105,6 +108,38 @@ async def get_queue_stats():
                 title="Internal Server Error",
                 status=500,
                 detail=f"Failed to get queue stats: {str(e)}",
+            ),
+        )
+
+
+@router.get("/config/{experiment_uid}")
+async def get_queue_config(experiment_uid: str):
+    """Get config file for a queued experiment.
+
+    Used by remote workers to download config before executing.
+    """
+    config_path = Path("web_helper/queue_logs") / experiment_uid / "config.yaml"
+
+    if not config_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=error_response(
+                title="Not Found",
+                status=404,
+                detail=f"Config not found for experiment {experiment_uid}",
+            ),
+        )
+
+    try:
+        content = config_path.read_text(encoding="utf-8")
+        return PlainTextResponse(content, media_type="text/yaml")
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=error_response(
+                title="Internal Server Error",
+                status=500,
+                detail=f"Failed to read config: {str(e)}",
             ),
         )
 

@@ -581,14 +581,15 @@ class DeviceAgent:
         """Download config file from server.
 
         Args:
-            config_path: Path to config on server
+            config_path: Path to config on server (unused, kept for compatibility)
             experiment_uid: Experiment ID
 
         Returns:
             Local path to downloaded config
         """
+        # Use queue config endpoint for queued experiments
         response = await self.http_client.get(
-            f"{self.server_url}/api/configs/raw", params={"path": config_path}
+            f"{self.server_url}/api/queue/config/{experiment_uid}"
         )
 
         if response.status_code != 200:
@@ -599,7 +600,7 @@ class DeviceAgent:
         with open(local_config, "wb") as f:
             f.write(response.content)
 
-        logger.info(f"Downloaded config: {config_path} → {local_config}")
+        logger.info(f"Downloaded config for {experiment_uid} → {local_config}")
         return local_config
 
     async def _stream_output(

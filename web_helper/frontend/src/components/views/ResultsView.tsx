@@ -31,6 +31,7 @@ interface QueueJob {
   completed_at?: string | null;
   assigned_device?: string | null;
   exit_code?: number | null;
+  error_message?: string | null;
   last_indexed?: string;
   metadata?: {
     has_config?: boolean;
@@ -319,9 +320,22 @@ export function ResultsView() {
       accessorKey: 'status',
       header: 'Status',
       minSize: 110,
-      maxSize: 140,
+      maxSize: 300,
       enableResizing: true,
-      cell: ({ getValue }) => <StatusBadge status={getValue<string>()} />,
+      cell: ({ getValue, row }) => {
+        const status = getValue<string>();
+        const errorMessage = row.original.error_message;
+        return (
+          <div className="flex flex-col gap-1">
+            <StatusBadge status={status} />
+            {errorMessage && status?.toLowerCase() === 'failed' && (
+              <span className="text-xs text-red-600 truncate max-w-[250px]" title={errorMessage}>
+                {errorMessage}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'priority',

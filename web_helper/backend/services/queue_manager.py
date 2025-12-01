@@ -317,7 +317,9 @@ class QueueManager:
         # Update database for Queue-Results consistency (outside lock)
         status_str = "completed" if success else "failed"
         self._update_experiment_status_in_db(
-            experiment_uid, status_str, completed_at=job.completed_at
+            experiment_uid, status_str,
+            completed_at=job.completed_at,
+            error_message=error_message if not success else None
         )
 
     def list_jobs(
@@ -691,6 +693,7 @@ class QueueManager:
         completed_at: Optional[datetime] = None,
         started_at: Optional[datetime] = None,
         assigned_device: Optional[str] = None,
+        error_message: Optional[str] = None,
     ):
         """Update experiment status in database for Queue-Results consistency."""
         db = SessionLocal()
@@ -709,6 +712,8 @@ class QueueManager:
                     db_experiment.started_at = started_at
                 if assigned_device:
                     db_experiment.assigned_device = assigned_device
+                if error_message:
+                    db_experiment.error_message = error_message
                 db.commit()
                 logger.debug(f"Updated DB status for {experiment_uid}: {status}")
             else:

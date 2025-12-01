@@ -37,6 +37,7 @@ class QueueExperiment(Base):
     priority = Column(String, default="normal")
     pid = Column(Integer, nullable=True)  # Process ID for running jobs
     exit_code = Column(Integer, nullable=True)
+    error_message = Column(String, nullable=True)  # Error message if failed
 
     # File checksums for change detection (xxhash3)
     config_hash = Column(String, nullable=True)

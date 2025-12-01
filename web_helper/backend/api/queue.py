@@ -914,6 +914,7 @@ async def list_queue_experiments(
                     "assigned_device": exp.assigned_device,
                     "priority": exp.priority,
                     "exit_code": exp.exit_code,
+                    "error_message": exp.error_message,
                     "last_indexed": exp.last_indexed.isoformat()
                     if exp.last_indexed
                     else None,

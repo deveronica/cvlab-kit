@@ -154,7 +154,7 @@ export function QueueView() {
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
-                            pauseMutation.mutate(job.id!);
+                            pauseMutation.mutate(job.experiment_uid);
                           }}
                           variant="warning"
                           size="sm"
@@ -196,7 +196,7 @@ export function QueueView() {
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
-                            resumeMutation.mutate(job.id!);
+                            resumeMutation.mutate(job.experiment_uid);
                           }}
                           variant="success"
                           size="sm"
@@ -206,7 +206,7 @@ export function QueueView() {
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
-                            cancelMutation.mutate(job.id!);
+                            cancelMutation.mutate(job.experiment_uid);
                           }}
                           variant="destructive"
                           size="sm"
@@ -248,7 +248,7 @@ export function QueueView() {
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
-                            cancelMutation.mutate(job.id!);
+                            cancelMutation.mutate(job.experiment_uid);
                           }}
                           variant="destructive"
                           size="sm"
@@ -290,7 +290,7 @@ export function QueueView() {
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
-                            cancelMutation.mutate(job.id!);
+                            cancelMutation.mutate(job.experiment_uid);
                           }}
                           variant="destructive"
                           size="sm"

@@ -418,7 +418,12 @@ class DeviceAgent:
                 data = response.json()
                 # Check for actual job, not just the wrapper {"job": None}
                 if data.get("data") and data["data"].get("job"):
-                    return data["data"]["job"]
+                    job = data["data"]["job"]
+                    # Validate job has required fields
+                    if not job.get("experiment_uid"):
+                        logger.warning(f"Job missing experiment_uid: {job}")
+                        return None
+                    return job
             elif response.status_code != 404:
                 logger.warning(f"Poll failed: {response.status_code}")
 
@@ -433,7 +438,10 @@ class DeviceAgent:
         Args:
             job: Job specification from server
         """
-        experiment_uid = job["experiment_uid"]
+        experiment_uid = job.get("experiment_uid")
+        if not experiment_uid:
+            logger.error(f"Job missing experiment_uid: {job}")
+            return
         logger.info(f"Executing job: {experiment_uid} ({job.get('name', 'unnamed')})")
 
         try:
@@ -590,15 +598,15 @@ class DeviceAgent:
             stream_name: "stdout" or "stderr"
         """
         try:
-            async with asyncio.open_file(log_file, "w") as f:
+            with open(log_file, "w") as f:
                 while True:
                     line = await stream.readline()
                     if not line:
                         break
 
                     decoded = line.decode("utf-8", errors="replace")
-                    await f.write(decoded)
-                    await f.flush()
+                    f.write(decoded)
+                    f.flush()
 
         except Exception as e:
             logger.error(f"Error streaming {stream_name} for {experiment_uid}: {e}")

@@ -69,9 +69,9 @@ export function useSSE(options: SSEOptions = {}) {
     }
   }, [queryClient]);
 
-  const handleQueueUpdate = useCallback((data: any) => {
-    // Update queue cache
-    queryClient.setQueryData(queryKeys.queue, data);
+  const handleQueueUpdate = useCallback((_data: any) => {
+    // Invalidate queue cache to trigger refetch
+    queryClient.invalidateQueries({ queryKey: queryKeys.queue });
   }, [queryClient]);
 
   const handleSSEMessage = useCallback((event: MessageEvent) => {

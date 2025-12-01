@@ -123,25 +123,25 @@ class ApiClient {
   }
 
   async cancelJob(jobId: string): Promise<{ message: string }> {
-    return this.request(`/queue/job/${jobId}/cancel`, {
+    return this.request(`/queue/experiment/${jobId}/cancel`, {
       method: 'POST',
     });
   }
 
   async pauseJob(jobId: string): Promise<{ message: string }> {
-    return this.request(`/queue/job/${jobId}/pause`, {
+    return this.request(`/queue/experiment/${jobId}/pause`, {
       method: 'POST',
     });
   }
 
   async resumeJob(jobId: string): Promise<{ message: string }> {
-    return this.request(`/queue/job/${jobId}/resume`, {
+    return this.request(`/queue/experiment/${jobId}/resume`, {
       method: 'POST',
     });
   }
 
   async setJobPriority(jobId: string, priority: string): Promise<{ message: string }> {
-    return this.request(`/queue/job/${jobId}/priority`, {
+    return this.request(`/queue/experiment/${jobId}/priority`, {
       method: 'POST',
       body: JSON.stringify(priority),
     });

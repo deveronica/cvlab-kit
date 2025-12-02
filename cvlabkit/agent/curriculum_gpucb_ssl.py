@@ -602,10 +602,10 @@ class CurriculumGPUCBSSL(Agent):
 
         self.difficulty_metric = SARDifficultyScore({"weight_strategy": weight_strategy})
 
-        # Cache file for difficulty scores
-        log_dir = self.cfg.get("log_dir", "./logs")
+        # Cache file for difficulty scores (stored with dataset for reuse)
+        data_root = Path(self.cfg.get("data_root", "./data"))
         dataset_name = self.cfg.dataset.train.split("(")[0]
-        cache_file = Path(log_dir) / f"{dataset_name}_difficulty_scores_{weight_strategy}.json"
+        cache_file = data_root / f"{dataset_name}_difficulty_scores_{weight_strategy}.json"
 
         if cache_file.exists():
             print(f"  Loading cached difficulty scores from {cache_file}")
@@ -682,17 +682,26 @@ class CurriculumGPUCBSSL(Agent):
     def _setup_gpucb(self):
         """Setup GP-UCB optimizer."""
         gpucb_cfg = self.cfg.get("gpucb", {})
+        if hasattr(gpucb_cfg, "to_dict"):
+            gpucb_cfg = gpucb_cfg.to_dict()
+
+        # Extract bounds (handle both list and tuple formats)
+        def get_bounds(key, default):
+            val = gpucb_cfg.get(key, default)
+            if isinstance(val, (list, tuple)):
+                return tuple(val)
+            return tuple(default)
 
         param_bounds = {
-            "curriculum_ratio": tuple(gpucb_cfg.get("curriculum_ratio_bounds", [0.2, 1.0])),
-            "scale_a": tuple(gpucb_cfg.get("scale_a_bounds", [5.0, 15.0])),
-            "tau_base": tuple(gpucb_cfg.get("tau_base_bounds", [0.85, 0.98])),
+            "curriculum_ratio": get_bounds("curriculum_ratio_bounds", [0.2, 1.0]),
+            "scale_a": get_bounds("scale_a_bounds", [5.0, 15.0]),
+            "tau_base": get_bounds("tau_base_bounds", [0.85, 0.98]),
         }
 
         self.gpucb = GaussianProcessUCB(
             param_bounds=param_bounds,
-            beta=gpucb_cfg.get("beta", 2.0),
-            length_scale=gpucb_cfg.get("length_scale", 0.2),
+            beta=float(gpucb_cfg.get("beta", 2.0)),
+            length_scale=float(gpucb_cfg.get("length_scale", 0.2)),
         )
 
         self.prev_train_acc = 0.0  # For GP-UCB reward computation

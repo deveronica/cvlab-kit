@@ -1,8 +1,8 @@
-# Final 1: Adaptive Aug Only
+# Final 1: Adaptive Augmentation FixMatch
 # GPU 0
 
 run_name: "final_1_adaptive_aug"
-agent: curriculum_adaptive_ssl
+agent: adaptive_augmentation_fixmatch
 device: 0
 
 epochs: 256
@@ -16,9 +16,13 @@ num_classes: 10
 num_labeled: 100
 mu: 7
 
-lambda_u: 1.0
-lambda_kl: 0.5
+# Loss weights
+lambda_fixmatch: 1.0
+lambda_contrastive: 0.5
 confidence_threshold: 0.95
+
+# Adaptive augmentation
+scale_a: 10.0
 
 pretrained: false
 padding: 16
@@ -28,16 +32,6 @@ std: !!python/tuple [0.1258, 0.1258, 0.1258]
 
 lr: 0.003
 weight_decay: 0
-
-curriculum:
-  enabled: false
-
-adaptive_augment:
-  enabled: true
-  scale_a: 10.0
-
-dynamic_threshold:
-  enabled: false
 
 log_dir: "./logs/final"
 logger: csv
@@ -66,6 +60,6 @@ transform:
 loss:
   supervised: cross_entropy(reduction="mean")
   unsupervised: cross_entropy(reduction="none")
+  contrastive: kl_div(reduction="batchmean")
 
-metric:
-  val: accuracy
+metric: accuracy

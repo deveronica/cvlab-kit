@@ -165,8 +165,9 @@ class Fixmatch(Agent):
             max_probs, pseudo_labels = torch.max(probs, dim=1)
             mask = max_probs.ge(self.cfg.get("confidence_threshold", 0.95)).float()
 
+        # Use random difficulty scores for baseline (uniform augmentation strength)
         unlabeled_images_strong = torch.stack(
-            [self.strong_transform(img) for img in unlabeled_images_pil]
+            [self.strong_transform(img, difficulty_score=np.random.rand()) for img in unlabeled_images_pil]
         ).to(self.device)
 
         student_preds = self.model(unlabeled_images_strong)

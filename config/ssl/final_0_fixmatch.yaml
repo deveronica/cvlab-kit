@@ -7,7 +7,7 @@ device: 0
 
 epochs: 256
 batch_size: 16
-num_workers: 4
+num_workers: 0
 steps_per_epoch: 128
 
 data_root: "./data/mstar"
@@ -49,7 +49,7 @@ sampler:
 
 transform:
   weak: "resize | random_flip | random_crop | to_tensor | normalize"
-  strong: "resize | random_flip | random_crop | rand_augment(num_ops=2, magnitude=15) | to_tensor | normalize"
+  strong: "resize | random_flip | random_crop | adaptive_rand_augment(magnitude_min=0, magnitude_max=30) | to_tensor | normalize"
   val: "resize | to_tensor | normalize"
 
 loss:

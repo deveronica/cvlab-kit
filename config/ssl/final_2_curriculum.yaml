@@ -1,0 +1,75 @@
+# Final 2: Adaptive Aug + Curriculum
+# GPU 1
+
+run_name: "final_2_curriculum"
+agent: curriculum_adaptive_ssl
+device: 1
+
+epochs: 256
+batch_size: 16
+num_workers: 4
+steps_per_epoch: 128
+
+data_root: "./data/mstar"
+size: 128
+num_classes: 10
+num_labeled: 100
+mu: 7
+
+lambda_u: 1.0
+lambda_kl: 0.5
+confidence_threshold: 0.95
+
+pretrained: false
+padding: 16
+padding_mode: reflect
+mean: !!python/tuple [0.1414, 0.1414, 0.1414]
+std: !!python/tuple [0.1258, 0.1258, 0.1258]
+
+lr: 0.003
+weight_decay: 0
+
+curriculum:
+  enabled: true
+  weight_strategy: fisher
+  start_ratio: 0.3
+  saturation_epoch: 128
+  schedule: linear
+
+adaptive_augment:
+  enabled: true
+  scale_a: 10.0
+
+dynamic_threshold:
+  enabled: false
+
+log_dir: "./logs/final"
+logger: csv
+
+model: resnet18
+optimizer: adam
+
+dataset:
+  train: mstar(split="train")
+  val: mstar(split="test")
+
+dataloader:
+  labeled: basic
+  unlabeled: basic
+  val: basic
+
+sampler:
+  labeled: subset_random
+  unlabeled: subset_random
+
+transform:
+  weak: "resize | random_flip | random_crop | to_tensor | normalize"
+  strong: "resize | random_flip | random_crop | adaptive_rand_augment(magnitude_min=0, magnitude_max=30) | to_tensor | normalize"
+  val: "resize | to_tensor | normalize"
+
+loss:
+  supervised: cross_entropy(reduction="mean")
+  unsupervised: cross_entropy(reduction="none")
+
+metric:
+  val: accuracy

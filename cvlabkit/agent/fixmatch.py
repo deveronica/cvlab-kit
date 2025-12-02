@@ -3,6 +3,7 @@
 import json
 import os
 from collections import defaultdict
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -105,6 +106,11 @@ class Fixmatch(Agent):
             dataset=val_dataset, collate_fn=pil_collate
         )
 
+        # Checkpoint saving
+        self.checkpoint_dir = Path(self.cfg.get("log_dir", "./logs")) / self.cfg.get("run_name", "run")
+        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        self.best_val_acc = 0.0
+
     def _stratified_split(self, targets: np.ndarray, num_labeled: int):
         """Performs a stratified split of indices based on a fixed number of labeled samples."""
         indices_by_class = defaultdict(list)
@@ -159,13 +165,9 @@ class Fixmatch(Agent):
             max_probs, pseudo_labels = torch.max(probs, dim=1)
             mask = max_probs.ge(self.cfg.get("confidence_threshold", 0.95)).float()
 
-        unlabeled_images_strong = []
-        for i, img in enumerate(unlabeled_images_pil):
-            aug_img = self.strong_transform(
-                img, difficulty_score=torch.randint(0, 31, (1,)).item() / 31
-            )
-            unlabeled_images_strong.append(aug_img)
-        unlabeled_images_strong = torch.stack(unlabeled_images_strong).to(self.device)
+        unlabeled_images_strong = torch.stack(
+            [self.strong_transform(img) for img in unlabeled_images_pil]
+        ).to(self.device)
 
         student_preds = self.model(unlabeled_images_strong)
         loss_fixmatch = self.unsup_loss_fn(student_preds, pseudo_labels)
@@ -230,6 +232,12 @@ class Fixmatch(Agent):
             self.evaluate()
             self.current_epoch += 1
 
+        # Save last model
+        self._save_checkpoint("last.pth")
+        print(f"\n✓ Training complete. Models saved to {self.checkpoint_dir}")
+        print(f"  - best.pth (acc: {self.best_val_acc:.4f})")
+        print(f"  - last.pth")
+
     def evaluate(self):
         """Evaluates the model on the validation set."""
         self.model.eval()
@@ -260,3 +268,23 @@ class Fixmatch(Agent):
 
         if hasattr(self, "logger") and self.logger is not None:
             self.logger.log_metrics(metrics=metrics, step=self.current_epoch + 1)
+
+        # Save best model
+        val_acc = metrics.get("val_accuracy", metrics.get("accuracy", 0.0))
+        if val_acc > self.best_val_acc:
+            self.best_val_acc = val_acc
+            self._save_checkpoint("best.pth", metrics)
+            print(f"  ✓ New best model saved (acc: {val_acc:.4f})")
+
+        return metrics
+
+    def _save_checkpoint(self, filename: str, metrics: dict = None):
+        """Save model checkpoint."""
+        checkpoint = {
+            "epoch": self.current_epoch + 1,
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "best_val_acc": self.best_val_acc,
+            "metrics": metrics,
+        }
+        torch.save(checkpoint, self.checkpoint_dir / filename)

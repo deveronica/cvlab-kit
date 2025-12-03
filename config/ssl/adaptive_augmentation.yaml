@@ -58,5 +58,4 @@ loss:
   unsupervised: cross_entropy(reduction="none")
   contrastive: kl_div(reduction="batchmean")
 logger: csv
-metric:
-  val: accuracy
+metric: accuracy

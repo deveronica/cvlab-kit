@@ -2,6 +2,7 @@
 import json
 import os
 from collections import defaultdict
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -111,6 +112,11 @@ class AdaptiveAugmentationFixmatch(Agent):
         self.val_loader = self.create.dataloader.val(
             dataset=val_dataset, collate_fn=pil_collate
         )
+
+        # Checkpoint saving
+        self.checkpoint_dir = Path(log_dir) / self.cfg.get("run_name", "run")
+        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        self.best_val_acc = 0.0
 
     def _stratified_split(self, targets: np.ndarray, num_labeled: int):
         """Performs a stratified split of indices based on a fixed number of labeled samples."""
@@ -266,6 +272,12 @@ class AdaptiveAugmentationFixmatch(Agent):
             self.evaluate()
             self.current_epoch += 1
 
+        # Save last model
+        self._save_checkpoint("last.pth")
+        print(f"\n✓ Training complete. Models saved to {self.checkpoint_dir}")
+        print(f"  - best.pth (acc: {self.best_val_acc:.4f})")
+        print(f"  - last.pth")
+
     def evaluate(self):
         """Evaluates the model on the validation set."""
         self.model.eval()
@@ -297,3 +309,23 @@ class AdaptiveAugmentationFixmatch(Agent):
 
         if hasattr(self, "logger") and self.logger is not None:
             self.logger.log_metrics(metrics=metrics, step=self.current_epoch + 1)
+
+        # Save best model
+        val_acc = metrics.get("val_accuracy", metrics.get("accuracy", 0.0))
+        if val_acc > self.best_val_acc:
+            self.best_val_acc = val_acc
+            self._save_checkpoint("best.pth", metrics)
+            print(f"  ✓ New best model saved (acc: {val_acc:.4f})")
+
+        return metrics
+
+    def _save_checkpoint(self, filename: str, metrics: dict = None):
+        """Save model checkpoint."""
+        checkpoint = {
+            "epoch": self.current_epoch + 1,
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "best_val_acc": self.best_val_acc,
+            "metrics": metrics,
+        }
+        torch.save(checkpoint, self.checkpoint_dir / filename)

@@ -1,9 +1,9 @@
-# Final 0: FixMatch Baseline (No adaptive augmentation)
-# GPU 0
+# Last Final 2: Aug + Sampling (No Threshold)
+# Ablation: Without dynamic threshold
 
-run_name: "final_0_fixmatch"
-agent: fixmatch
-device: 0
+run_name: "last_final_2_aug_sampling"
+agent: curriculum_adaptive_ssl
+device: 1
 
 epochs: 256
 batch_size: 16
@@ -16,7 +16,8 @@ num_classes: 10
 num_labeled: 100
 mu: 7
 
-lambda_fixmatch: 1.0
+lambda_u: 1.0
+lambda_kl: 4.5
 confidence_threshold: 0.95
 
 pretrained: false
@@ -28,7 +29,24 @@ std: !!python/tuple [0.1258, 0.1258, 0.1258]
 lr: 0.003
 weight_decay: 0
 
-log_dir: "./logs/final"
+# Factor 1: Curriculum Sampling (20% -> 100% by 50% epoch)
+curriculum:
+  enabled: true
+  weight_strategy: fisher
+  start_ratio: 0.2
+  saturation_epoch: 128
+  schedule: linear
+
+# Factor 2: Adaptive Augmentation
+adaptive_augment:
+  enabled: true
+  scale_a: 10.0
+
+# Factor 3: Dynamic Threshold - DISABLED
+dynamic_threshold:
+  enabled: false
+
+log_dir: "./logs/last_final"
 logger: csv
 
 model: resnet18

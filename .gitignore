@@ -392,38 +392,46 @@ legacy/
 results/
 .trash/
 tools/
-.playwright-mcp/
 temp_configs/
 outputs/
 scripts/
-
-# Build artifacts
-*.zip
-*.tar.gz
-
-# Documentation
-GEMINI.md
-CLAUDE.md
-PRD.md
-ref-design.png
-reports/
-test-results/
-
+drafts/
 # Web Helper
 web_helper/state/
 web_helper/queue_logs/
 web_helper/*.backup
 # Legacy paths (for migration)
 web_helper/web_helper.db
+web_helper/backend/*.db
 web_helper/queue_state.json*
 web_helper/daemon_state.json
 web_helper/frontend/dist/
 web_helper/frontend/node_modules/
 web_helper/frontend/.vite/
+web_helper/frontend/storybook-static/
+web_helper/frontend/playwright-report/
 
-# Claude Code (personal development tool)
+# Build artifacts
+*.zip
+*.tar.gz
+
+# Documentation
+ref-design.png
+favicon.png
+reports/
+test-results/
+spec/
+
+# AI (personal development tool)
+.playwright-mcp/
 .claude/
-
-# Dev tools
 .serena/
 memory-bank/
+.sisyphus/
+GEMINI.md
+CLAUDE.md
+
+# Dev tools
+.github/
+.code_backups/
+screens/

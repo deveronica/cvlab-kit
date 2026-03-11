@@ -1,80 +1,77 @@
-# CVLab-Kit Documentation
+# CVLab-Kit 사용자 문서
 
-문서 카탈로그 - 필요한 문서를 빠르게 찾으세요.
+CVLab-Kit 사용을 위한 가이드 문서입니다.
 
-## 🚀 시작하기 (필수)
-
-처음 시작하거나 배포할 때 읽어야 할 문서:
-
-| 문서 | 설명 | 대상 |
-|------|------|------|
-| [배포 가이드](deployment_guide.md) | **GitHub 배포부터 서버-클라이언트 연결까지 전체 가이드** | 초보자, 배포 담당자 |
-| [빠른 시작](distributed_execution_quickstart.md) | **5분 빠른 시작 가이드** | 빨리 시작하고 싶은 사람 |
-| [분산 실행](distributed_execution_guide.md) | **분산 실행 상세 가이드** (API, 트러블슈팅) | 고급 사용자 |
-| [실험자 가이드](user_guide_experimenter.md) | 실험자용 가이드 (웹 UI 사용법) | 실험자 |
-| [설정 가이드](config_guide.md) | YAML 설정 파일 작성법 | 실험자 |
-
-## 🏗️ 아키텍처 & 설계 (개발자용)
-
-CVLab-Kit 구조를 이해하고 싶다면:
-
-| 문서 | 설명 | 대상 |
-|------|------|------|
-| [아키텍처](architecture.md) | 전체 시스템 아키텍처 | 개발자 |
-| [개발 철학](development_philosophy.md) | 설계 철학 (What vs How) | 개발자 |
-| [Creator 동작 방식 상세 설명](creator_workflow.md) | Creator 동작 방식 | 개발자 |
-| [컴포넌트 확장](extending_components.md) | Component 확장 방법 | Component 개발자 |
-| [개발자 가이드](user_guide_developer.md) | 웹 UI 개발자 가이드 | 프론트엔드/백엔드 개발자 |
-| [권장 라이브러리](additional_libraries.md) | 추가 라이브러리 정보 | 개발자 |
-
-## 🔧 실무 가이드
-
-성능 최적화 및 문제 해결:
-
-| 문서 | 설명 | 사용 시점 |
-|------|------|----------|
-| [설정 예제](config_examples.md) | 실전 YAML 설정 예제 모음 | 설정 작성 참고 |
-| [성능 튜닝 가이드](performance_tuning.md) | GPU 최적화 및 성능 향상 | 학습 속도 개선 시 |
-| [문제 해결 가이드](troubleshooting.md) | 일반적인 에러 해결 방법 | 문제 발생 시 |
-| [Web Helper 가이드](web_helper_guide.md) | 웹 UI 상세 사용 가이드 | 웹 기능 활용 시 |
-| [Build 개념](build_concept_explained.md) | Build 개념 설명 | 빌드 이해 필요 시 |
-| [문서화 가이드](documentation_guide.md) | 문서 작성 가이드 | 문서 기여 시 |
-| [GitHub 가이드](github_guide.md) | GitHub 워크플로우 가이드 | Git/GitHub 작업 시 |
+> **개발 문서**는 [PRD/](../PRD/) 폴더를 참고하세요.
 
 ---
 
-## 📖 읽는 순서 추천
+## 문서 구조
 
-### 초보자
-
-1. [배포 가이드](deployment_guide.md) - GitHub 배포부터 시작
-2. [빠른 시작](distributed_execution_quickstart.md) - 빠른 실행
-3. [실험자 가이드](user_guide_experimenter.md) - 웹 UI 사용법
-4. [설정 가이드](config_guide.md) - 실험 설정 작성
-
-### 개발자
-
-1. [아키텍처](architecture.md) - 전체 구조 이해
-2. [개발 철학](development_philosophy.md) - 설계 철학
-3. [Creator 동작 방식 상세 설명](creator_workflow.md) - Creator 동작
-4. [컴포넌트 확장](extending_components.md) - Component 확장
-5. [개발자 가이드](user_guide_developer.md) - 웹 UI 개발
-
-### 실험자
-
-1. [실험자 가이드](user_guide_experimenter.md) - 웹 UI 사용법
-2. [설정 가이드](config_guide.md) - YAML 설정
-3. 필요시 특정 기능 가이드 참조
+```
+docs/
+├── 시작하기/           # 설치 및 첫 실험
+│   ├── 설치.md
+│   ├── 첫-실험.md
+│   └── 분산-실행.md
+├── 가이드/             # 상세 사용법
+│   ├── 설정-문법.md
+│   ├── 설정-예제.md
+│   ├── 컴포넌트-사용.md
+│   ├── 웹-UI-사용.md
+│   └── 성능-튜닝.md
+├── 배포/               # 서버 배포
+│   └── 배포-가이드.md
+├── 참조/               # 레퍼런스
+│   └── FAQ.md
+├── 문제해결/           # 트러블슈팅
+│   └── 트러블슈팅.md
+├── api/                # API 문서
+├── tutorials/          # 튜토리얼
+└── legacy/             # 구 문서
+```
 
 ---
 
-## 📊 전체 문서 목록
+## 읽기 순서
 
-총 17개 문서 (프로덕션 수준):
+### 처음 시작하는 경우
 
-- **시작하기**: 5개
-- **아키텍처**: 5개
-- **실무 가이드**: 7개
-- **API 참조**: mkdocs.yml 참조
+1. [시작하기/설치.md](./시작하기/설치.md) - 환경 설정
+2. [시작하기/첫-실험.md](./시작하기/첫-실험.md) - 첫 실험 실행
+3. [가이드/설정-문법.md](./가이드/설정-문법.md) - YAML 작성법
 
-모든 문서는 [MkDocs 사이트](https://deveronica.github.io/cvlab-kit)에서 확인하세요.
+### 분산 환경을 구축하는 경우
+
+1. [시작하기/분산-실행.md](./시작하기/분산-실행.md) - 분산 실행 설정
+2. [배포/배포-가이드.md](./배포/배포-가이드.md) - 서버 배포
+
+### 문제가 발생한 경우
+
+1. [문제해결/트러블슈팅.md](./문제해결/트러블슈팅.md)
+2. [참조/FAQ.md](./참조/FAQ.md)
+
+---
+
+## 관련 문서
+
+### 개발 문서 (PRD/)
+
+CVLab-Kit 내부 아키텍처와 설계 결정을 이해하려면:
+
+- [PRD/L0-vision/](../PRD/L0-vision/) - 프로젝트 존재 이유
+- [PRD/L1-goals/](../PRD/L1-goals/) - 버전별 목표
+- [PRD/L2-architecture/](../PRD/L2-architecture/) - 시스템 구조
+- [PRD/L3-spec/](../PRD/L3-spec/) - 상세 명세
+- [PRD/L4-decisions/](../PRD/L4-decisions/) - 아키텍처 결정 기록
+
+### Node System 명세 (Builder 관련)
+
+- [PRD/L3-spec/node-system/포트-시스템.md](../PRD/L3-spec/node-system/포트-시스템.md) - 포트 스키마, Handle ID
+- [PRD/L3-spec/node-system/엣지-플로우-타입.md](../PRD/L3-spec/node-system/엣지-플로우-타입.md) - FlowType, CodeFlowEdge
+- [PRD/L3-spec/node-system/데이터-스키마.md](../PRD/L3-spec/node-system/데이터-스키마.md) - 전체 데이터 모델
+- [PRD/L3-spec/node-system/AST-노드-변환.md](../PRD/L3-spec/node-system/AST-노드-변환.md) - 파서 파이프라인
+
+### AI 개발 가이드
+
+- [CLAUDE.md](../CLAUDE.md) - Claude Code 개발 규칙

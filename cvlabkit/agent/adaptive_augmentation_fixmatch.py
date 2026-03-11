@@ -24,13 +24,29 @@ class AdaptiveAugmentationFixmatch(Agent):
     to transparently handle component composition from the config file.
     """
 
+    def _load_or_create_indices(self, index_file_path, targets, num_labeled, num_classes):
+        import os, json, numpy as np
+        if os.path.exists(index_file_path):
+            print(f"Loading labeled indices from {index_file_path}")
+            with open(index_file_path) as f:
+                labeled_indices = json.load(f)
+            all_indices = set(range(len(targets)))
+            unlabeled_indices = list(all_indices - set(labeled_indices))
+            np.random.shuffle(unlabeled_indices)
+            print(f"Loaded {len(labeled_indices)} labeled indices and reconstructed {len(unlabeled_indices)} unlabeled indices.")
+        else:
+            print("Generating new labeled/unlabeled split.")
+            from cvlabkit.agent.fixmatch import x_u_split
+            labeled_indices, unlabeled_indices = x_u_split(targets, num_labeled, num_classes)
+            print(f"Saving labeled indices to {index_file_path}")
+            with open(index_file_path, "w") as f:
+                json.dump(labeled_indices, f)
+        return labeled_indices, unlabeled_indices
+
     def setup(self):
         """Creates and initializes all necessary components for the agent."""
         device_id = self.cfg.get("device", 0)
-        if torch.cuda.is_available():
-            self.device = torch.device(f"cuda:{device_id}")
-        else:
-            self.device = torch.device("cpu")
+        self.device = torch.device(f"cuda:{device_id}" if torch.cuda.is_available() else "cpu")
         self.current_epoch = 0
 
         # --- Create Components using the Creator ---
@@ -51,8 +67,7 @@ class AdaptiveAugmentationFixmatch(Agent):
         # object, which could be a simple metric or a composed one.
         self.metric = self.create.metric()
 
-        if self.cfg.get("logger"):
-            self.logger = self.create.logger()
+        self.logger = self.create.logger() if self.cfg.get("logger") else None
 
         # --- Data Handling with Stratified Splitting ---
         train_dataset = self.create.dataset.train()
@@ -69,26 +84,7 @@ class AdaptiveAugmentationFixmatch(Agent):
             log_dir, f"{dataset_name}_labeled_indices_{num_labeled}.json"
         )
 
-        if os.path.exists(index_file_path):
-            print(f"Loading labeled indices from {index_file_path}")
-            with open(index_file_path) as f:
-                labeled_indices = json.load(f)
-
-            all_indices = set(range(len(targets)))
-            unlabeled_indices = list(all_indices - set(labeled_indices))
-            np.random.shuffle(unlabeled_indices)
-            print(
-                f"Loaded {len(labeled_indices)} labeled indices and reconstructed {len(unlabeled_indices)} unlabeled indices."
-            )
-        else:
-            print("Generating new labeled/unlabeled split.")
-            labeled_indices, unlabeled_indices = self._stratified_split(
-                targets, num_labeled
-            )
-
-            print(f"Saving {len(labeled_indices)} labeled indices to {index_file_path}")
-            with open(index_file_path, "w") as f:
-                json.dump(labeled_indices, f)
+        labeled_indices, unlabeled_indices = self._load_or_create_indices(index_file_path, targets, num_labeled, num_classes)
 
         labeled_sampler = self.create.sampler.labeled(indices=labeled_indices)
         unlabeled_sampler = self.create.sampler.unlabeled(indices=unlabeled_indices)

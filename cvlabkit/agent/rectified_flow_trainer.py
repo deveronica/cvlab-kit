@@ -21,14 +21,18 @@ class RectifiedFlow(Agent):
     ODE integration for sampling.
     """
 
+    def _setup_ema(self):
+        if getattr(self, "use_ema", False):
+            from ema_pytorch import EMA
+            ema_kwargs = self.cfg.get("ema_kwargs", {})
+            return EMA(self.model, **ema_kwargs).to(self.device)
+        return None
+
     def setup(self):
         """Set up all components for training."""
         # Device setup
         device_id = self.cfg.get("device", 0)
-        if torch.cuda.is_available():
-            self.device = torch.device(f"cuda:{device_id}")
-        else:
-            self.device = torch.device("cpu")
+        self.device = torch.device(f"cuda:{device_id}" if torch.cuda.is_available() else "cpu")
 
         # Create components using Creator pattern
         self.model = self.create.model().to(self.device)
@@ -43,10 +47,7 @@ class RectifiedFlow(Agent):
         self.solver = self.create.solver()
 
         # Loss function (if specified, otherwise use MSE)
-        if self.cfg.get("loss"):
-            self.loss_fn = self.create.loss()
-        else:
-            self.loss_fn = None
+        self.loss_fn = self.create.loss() if self.cfg.get("loss") else None
 
         # Create dataset and dataloader
         dataset = self.create.dataset()
@@ -65,10 +66,7 @@ class RectifiedFlow(Agent):
         self.use_ema = self.cfg.get("use_ema", False)
         self.ema_model = None
 
-        if self.use_ema:
-            ema_kwargs = self.cfg.get("ema_kwargs", {})
-            self.ema_model = EMA(self.model, **ema_kwargs)
-            self.ema_model.to(self.device)
+        self.ema_model = self._setup_ema()
 
         # Results and checkpoints
         self.results_folder = Path(self.cfg.get("results_folder", "./results"))
@@ -92,10 +90,7 @@ class RectifiedFlow(Agent):
         self.data_shape = None
 
         # Logger
-        if self.cfg.get("logger"):
-            self.logger = self.create.logger()
-        else:
-            self.logger = None
+        self.logger = self.create.logger() if self.cfg.get("logger") else None
 
     def train_step(self, batch):
         """Perform a single training step.

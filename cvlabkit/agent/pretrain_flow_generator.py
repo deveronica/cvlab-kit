@@ -39,14 +39,42 @@ class AdaptiveAugmentationFlow(Agent):
     The trained model can be frozen and used for SSL generative augmentation.
     """
 
+    def _setup_val_loader(self):
+        if not self.cfg.get("val_dataset"): return None
+        from torch.utils.data import DataLoader
+        try: from cvlabkit.agent.augmentation_flow import pil_collate
+        except: pass
+        val_dataset = self.create.dataset.val()
+        return DataLoader(
+            dataset=val_dataset,
+            batch_size=self.cfg.get("val_batch_size", self.cfg.batch_size),
+            shuffle=False,
+            drop_last=False,
+                collate_fn=pil_collate,
+        )
+
+    def _setup_ema(self):
+        if getattr(self, "use_ema", False):
+            from ema_pytorch import EMA
+            ema_kwargs = self.cfg.get("ema_kwargs", {"beta": 0.995, "update_every": 10})
+            return EMA(self.model, **ema_kwargs).to(self.device)
+        return None
+
+    def _setup_checkpoints(self):
+        if self.cfg.get("checkpoint"):
+            self.model_checkpoint = self.create.checkpoint.model()
+            self.image_checkpoint = self.create.checkpoint.image()
+            self.periodic_checkpoint = self.create.checkpoint.periodic() if self.cfg.get("checkpoint", {}).get("periodic") else None
+        else:
+            self.model_checkpoint = None
+            self.image_checkpoint = None
+            self.periodic_checkpoint = None
+
     def setup(self):
         """Set up all components for training."""
         # Device setup
         device_id = self.cfg.get("device", 0)
-        if torch.cuda.is_available():
-            self.device = torch.device(f"cuda:{device_id}")
-        else:
-            self.device = torch.device("cpu")
+        self.device = torch.device(f"cuda:{device_id}" if torch.cuda.is_available() else "cpu")
 
         # Create model using Creator pattern
         self.model = self.create.model().to(self.device)
@@ -66,31 +94,17 @@ class AdaptiveAugmentationFlow(Agent):
         self.adaptive_augment = self.create.transform.adaptive_augment()
 
         # Data normalizer (for model input/output)
-        if self.cfg.get("transform", {}).get("normalizer"):
-            self.normalizer = self.create.transform.normalizer()
-            self.unnormalizer = self.create.transform.unnormalizer()
-        else:
-            self.normalizer = None
-            self.unnormalizer = None
+        self.normalizer = self.create.transform.normalizer() if self.cfg.get("transform", {}).get("normalizer") else None
+        self.unnormalizer = self.create.transform.unnormalizer() if self.cfg.get("transform", {}).get("normalizer") else None
 
         # Noise schedule (optional)
-        if self.cfg.get("transform", {}).get("noise_schedule"):
-            self.noise_schedule = self.create.transform.noise_schedule()
-        else:
-            # Default: identity (linear interpolation)
-            self.noise_schedule = lambda t: t
+        self.noise_schedule = self.create.transform.noise_schedule() if self.cfg.get("transform", {}).get("noise_schedule") else lambda t: t
 
         # Create solver for sampling (ODE integration)
-        if self.cfg.get("solver"):
-            self.solver = self.create.solver()
-        else:
-            self.solver = None
+        self.solver = self.create.solver() if self.cfg.get("solver") else None
 
         # Loss function
-        if self.cfg.get("loss"):
-            self.loss_fn = self.create.loss()
-        else:
-            self.loss_fn = None  # Will use MSE by default
+        self.loss_fn = self.create.loss() if self.cfg.get("loss") else None
 
         # Create dataset and dataloader
         from torch.utils.data import DataLoader
@@ -106,17 +120,7 @@ class AdaptiveAugmentationFlow(Agent):
         )
 
         # Validation loader (optional)
-        if self.cfg.get("val_dataset"):
-            val_dataset = self.create.dataset.val()
-            self.val_loader = DataLoader(
-                dataset=val_dataset,
-                batch_size=self.cfg.get("val_batch_size", self.cfg.batch_size),
-                shuffle=False,
-                drop_last=False,
-                collate_fn=pil_collate,
-            )
-        else:
-            self.val_loader = None
+        self.val_loader = self._setup_val_loader()
 
         # Training configuration
         self.predict = self.cfg.get("predict", "flow")  # 'flow' or 'x1'
@@ -132,26 +136,10 @@ class AdaptiveAugmentationFlow(Agent):
         self.use_ema = self.cfg.get("use_ema", True)
         self.ema_model = None
 
-        if self.use_ema:
-            ema_kwargs = self.cfg.get("ema_kwargs", {"beta": 0.995, "update_every": 10})
-            self.ema_model = EMA(self.model, **ema_kwargs)
-            self.ema_model.to(self.device)
+        self.ema_model = self._setup_ema()
 
         # Checkpoint components
-        if self.cfg.get("checkpoint"):
-            self.model_checkpoint = self.create.checkpoint.model()
-            self.image_checkpoint = self.create.checkpoint.image()
-
-            # Periodic checkpoint for images (optional)
-            if self.cfg.get("checkpoint", {}).get("periodic"):
-                self.periodic_checkpoint = self.create.checkpoint.periodic()
-            else:
-                self.periodic_checkpoint = None
-        else:
-            # Fallback to manual paths (backward compatibility)
-            self.model_checkpoint = None
-            self.image_checkpoint = None
-            self.periodic_checkpoint = None
+        self._setup_checkpoints()
 
         # Always set checkpoint_dir and results_dir
         self.checkpoint_dir = Path(
@@ -179,10 +167,7 @@ class AdaptiveAugmentationFlow(Agent):
         self.data_shape = None
 
         # Logger (optional)
-        if self.cfg.get("logger"):
-            self.logger = self.create.logger()
-        else:
-            self.logger = None
+        self.logger = self.create.logger() if self.cfg.get("logger") else None
 
         print("AugmentationFlow Agent initialized")
         print(f"  Device: {self.device}")

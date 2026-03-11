@@ -36,10 +36,18 @@ class Classification(Agent):
         val_dataset = self.create.dataset.val(transform=transform)
 
         # Dataloaders receive the dataset object as a positional argument.
-        self.train_loader = self.create.dataloader.train(train_dataset)
-        self.val_loader = self.create.dataloader.val(val_dataset)
+        self.train_loader = self.create.train(self.train_dataset.out())
+        self.val_loader = self.create.val(self.val_dataset.out())
         self.metric = self.create.metric()
         print(f"Components initialized successfully. Using device: {self.device}")
+        self.model = self.create.model(impl="model")
+        self.optimizer_2 = self.create.optimizer(impl="optimizer")
+        self.loss_fn_2 = self.create.loss(impl="loss_fn")
+        self.train_dataset = self.create.dataset(impl="train_dataset")
+        self.val_dataset = self.create.dataset(impl="val_dataset")
+        self.train_loader_2 = self.create.dataloader(impl="train_loader")
+        self.val_loader_2 = self.create.dataloader(impl="val_loader")
+        self.metric_2 = self.create.metric(impl="metric")
 
     def train_step(self, batch):
         """Performs a single training step on a batch of data.

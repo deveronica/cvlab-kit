@@ -409,10 +409,7 @@ class CurriculumAdaptiveSSL(Agent):
     def setup(self):
         """Initialize all components for 3-Factor SSL."""
         device_id = self.cfg.get("device", 0)
-        if torch.cuda.is_available():
-            self.device = torch.device(f"cuda:{device_id}")
-        else:
-            self.device = torch.device("cpu")
+        self.device = torch.device(f"cuda:{device_id}" if torch.cuda.is_available() else "cpu")
 
         self.current_epoch = 0
         self.current_step = 0
@@ -434,8 +431,7 @@ class CurriculumAdaptiveSSL(Agent):
         self.metric = self.create.metric.val()
 
         # Logger
-        if self.cfg.get("logger"):
-            self.logger = self.create.logger()
+        self.logger = self.create.logger() if self.cfg.get("logger") else None
 
         # --- Dataset Preparation ---
         train_dataset = self.create.dataset.train()
@@ -457,16 +453,13 @@ class CurriculumAdaptiveSSL(Agent):
         ) = self._resolve_ablation_flags()
 
         # --- Factor 1: Curriculum Sampling ---
-        if self.curriculum_enabled:
-            self._setup_curriculum(train_dataset, unlabeled_indices)
+        self._setup_curriculum(train_dataset, unlabeled_indices)
 
         # --- Factor 2: Adaptive Augmentation ---
-        if self.adaptive_aug_enabled:
-            self._setup_adaptive_augment()
+        self._setup_adaptive_augment()
 
         # --- Factor 3: Dynamic Threshold ---
-        if self.dynamic_threshold_enabled:
-            self._setup_dynamic_threshold()
+        self._setup_dynamic_threshold()
 
         # --- Data Loaders ---
         self._setup_dataloaders(
@@ -581,6 +574,7 @@ class CurriculumAdaptiveSSL(Agent):
         print(f"  Schedule: {self.curriculum_schedule}")
 
     def _setup_adaptive_augment(self):
+        if not getattr(self, "adaptive_aug_enabled", False): return
         """Setup entropy-adaptive augmentation with exponential scaling.
 
         Uses the same exponential mapping as AdaptiveAugmentationFixmatch:
@@ -598,6 +592,7 @@ class CurriculumAdaptiveSSL(Agent):
         print(f"  Classes: {self.num_classes}")
 
     def _setup_dynamic_threshold(self):
+        if not getattr(self, "dynamic_threshold_enabled", False): return
         """Setup FlexMatch-style dynamic threshold scheduler."""
         print("\n[Factor 3] Setting up Dynamic Threshold...")
         threshold_cfg = self.cfg.get("dynamic_threshold", {})

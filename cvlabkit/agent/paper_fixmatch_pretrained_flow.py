@@ -28,15 +28,29 @@ class FlowAugmentationFixmatch(Agent):
     High confidence samples get strong augmentations (curriculum learning).
     """
 
+    def _load_or_create_indices(self, index_file_path, targets, num_labeled, num_classes):
+        import os, json, numpy as np
+        if os.path.exists(index_file_path):
+            print(f"Loading labeled indices from {index_file_path}")
+            with open(index_file_path) as f:
+                labeled_indices = json.load(f)
+            all_indices = set(range(len(targets)))
+            unlabeled_indices = list(all_indices - set(labeled_indices))
+            np.random.shuffle(unlabeled_indices)
+            print(f"Loaded {len(labeled_indices)} labeled indices and reconstructed {len(unlabeled_indices)} unlabeled indices.")
+        else:
+            print("Generating new labeled/unlabeled split.")
+            from cvlabkit.agent.fixmatch import x_u_split
+            labeled_indices, unlabeled_indices = x_u_split(targets, num_labeled, num_classes)
+            print(f"Saving labeled indices to {index_file_path}")
+            with open(index_file_path, "w") as f:
+                json.dump(labeled_indices, f)
+        return labeled_indices, unlabeled_indices
+
     def setup(self):
         """Creates and initializes all necessary components for the agent."""
         device_id = self.cfg.get("device", 0)
-        if torch.cuda.is_available():
-            self.device = torch.device(f"cuda:{device_id}")
-        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            self.device = torch.device("mps")
-        else:
-            self.device = torch.device("cpu")
+        self.device = torch.device(f"cuda:{device_id}" if torch.cuda.is_available() else "mps" if hasattr(torch.backends, "mps") and torch.backends.mps.is_available() else "cpu")
         print(f"Using device: {self.device}")
         self.current_epoch = 0
 
@@ -60,8 +74,7 @@ class FlowAugmentationFixmatch(Agent):
         self.metric = self.create.metric.val()
 
         # Logger (optional)
-        if self.cfg.get("logger"):
-            self.logger = self.create.logger()
+        self.logger = self.create.logger() if self.cfg.get("logger") else None
 
         # --- Load Pretrained Flow Model ---
         self._setup_augmentation_flow()
@@ -81,26 +94,7 @@ class FlowAugmentationFixmatch(Agent):
             log_dir, f"{dataset_name}_labeled_indices_{num_labeled}.json"
         )
 
-        if os.path.exists(index_file_path):
-            print(f"Loading labeled indices from {index_file_path}")
-            with open(index_file_path) as f:
-                labeled_indices = json.load(f)
-
-            all_indices = set(range(len(targets)))
-            unlabeled_indices = list(all_indices - set(labeled_indices))
-            np.random.shuffle(unlabeled_indices)
-            print(
-                f"Loaded {len(labeled_indices)} labeled indices and reconstructed {len(unlabeled_indices)} unlabeled indices."
-            )
-        else:
-            print("Generating new labeled/unlabeled split.")
-            labeled_indices, unlabeled_indices = self._stratified_split(
-                targets, num_labeled
-            )
-
-            print(f"Saving {len(labeled_indices)} labeled indices to {index_file_path}")
-            with open(index_file_path, "w") as f:
-                json.dump(labeled_indices, f)
+        labeled_indices, unlabeled_indices = self._load_or_create_indices(index_file_path, targets, num_labeled, num_classes)
 
         labeled_sampler = self.create.sampler.labeled(indices=labeled_indices)
         unlabeled_sampler = self.create.sampler.unlabeled(indices=unlabeled_indices)

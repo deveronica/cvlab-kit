@@ -19,10 +19,7 @@ class Supervised(Agent):
     def setup(self):
         """Creates and initializes all necessary components for the agent."""
         device_id = self.cfg.get("device", 0)
-        if torch.cuda.is_available():
-            self.device = torch.device(f"cuda:{device_id}")
-        else:
-            self.device = torch.device("cpu")
+        self.device = torch.device(f"cuda:{device_id}" if torch.cuda.is_available() else "cpu")
         self.current_epoch = 0
 
         # --- Create Components using the Creator ---
@@ -33,8 +30,7 @@ class Supervised(Agent):
         self.loss_fn = self.create.loss()
         self.metric = self.create.metric()
 
-        if self.cfg.get("logger"):
-            self.logger = self.create.logger()
+        self.logger = self.create.logger() if self.cfg.get("logger") else None
 
         # --- Data Handling with Stratified Splitting ---
         # Pass the transform objects to the dataset constructor.

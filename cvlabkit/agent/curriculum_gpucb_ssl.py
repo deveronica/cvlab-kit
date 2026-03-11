@@ -544,8 +544,7 @@ class CurriculumGPUCBSSL(Agent):
 
         # Metrics & Logger
         self.metric = self.create.metric.val()
-        if self.cfg.get("logger"):
-            self.logger = self.create.logger()
+        self.logger = self.create.logger() if self.cfg.get("logger") else None
 
         # Dataset preparation
         train_dataset = self.create.dataset.train()

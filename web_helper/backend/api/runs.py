@@ -1,6 +1,7 @@
 """Run-specific API endpoints for config and logs access."""
 
 import csv
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -274,6 +275,30 @@ async def get_run_logs(project: str, run_name: str, db: Session = Depends(get_db
         )
 
 
+@router.get("/{project}/tags")
+async def get_project_tags(project: str, db: Session = Depends(get_db)):
+    """Get all unique tags used in a project for autocomplete."""
+    try:
+        runs = db.query(Run).filter(Run.project == project).all()
+
+        all_tags = set()
+        for run in runs:
+            if run.tags:
+                all_tags.update(run.tags)
+
+        return success_response({"project": project, "tags": sorted(list(all_tags))})
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=error_response(
+                title="Internal Server Error",
+                status=500,
+                detail=f"Failed to get project tags: {str(e)}",
+            ),
+        )
+
+
 @router.get("/{project}/{run_name}")
 async def get_run_details(project: str, run_name: str, db: Session = Depends(get_db)):
     """Get complete run details including config and log file paths."""
@@ -309,6 +334,9 @@ async def get_run_details(project: str, run_name: str, db: Session = Depends(get
             "metrics_path": run.metrics_path,
             "total_steps": run.total_steps,
             "final_metrics": run.final_metrics or {},
+            "reproducibility": run.reproducibility or {},
+            "notes": run.notes or "",
+            "tags": run.tags or [],
             "available_files": {
                 "config_files": [str(f) for f in config_files],
                 "log_files": [str(f) for f in log_files],
@@ -335,6 +363,8 @@ async def get_run_metrics(
     project: str,
     run_name: str,
     downsample: Optional[int] = Query(None, description="Downsample to N points"),
+    metrics: Optional[List[str]] = Query(None, description="List of metric names to fetch (multiple values allowed)"),
+    as_dict: Optional[bool] = Query(False, description="Return metrics as dict mapping metric -> series"),
     db: Session = Depends(get_db),
 ):
     """Get step-wise metrics from CSV file for a specific run.
@@ -408,14 +438,38 @@ async def get_run_metrics(
                 indices = [int(i * step) for i in range(downsample)]
                 data = [data[i] for i in indices]
 
-            return success_response(
-                {
+            if metrics:
+                available = []
+                if data and len(data) > 0:
+                    first_row = data[0]
+                    available = [m for m in metrics if m in first_row.keys()]
+                if not available and data:
+                    available = [k for k in data[0].keys() if k != "step" and k in metrics]
+
+                if available:
+                    if as_dict:
+                        steps = [row.get("step") if "step" in row else idx for idx, row in enumerate(data)]
+                        series = {m: [row.get(m) for row in data] for m in available}
+                        payload = {"steps": steps, "series": series, "total_points": len(data)}
+                    else:
+                        out = []
+                        for row in data:
+                            r = {"step": row.get("step") if "step" in row else None}
+                            for m in available:
+                                r[m] = row.get(m)
+                            out.append(r)
+                        payload = {"data": out, "total_points": len(out), "columns": ["step"] + available}
+                else:
+                    payload = {"data": data, "total_steps": len(data), "file_path": str(csv_file), "columns": list(data[0].keys()) if data else []}
+            else:
+                payload = {
                     "data": data,
                     "total_steps": len(data),
                     "file_path": str(csv_file),
                     "columns": list(data[0].keys()) if data else [],
                 }
-            )
+
+            return success_response(payload)
 
         except Exception as e:
             raise HTTPException(
@@ -546,32 +600,6 @@ async def update_run_tags(
                 title="Internal Server Error",
                 status=500,
                 detail=f"Failed to update tags: {str(e)}",
-            ),
-        )
-
-
-@router.get("/{project}/tags")
-async def get_project_tags(project: str, db: Session = Depends(get_db)):
-    """Get all unique tags used in a project for autocomplete."""
-    try:
-        # Get all runs in the project
-        runs = db.query(Run).filter(Run.project == project).all()
-
-        # Collect all unique tags
-        all_tags = set()
-        for run in runs:
-            if run.tags:
-                all_tags.update(run.tags)
-
-        return success_response({"project": project, "tags": sorted(list(all_tags))})
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=error_response(
-                title="Internal Server Error",
-                status=500,
-                detail=f"Failed to get project tags: {str(e)}",
             ),
         )
 

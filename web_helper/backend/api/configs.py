@@ -18,6 +18,11 @@ class ValidateConfigRequest(BaseModel):
     config: str
 
 
+class CreateConfigRequest(BaseModel):
+    name: str
+    content: str = "# New configuration\n"
+
+
 def get_config_path(relative_path: str) -> Path:
     """Constructs the full path to a config file and ensures it's within the config directory."""
     base_path = Path(CONFIG_DIR).resolve()
@@ -75,54 +80,101 @@ async def get_config_content(config_path: str):
         )
 
 
-@router.post("/validate")
-async def validate_config(request: ValidateConfigRequest):
-    """Validate the entire YAML configuration."""
+@router.post("/create")
+async def create_config(request: CreateConfigRequest):
+    """Create a new configuration file."""
+    import re
+
     try:
-        # Use FullLoader to support Python tags like !!python/tuple
-        config_data = yaml.load(request.config, Loader=yaml.FullLoader)
-    except yaml.YAMLError as e:
-        return error_response("Invalid YAML format", 400, {"error": str(e)})
+        # Validate name
+        name = request.name.strip()
+        if not re.match(r"^[a-zA-Z0-9_-]+$", name):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid name. Use letters, numbers, hyphens, and underscores only.",
+            )
 
-    errors = []
+        # Ensure .yaml extension
+        if not name.endswith(".yaml") and not name.endswith(".yml"):
+            name = f"{name}.yaml"
 
-    # List of component types that can be defined in the config
-    component_types = [
-        "model",
-        "dataset",
-        "optimizer",
-        "loss",
-        "scheduler",
-        "transform",
-        "dataloader",
-        "agent",
-    ]
+        # Check path safety
+        base_path = Path(CONFIG_DIR).resolve()
+        config_path = (base_path / name).resolve()
 
-    for comp_type in component_types:
-        if comp_type in config_data:
-            comp_name = config_data[comp_type]
-            # Handle nested component definitions
-            if isinstance(comp_name, dict):
-                for logical_name, actual_name in comp_name.items():
-                    if not (COMPONENT_DIR / comp_type / f"{actual_name}.py").exists():
-                        errors.append(
-                            f"Component not found for type '{comp_type}' (name: '{logical_name}'): {actual_name}.py"
-                        )
-            # Handle simple component definition
-            elif isinstance(comp_name, str):
-                # Handle case like `cifar10(split=train)`
-                if "(" in comp_name:
-                    comp_name = comp_name.split("(")[0]
-                if not (COMPONENT_DIR / comp_type / f"{comp_name}.py").exists():
-                    errors.append(
-                        f"Component not found for type '{comp_type}': {comp_name}.py"
-                    )
-            else:
-                errors.append(f"Invalid format for component type '{comp_type}'")
+        if not config_path.is_relative_to(base_path):
+            raise HTTPException(
+                status_code=400,
+                detail="Access to paths outside the config directory is not allowed.",
+            )
 
-    if errors:
+        # Check if file already exists
+        if config_path.exists():
+            raise HTTPException(
+                status_code=409,
+                detail=f"Configuration file already exists: {name}",
+            )
+
+        # Create parent directories if needed
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write the file
+        config_path.write_text(request.content, encoding="utf-8")
+
+        return success_response(
+            {"path": name, "created": True},
+            {"message": f"Configuration file created: {name}"},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
         return error_response(
-            "Configuration validation failed", 400, {"errors": errors}
+            f"Failed to create configuration file: {request.name}",
+            500,
+            {"error": str(e)},
         )
 
-    return success_response({"valid": True}, {"message": "Configuration is valid"})
+
+class SaveConfigRequest(BaseModel):
+    path: str
+    content: dict | str
+
+
+@router.post("/save")
+async def save_config(request: SaveConfigRequest):
+    """Save configuration file content."""
+    try:
+        full_path = get_config_path(request.path)
+        
+        # If content is a dict, convert to YAML string
+        if isinstance(request.content, dict):
+            # Custom dumper to keep YAML looking clean
+            class IndentDumper(yaml.Dumper):
+                def increase_indent(self, flow=False, indentless=False):
+                    return super().increase_indent(flow, False)
+            
+            yaml_content = yaml.dump(
+                request.content, 
+                Dumper=IndentDumper,
+                default_flow_style=False, 
+                sort_keys=False,
+                allow_unicode=True
+            )
+        else:
+            yaml_content = request.content
+
+        # Write to file
+        full_path.write_text(yaml_content, encoding="utf-8")
+
+        return success_response(
+            {"path": request.path, "saved": True},
+            {"message": f"Configuration saved successfully: {request.path}"},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        return error_response(
+            f"Failed to save configuration file: {request.path}",
+            500,
+            {"error": str(e)},
+        )

@@ -162,6 +162,7 @@ async def get_project_experiments(project_name: str, db: Session = Depends(get_d
                 "max_metrics": max_metrics,
                 "min_metrics": min_metrics,
                 "mean_metrics": mean_metrics,
+                "reproducibility": run.reproducibility or {},
                 "notes": run.notes or "",
                 "tags": run.tags or [],
             }

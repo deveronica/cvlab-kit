@@ -2,7 +2,7 @@
 
 import csv
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -23,6 +23,12 @@ async def get_metrics(
     db: Session = Depends(get_db),
     downsample: Optional[int] = Query(
         None, description="Downsample to N points for performance"
+    ),
+    metrics: Optional[list[str]] = Query(
+        None, description="List of metric names to fetch (supports multiple values)"
+    ),
+    as_dict: Optional[bool] = Query(
+        False, description="Return metrics as a mapping of metric_name -> series"
     ),
 ):
     """Get metrics for a specific run with optional downsampling."""
@@ -67,18 +73,33 @@ async def get_metrics(
         # Read and parse CSV data
         metrics_data = _read_metrics_file(metrics_path, downsample)
 
-        return success_response(
-            {
-                "data": metrics_data,
-                "metadata": {
-                    "file_path": str(metrics_path),
-                    "total_points": len(metrics_data),
-                    "downsampled": downsample is not None,
-                    "columns": list(metrics_data[0].keys()) if metrics_data else [],
-                },
-            },
-            {"message": "Metrics retrieved successfully"},
-        )
+        if metrics:
+            available = []
+            if metrics_data:
+                first_row = metrics_data[0]
+                available = [m for m in metrics if m in first_row.keys()]
+            if not available and metrics_data:
+                available = [k for k in metrics_data[0].keys() if k != "step" and k in metrics]
+
+            if available:
+                if as_dict:
+                    steps = [row.get("step") if "step" in row else idx for idx, row in enumerate(metrics_data)]
+                    series = {m: [row.get(m) for row in metrics_data] for m in available}
+                    payload = {"steps": steps, "series": series, "total_points": len(metrics_data)}
+                else:
+                    filtered_rows = []
+                    for row in metrics_data:
+                        new_row = {"step": row.get("step") if "step" in row else None}
+                        for m in available:
+                            new_row[m] = row.get(m)
+                        filtered_rows.append(new_row)
+                    payload = {"data": filtered_rows, "total_points": len(filtered_rows), "columns": ["step"] + available}
+            else:
+                payload = {"data": metrics_data, "metadata": {"file_path": str(metrics_path), "total_points": len(metrics_data), "downsampled": downsample is not None, "columns": list(metrics_data[0].keys()) if metrics_data else []}}
+        else:
+            payload = {"data": metrics_data, "metadata": {"file_path": str(metrics_path), "total_points": len(metrics_data), "downsampled": downsample is not None, "columns": list(metrics_data[0].keys()) if metrics_data else []}}
+
+        return success_response(payload, {"message": "Metrics retrieved successfully"})
 
     except Exception as e:
         raise HTTPException(
@@ -88,7 +109,7 @@ async def get_metrics(
 
 def _read_metrics_file(
     file_path: Path, downsample: Optional[int] = None
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Read and parse metrics CSV file with optional downsampling."""
     metrics_data = []
 

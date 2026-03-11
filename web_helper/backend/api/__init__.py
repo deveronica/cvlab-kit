@@ -9,7 +9,9 @@ from .configs import router as configs_router
 from .correlations import router as correlations_router
 from .devices import router as devices_router
 from .events import router as events_router
+from .git import router as git_router
 from .metrics import router as metrics_router
+from .node_graph import router as node_graph_router
 from .outliers import router as outliers_router
 from .projects import router as projects_router
 from .queue import router as queue_router
@@ -17,6 +19,7 @@ from .recommendations import router as recommendations_router
 from .runs import router as runs_router
 from .sync import router as sync_router
 from .trends import router as trends_router
+from .websocket import router as websocket_router
 
 
 def create_router() -> APIRouter:
@@ -30,6 +33,7 @@ def create_router() -> APIRouter:
     api_router.include_router(queue_router, tags=["queue"])
     api_router.include_router(events_router, tags=["events"])
     api_router.include_router(components_router, tags=["components"])
+    api_router.include_router(node_graph_router, prefix="/nodes", tags=["node_graph"])
     api_router.include_router(configs_router, tags=["configs"])
     api_router.include_router(metrics_router, tags=["metrics"])
     api_router.include_router(column_mappings_router, tags=["column_mappings"])
@@ -39,6 +43,8 @@ def create_router() -> APIRouter:
     api_router.include_router(sync_router, tags=["sync"])
     api_router.include_router(correlations_router, tags=["correlations"])
     api_router.include_router(artifacts_router, tags=["artifacts"])
+    api_router.include_router(git_router, tags=["git"])
+    api_router.include_router(websocket_router, tags=["websocket"])
     # Note: experiments router removed - all experiment execution now goes through queue
 
     # Root API endpoint

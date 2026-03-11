@@ -157,7 +157,7 @@ async def receive_heartbeat(heartbeat_data: Dict, db: Session = Depends(get_db))
         # Validate running jobs - mark stale jobs as crashed
         await _validate_running_jobs(db, host_id, device.active_jobs or [])
 
-        # Broadcast device update via SSE (with real-time status)
+        # Broadcast device update via SSE & WebSocket (Dual-stack)
         await event_manager.send_device_update(
             {
                 "host_id": host_id,

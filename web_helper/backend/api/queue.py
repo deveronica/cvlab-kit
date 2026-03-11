@@ -26,6 +26,7 @@ from ..models.queue import (
     JobSubmission,
     QueueJob,
 )
+from ..services.event_manager import event_manager
 from ..services.queue_manager import get_queue_manager
 from ..utils import error_response, success_response
 
@@ -273,6 +274,13 @@ async def submit_job(submission: JobSubmission):
         queue_manager = get_queue_manager()
         job = queue_manager.submit_job(submission)
 
+        # Broadcast queue update via SSE for immediate UI refresh
+        await event_manager.send_queue_update({
+            "action": "job_added",
+            "experiment_uid": job.experiment_uid,
+            "job": job.model_dump(),
+        })
+
         return JobResponse(job=job)
 
     except HTTPException:
@@ -374,6 +382,13 @@ async def add_job(submission: DirectJobSubmission):
         queue_manager = get_queue_manager()
         job = queue_manager.submit_job(job_submission)
 
+        # Broadcast queue update via SSE for immediate UI refresh
+        await event_manager.send_queue_update({
+            "action": "job_added",
+            "experiment_uid": job.experiment_uid,
+            "job": job.model_dump(),
+        })
+
         return JobResponse(job=job)
 
     except HTTPException:
@@ -440,6 +455,49 @@ async def cancel_job(experiment_uid: str):
 
         return success_response(
             {"message": f"Experiment {experiment_uid} cancelled successfully"}
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=error_response(
+                title="Internal Server Error",
+                status=500,
+                detail=f"Failed to cancel job: {str(e)}",
+            ),
+        )
+
+
+@router.post("/job/{job_id}/cancel")
+async def cancel_job_by_id(job_id: str):
+    """Cancel a job by job ID (same as experiment_uid).
+
+    This endpoint provides a consistent API pattern with /job/{id}/pause and /job/{id}/resume.
+    """
+    try:
+        queue_manager = get_queue_manager()
+        success = queue_manager.cancel_job(job_id)
+
+        if not success:
+            raise HTTPException(
+                status_code=404,
+                detail=error_response(
+                    title="Not Found",
+                    status=404,
+                    detail=f"Job not found or cannot be cancelled: {job_id}",
+                ),
+            )
+
+        # Broadcast queue update via SSE
+        await event_manager.send_queue_update({
+            "action": "job_cancelled",
+            "experiment_uid": job_id,
+        })
+
+        return success_response(
+            {"message": f"Job {job_id} cancelled successfully"}
         )
 
     except HTTPException:

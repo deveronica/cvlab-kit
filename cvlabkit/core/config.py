@@ -194,25 +194,59 @@ class Config:
         in a new `Config` object, effectively generating all configurations for
         a grid search experiment.
 
+        String-wrapped lists (e.g., "[1, 2, 3]") are parsed as data lists and
+        excluded from grid search expansion.
+
         Returns:
             List[Config]: A list of `Config` objects, one for each parameter
                 combination. If no list-based parameters are found, it returns
                 a list containing only the original `Config` object.
+
+        Examples:
+            >>> cfg = Config({'lr': [0.001, 0.01], 'layers': "[64, 128]"})
+            >>> expanded = cfg.expand()
+            >>> len(expanded)  # 2 configs (lr only)
+            2
+            >>> expanded[0].layers  # parsed as list, not grid search
+            [64, 128]
         """
-        # Importing product from itertools to generate combinations.
+        import ast
         from itertools import product
 
         # Flatten the nested configuration into a single-level dictionary.
         flat_config = self._flatten(self._data)
+
+        # Parse string-wrapped lists: "[1, 2, 3]" → [1, 2, 3] (excluded from grid)
+        for k, v in flat_config.items():
+            if isinstance(v, str) and v.startswith("[") and v.endswith("]"):
+                try:
+                    parsed = ast.literal_eval(v)
+                    if isinstance(parsed, list):
+                        # Wrap in tuple to exclude from grid search, will unwrap later
+                        flat_config[k] = ("__data_list__", parsed)
+                except (ValueError, SyntaxError):
+                    pass  # Keep as string if parsing fails
+
         # Identify keys whose values are lists, indicating parameters for grid search.
         grid_keys = [k for k, v in flat_config.items() if isinstance(v, list)]
 
-        # If no list-based parameters are found, return the original config in a list.
+        # Handle empty grid (no list parameters)
         if not grid_keys:
-            return [self]
+            # Unwrap data lists before returning
+            for k, v in flat_config.items():
+                if isinstance(v, tuple) and len(v) == 2 and v[0] == "__data_list__":
+                    flat_config[k] = v[1]
+            nested_config = self._unflatten(flat_config)
+            return [Config(nested_config, proxy=self.proxy)]
 
         # Get the values for each grid key to form combinations.
         combinations = [flat_config[k] for k in grid_keys]
+
+        # Handle empty list edge case (would produce 0 configs)
+        if any(len(c) == 0 for c in combinations):
+            # Treat empty list as single empty list value
+            combinations = [c if len(c) > 0 else [c] for c in combinations]
+
         expanded_configs = []
         # Generate all possible combinations using `itertools.product`.
         for combo in product(*combinations):
@@ -220,6 +254,10 @@ class Config:
             # Apply the current combination of values to the flattened config.
             for key, value in zip(grid_keys, combo):
                 flat_instance[key] = value
+            # Unwrap data lists
+            for k, v in flat_instance.items():
+                if isinstance(v, tuple) and len(v) == 2 and v[0] == "__data_list__":
+                    flat_instance[k] = v[1]
             # Unflatten the modified dictionary back into a nested structure.
             nested_config = self._unflatten(flat_instance)
             # Create a new Config object for each combination.

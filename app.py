@@ -7,16 +7,26 @@ All implementation logic is in web_helper/ modules.
 
 import argparse
 import os
-import socket
 import sys
 
-from web_helper.backend.core.server import run_development, run_production
-from web_helper.backend.daemon.process_manager import (
-    ProcessManager,
-    show_status,
-    stop_all,
-)
-from web_helper.middleend.cli import run_worker
+# Wrap heavy imports in a try-except block to provide a friendly bootstrap message
+# for first-time users who haven't installed dependencies yet.
+try:
+    from web_helper.backend.core.server import run_development, run_production
+    from web_helper.backend.daemon.process_manager import (
+        show_status,
+        stop_all,
+    )
+    from web_helper.middleend.cli import run_worker
+except ImportError as e:
+    print(f"\\n\\033[91m⚠️  Missing Required Dependency: {e.name}\\033[0m")
+    print("\\nCVLab-Kit requires dependencies to be installed before running.")
+    print("We strongly recommend using 'uv' package manager.\\n")
+    print("\\033[92mPlease run the following commands to bootstrap the environment:\\033[0m")
+    print("  1. uv sync --frozen")
+    print("  2. uv run app.py --dev\\n")
+    print("If you don't have 'uv' installed, you can install it via: pip install uv\\n")
+    sys.exit(1)
 
 
 def create_parser():
@@ -169,6 +179,10 @@ def main():
         stop_all()
         return
 
+    # Mark development mode for daemon log directory logic
+    # In dev/client-only mode, use shared logs/ folder instead of logs_{server_name}/
+    args.is_dev_mode = args.dev or args.client_only
+
     # Client-only mode: run middleend worker
     if args.client_only:
         run_worker(args, daemon=args.daemon)
@@ -176,6 +190,9 @@ def main():
 
     # Server modes: development or production
     if args.dev:
+        # In dev mode, bind to localhost by default unless explicitly specified
+        if args.host == "0.0.0.0":
+            args.host = "127.0.0.1"
         run_development(args, daemon=args.daemon)
     else:
         # Production mode

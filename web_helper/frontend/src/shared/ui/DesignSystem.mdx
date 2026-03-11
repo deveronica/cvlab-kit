@@ -1,0 +1,139 @@
+import { Meta, ColorPalette, ColorItem, Typeset } from '@storybook/blocks';
+
+<Meta title="Design System/Overview" />
+
+# Design System
+
+This design system outlines the visual language and UI/UX standards for the application, ensuring consistency across all features and widgets. It is built upon Tailwind CSS variables and Shadcn UI principles.
+
+## 1. Color Palette
+
+The color system uses semantic names mapped to CSS variables (`hsl` values), allowing for easy theming (e.g., Dark Mode).
+
+<ColorPalette>
+  <ColorItem
+    title="Primary"
+    subtitle="Brand color, main actions"
+    colors={{
+      DEFAULT: 'hsl(var(--primary))',
+      Foreground: 'hsl(var(--primary-foreground))',
+    }}
+  />
+  <ColorItem
+    title="Secondary"
+    subtitle="Secondary actions, muted emphasis"
+    colors={{
+      DEFAULT: 'hsl(var(--secondary))',
+      Foreground: 'hsl(var(--secondary-foreground))',
+    }}
+  />
+  <ColorItem
+    title="Destructive"
+    subtitle="Error states, delete actions"
+    colors={{
+      DEFAULT: 'hsl(var(--destructive))',
+      Foreground: 'hsl(var(--destructive-foreground))',
+    }}
+  />
+  <ColorItem
+    title="Muted"
+    subtitle="Backgrounds, disabled text"
+    colors={{
+      DEFAULT: 'hsl(var(--muted))',
+      Foreground: 'hsl(var(--muted-foreground))',
+    }}
+  />
+  <ColorItem
+    title="Accent"
+    subtitle="Highlights, interactive elements"
+    colors={{
+      DEFAULT: 'hsl(var(--accent))',
+      Foreground: 'hsl(var(--accent-foreground))',
+    }}
+  />
+  <ColorItem
+    title="Background & Foreground"
+    subtitle="App background and base text"
+    colors={{
+      Background: 'hsl(var(--background))',
+      Foreground: 'hsl(var(--foreground))',
+      Card: 'hsl(var(--card))',
+      Popover: 'hsl(var(--popover))',
+    }}
+  />
+  <ColorItem
+    title="Border & Input"
+    subtitle="Borders and form inputs"
+    colors={{
+      Border: 'hsl(var(--border))',
+      Input: 'hsl(var(--input))',
+      Ring: 'hsl(var(--ring))',
+    }}
+  />
+</ColorPalette>
+
+## 2. Typography
+
+We use standard font sizes and weights. The base font size is 14px (`text-sm`) for the application UI to maximize information density.
+
+**Font Family**: System UI (Inter, San Francisco, Segoe UI, etc.)
+
+<Typeset
+  fontSizes={[
+    '12px', // text-xs
+    '14px', // text-sm (Base)
+    '16px', // text-base
+    '18px', // text-lg
+    '20px', // text-xl
+    '24px', // text-2xl
+    '30px', // text-3xl
+  ]}
+  fontWeight={700}
+  sampleText="The quick brown fox jumps over the lazy dog"
+  fontFamily="system-ui, sans-serif"
+/>
+
+### Common Text Styles
+
+| Class | Size | Weight | Usage |
+| :--- | :--- | :--- | :--- |
+| `text-xs` | 12px | 400/500 | Metadata, captions, badges |
+| `text-sm` | 14px | 400 | **Base body text**, table content |
+| `text-sm font-medium` | 14px | 500 | Labels, button text |
+| `text-base font-semibold` | 16px | 600 | Section headers, card titles |
+| `text-lg font-bold` | 18px | 700 | Page titles, major headings |
+
+## 3. Spacing & Layout
+
+We follow a 4px grid system.
+
+| Token | Size | Class | Usage |
+| :--- | :--- | :--- | :--- |
+| 1 | 4px | `p-1`, `m-1`, `gap-1` | Tight grouping (e.g., icons in button) |
+| 2 | 8px | `p-2`, `m-2`, `gap-2` | Standard internal spacing (card padding, list items) |
+| 3 | 12px | `p-3`, `m-3`, `gap-3` | Relaxed spacing |
+| 4 | 16px | `p-4`, `m-4`, `gap-4` | Container padding, section separation |
+| 6 | 24px | `p-6`, `m-6`, `gap-6` | Major layout separation |
+
+### Layout Patterns
+
+- **Page Layout**: `h-full flex flex-col` (Full height, column flex)
+- **Cards**: `bg-card border rounded-lg p-4`
+- **Flex Row (Center)**: `flex items-center gap-2`
+- **Flex Col**: `flex flex-col gap-2`
+
+## 4. Rounding (Border Radius)
+
+| Token | CSS Variable | Class | Usage |
+| :--- | :--- | :--- | :--- |
+| `sm` | `calc(var(--radius) - 4px)` | `rounded-sm` | Small inputs, badges, checkboxes |
+| `md` | `calc(var(--radius) - 2px)` | `rounded-md` | Buttons, standard inputs, cards |
+| `lg` | `var(--radius)` | `rounded-lg` | Large containers, modals |
+| `full` | `9999px` | `rounded-full` | Avatars, pills, status indicators |
+
+## 5. Shadow & Depth
+
+- **Small**: `shadow-sm` (Cards, buttons)
+- **Medium**: `shadow` (Dropdowns, popovers)
+- **Large**: `shadow-lg` (Modals, floats)
+

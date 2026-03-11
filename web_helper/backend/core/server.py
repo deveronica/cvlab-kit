@@ -189,7 +189,10 @@ def run_development_servers(args):
         )
 
         # Wait for the frontend process to terminate (e.g., user hits Ctrl+C)
-        frontend_process.wait()
+        try:
+            frontend_process.wait()
+        except KeyboardInterrupt:
+            pass
 
     except KeyboardInterrupt:
         print("\n🛑 User interrupted. Shutting down servers...")

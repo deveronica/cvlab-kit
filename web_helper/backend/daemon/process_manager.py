@@ -8,6 +8,7 @@ import signal
 import socket
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -156,8 +157,23 @@ class ProcessManager:
             cwd=str(frontend_dir),
             stdout=open(log_file, "w"),
             stderr=open(err_file, "w"),
+            stdin=subprocess.DEVNULL,  # Prevent blocking on stdin (e.g., Vite 'press h + enter')
             start_new_session=True,  # SSH-independent
         )
+
+        # Wait for frontend to be ready
+        print("⏳ Waiting for frontend to be ready...")
+        frontend_url = "http://localhost:5173"
+        for attempt in range(60):  # Try for up to 60 seconds (Vite might take longer)
+            try:
+                import urllib.request
+                urllib.request.urlopen(frontend_url, timeout=1)
+                print("✅ Frontend ready!")
+                break
+            except Exception:
+                time.sleep(1)
+        else:
+            print("⚠️  Frontend took longer than expected to start, proceeding anyway...")
 
         # Save to state file
         self._update_process_state(
@@ -215,9 +231,13 @@ class ProcessManager:
         if getattr(args, "max_jobs", None):
             cmd.extend(["--max-jobs", str(args.max_jobs)])
 
-        # Use server-specific log directory (same as DeviceAgent workspace)
-        server_name = self._sanitize_server_name(args.url)
-        middleend_log_dir = Path(f"logs_{server_name}")
+        # Use appropriate log directory
+        # In dev mode, use shared logs/ folder; for remote, use logs_{server_name}/ for isolation
+        if getattr(args, "is_dev_mode", False):
+            middleend_log_dir = Path("logs")
+        else:
+            server_name = self._sanitize_server_name(args.url)
+            middleend_log_dir = Path(f"logs_{server_name}")
         middleend_log_dir.mkdir(parents=True, exist_ok=True)
 
         log_file = middleend_log_dir / "daemon.log"
@@ -285,6 +305,7 @@ class ProcessManager:
                 connect_timeout=getattr(args, "connect_timeout", None),
                 request_timeout=getattr(args, "request_timeout", None),
                 max_jobs=getattr(args, "max_jobs", None),
+                is_dev_mode=True,  # Mark as development mode
             )
             self.start_middleend_daemon(middleend_args)
 

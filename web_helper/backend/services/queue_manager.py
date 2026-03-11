@@ -9,7 +9,7 @@ import random
 import subprocess
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
@@ -206,8 +206,9 @@ class QueueManager:
             job.assigned_device = host_id
 
             # Track assignment time for timeout detection
-            if not job.metadata:
+            if not hasattr(job, "metadata") or not isinstance(job.metadata, dict):
                 job.metadata = {}
+
             job.metadata["assigned_at"] = datetime.now().isoformat()
 
             # Track assignment
@@ -259,12 +260,15 @@ class QueueManager:
             job.started_at = datetime.now()
 
             # Store PID in metadata for monitoring
-            if not job.metadata:
+            if not hasattr(job, "metadata") or not isinstance(job.metadata, dict):
+                job.metadata = {}
+
+            if not hasattr(job, "metadata") or not isinstance(job.metadata, dict):
                 job.metadata = {}
             job.metadata["pid"] = pid
 
             # Track as running
-            self._running_jobs[experiment_uid] = job
+            self._running_jobs.add(experiment_uid)
 
             # Update DB
             self._update_experiment_status_in_db(
@@ -297,7 +301,7 @@ class QueueManager:
             else:
                 job.status = JobStatus.FAILED
                 if error_message:
-                    if not job.metadata:
+                    if not hasattr(job, "metadata") or not isinstance(job.metadata, dict):
                         job.metadata = {}
                     job.metadata["error"] = error_message
 
@@ -307,7 +311,7 @@ class QueueManager:
 
             # Remove from running jobs
             if experiment_uid in self._running_jobs:
-                del self._running_jobs[experiment_uid]
+                self._running_jobs.discard(experiment_uid)
 
             self._save_state()
             self._broadcast_job_update_sync(job)
@@ -339,8 +343,9 @@ class QueueManager:
             config_path = (
                 Path("web_helper/queue_logs") / job.experiment_uid / "config.yaml"
             )
-            if not job.metadata:
+            if not hasattr(job, "metadata") or not isinstance(job.metadata, dict):
                 job.metadata = {}
+
             job.metadata["has_config"] = config_path.exists()
 
         # Sort by creation time (newest first)
@@ -374,6 +379,258 @@ class QueueManager:
         self._broadcast_job_update_sync(job, "job_cancelled")
 
         return True
+
+    def pause_job(self, experiment_uid: str) -> bool:
+        """Pause a running or queued job.
+
+        For running jobs: Sends SIGSTOP to pause the process.
+        For queued jobs: Marks as PAUSED so it won't be picked up.
+        """
+        job = self._jobs.get(experiment_uid)
+        if not job:
+            logger.warning(f"Job {experiment_uid} not found for pause")
+            return False
+
+        with self._lock:
+            if job.status not in (JobStatus.RUNNING, JobStatus.QUEUED):
+                logger.warning(f"Cannot pause job {experiment_uid} in status {job.status}")
+                return False
+
+            # If running, try to pause the process
+            if job.status == JobStatus.RUNNING:
+                pid = job.metadata.get("pid") if job.metadata else None
+                if pid and psutil.pid_exists(pid):
+                    try:
+                        process = psutil.Process(pid)
+                        process.suspend()
+                        logger.info(f"Suspended process {pid} for job {experiment_uid}")
+                    except psutil.NoSuchProcess:
+                        logger.warning(f"Process {pid} not found for pause")
+                    except Exception as e:
+                        logger.error(f"Failed to suspend process {pid}: {e}")
+                        return False
+
+            # Store previous status for resume
+            if not hasattr(job, "metadata") or not isinstance(job.metadata, dict):
+                job.metadata = {}
+
+            job.metadata["paused_from"] = job.status.value
+            job.metadata["paused_at"] = datetime.now().isoformat()
+
+            job.status = JobStatus.PAUSED
+
+        # Update database
+        self._update_experiment_status_in_db(experiment_uid, "paused")
+
+        logger.info(f"Job {experiment_uid} paused")
+        self._save_state()
+        self._broadcast_job_update_sync(job, "job_paused")
+
+        return True
+
+    def resume_job(self, experiment_uid: str) -> bool:
+        """Resume a paused job.
+
+        For previously running jobs: Sends SIGCONT to resume the process.
+        For previously queued jobs: Re-adds to queue.
+        """
+        job = self._jobs.get(experiment_uid)
+        if not job:
+            logger.warning(f"Job {experiment_uid} not found for resume")
+            return False
+
+        with self._lock:
+            if job.status != JobStatus.PAUSED:
+                logger.warning(f"Cannot resume job {experiment_uid} - not paused (status: {job.status})")
+                return False
+
+            previous_status = job.metadata.get("paused_from", "queued") if job.metadata else "queued"
+
+            if previous_status == "running":
+                # Resume the suspended process
+                pid = job.metadata.get("pid") if job.metadata else None
+                if pid and psutil.pid_exists(pid):
+                    try:
+                        process = psutil.Process(pid)
+                        process.resume()
+                        logger.info(f"Resumed process {pid} for job {experiment_uid}")
+                        job.status = JobStatus.RUNNING
+                    except psutil.NoSuchProcess:
+                        logger.warning(f"Process {pid} not found - marking as failed")
+                        job.status = JobStatus.FAILED
+                        job.error_message = "Process terminated while paused"
+                        job.completed_at = datetime.now()
+                        self._update_experiment_status_in_db(experiment_uid, "failed", job.completed_at)
+                        self._save_state()
+                        self._broadcast_job_update_sync(job, "job_failed")
+                        return False
+                    except Exception as e:
+                        logger.error(f"Failed to resume process {pid}: {e}")
+                        return False
+                else:
+                    logger.warning(f"No valid PID for job {experiment_uid} - re-queueing")
+                    job.status = JobStatus.QUEUED
+                    priority_value = self._get_priority_value(job.priority)
+                    self._job_queue.put((priority_value, job.queued_at.timestamp(), experiment_uid))
+            else:
+                # Re-add to queue
+                job.status = JobStatus.QUEUED
+                priority_value = self._get_priority_value(job.priority)
+                self._job_queue.put((priority_value, job.queued_at.timestamp(), experiment_uid))
+
+            # Clean up pause metadata
+            if job.metadata:
+                job.metadata.pop("paused_from", None)
+                job.metadata.pop("paused_at", None)
+
+        # Update database
+        self._update_experiment_status_in_db(experiment_uid, job.status.value)
+
+        logger.info(f"Job {experiment_uid} resumed to {job.status.value}")
+        self._save_state()
+        self._broadcast_job_update_sync(job, "job_resumed")
+
+        return True
+
+    def set_job_priority(self, experiment_uid: str, priority: JobPriority) -> bool:
+        """Change job priority.
+
+        Only affects queued jobs. Running jobs keep their current priority.
+        """
+        job = self._jobs.get(experiment_uid)
+        if not job:
+            logger.warning(f"Job {experiment_uid} not found for priority change")
+            return False
+
+        with self._lock:
+            old_priority = job.priority
+            job.priority = priority
+
+            # If job is queued, we need to re-sort the queue
+            if job.status == JobStatus.QUEUED:
+                # Rebuild queue with new priority
+                new_queue = []
+                while not self._job_queue.empty():
+                    try:
+                        item = self._job_queue.get_nowait()
+                        if item[2] == experiment_uid:
+                            # Update priority for this job
+                            new_queue.append(
+                                (self._get_priority_value(priority), job.queued_at.timestamp(), experiment_uid)
+                            )
+                        else:
+                            new_queue.append(item)
+                    except:
+                        break
+                for item in new_queue:
+                    self._job_queue.put(item)
+
+        logger.info(f"Job {experiment_uid} priority changed from {old_priority} to {priority}")
+        self._save_state()
+        self._broadcast_job_update_sync(job, "priority_changed")
+
+        return True
+
+    def cleanup_old_jobs(self, hours: float = 168.0) -> int:
+        """Clean up old completed/failed/cancelled jobs.
+
+        Args:
+            hours: Delete jobs older than this many hours (default: 7 days = 168 hours)
+
+        Returns:
+            Number of jobs deleted
+        """
+        cutoff_time = datetime.now() - timedelta(hours=hours)
+        deleted_count = 0
+
+        with self._lock:
+            jobs_to_delete = []
+            for experiment_uid, job in self._jobs.items():
+                # Only delete terminal states
+                if job.status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
+                    # Check completion time
+                    if job.completed_at and job.completed_at < cutoff_time:
+                        jobs_to_delete.append(experiment_uid)
+
+            for experiment_uid in jobs_to_delete:
+                del self._jobs[experiment_uid]
+                deleted_count += 1
+
+        # Also clean up from database
+        if deleted_count > 0:
+            db = SessionLocal()
+            try:
+                db.query(QueueExperiment).filter(
+                    QueueExperiment.experiment_uid.in_(jobs_to_delete)
+                ).delete(synchronize_session=False)
+                db.commit()
+            except Exception as e:
+                logger.error(f"Failed to cleanup jobs from DB: {e}")
+                db.rollback()
+            finally:
+                db.close()
+
+            self._save_state()
+
+        logger.info(f"Cleaned up {deleted_count} old jobs (older than {hours} hours)")
+        return deleted_count
+
+    def get_queue_stats(self) -> "QueueStats":
+        """Get queue statistics.
+
+        Returns:
+            QueueStats object with job counts, resource utilization, and timing stats
+        """
+        from ..models.queue import QueueStats  # Local import to avoid circular
+
+        with self._lock:
+            stats = QueueStats()
+            stats.total_jobs = len(self._jobs)
+
+            # Count by status
+            for job in self._jobs.values():
+                if job.status == JobStatus.PENDING:
+                    stats.pending_jobs += 1
+                elif job.status == JobStatus.QUEUED:
+                    stats.queued_jobs += 1
+                elif job.status == JobStatus.RUNNING:
+                    stats.running_jobs += 1
+                elif job.status == JobStatus.COMPLETED:
+                    stats.completed_jobs += 1
+                elif job.status == JobStatus.FAILED:
+                    stats.failed_jobs += 1
+                elif job.status == JobStatus.CANCELLED:
+                    stats.cancelled_jobs += 1
+
+            # Calculate average queue time for completed jobs
+            queue_times = []
+            for job in self._jobs.values():
+                if job.status == JobStatus.COMPLETED and job.queued_at and job.started_at:
+                    queue_time = (job.started_at - job.queued_at).total_seconds() / 60.0
+                    queue_times.append(queue_time)
+
+            if queue_times:
+                stats.avg_queue_time_minutes = sum(queue_times) / len(queue_times)
+
+        # Get device resource stats
+        db = SessionLocal()
+        try:
+            devices = db.query(Device).all()
+            for device in devices:
+                if device.gpu_count:
+                    stats.total_gpu_count += device.gpu_count
+                if device.memory_total:
+                    stats.total_memory_gb += device.memory_total / 1024.0  # Convert MB to GB
+
+            # Count used GPUs (devices with running jobs)
+            stats.used_gpu_count = len(self._running_jobs)
+
+        except Exception as e:
+            logger.error(f"Failed to get device stats: {e}")
+        finally:
+            db.close()
+
+        return stats
 
     def _worker_loop(self):
         """Main worker loop for processing jobs"""
@@ -484,10 +741,13 @@ class QueueManager:
 
             pid = int(pid_str)
 
-            if not job.metadata:
+            if not hasattr(job, "metadata") or not isinstance(job.metadata, dict):
                 job.metadata = {}
+
             job.metadata["stdout_log"] = str(stdout_file)
             job.metadata["stderr_log"] = str(stderr_file)
+            if not hasattr(job, "metadata") or not isinstance(job.metadata, dict):
+                job.metadata = {}
             job.metadata["pid"] = pid
 
             with self._lock:
@@ -575,7 +835,7 @@ class QueueManager:
                             job.status = JobStatus.COMPLETED
                             job.progress = 1.0
                             job.completed_at = datetime.now()
-                            if not job.metadata:
+                            if not hasattr(job, "metadata") or not isinstance(job.metadata, dict):
                                 job.metadata = {}
                             job.metadata["completion_status"] = (
                                 "assumed_completed_by_monitor"
@@ -619,7 +879,9 @@ class QueueManager:
             logger.warning(f"Cannot terminate job {experiment_uid}: no PID found")
             return
 
-        pid = job.metadata["pid"]
+        if not hasattr(job, "metadata") or not isinstance(job.metadata, dict):
+            job.metadata = {}
+        pid = job.metadata.get("pid")
         try:
             if psutil.pid_exists(pid):
                 process = psutil.Process(pid)

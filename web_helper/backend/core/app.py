@@ -88,6 +88,7 @@ from web_helper.backend.services.queue_indexer import (
     index_queue_experiments_startup,
     periodic_indexer,
 )
+from web_helper.backend.services.type_discovery import TypeDiscoveryService
 
 
 @asynccontextmanager
@@ -97,6 +98,18 @@ async def lifespan(app: FastAPI):
 
     # Initialize database
     init_database()
+    
+    # 항목 2: 데이터 타입 스캔 및 등록
+    from web_helper.backend.models import SessionLocal
+    db = SessionLocal()
+    try:
+        type_service = TypeDiscoveryService(Path.cwd(), db)
+        type_service.scan_and_register_types()
+        logging.info("🧬 Data types discovered and registered")
+    except Exception as e:
+        logging.error(f"⚠️ Failed to scan data types: {e}")
+    finally:
+        db.close()
 
     # Create required directories
     Path("web_helper").mkdir(parents=True, exist_ok=True)

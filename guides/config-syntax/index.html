@@ -23,7 +23,7 @@
     
     
       
-        <title>Synchronization System Architecture - CVLab-Kit Documentation</title>
+        <title>설정 가이드 - CVLab-Kit Documentation</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#synchronization-system-architecture" class="md-skip">
+        <a href="#_1" class="md-skip">
           콘텐츠로 이동
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Synchronization System Architecture
+              설정 가이드
             
           </span>
         </div>
@@ -1901,10 +1901,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
+        규칙 1: 기본 컴포넌트 로딩
       
     </span>
   </a>
@@ -1912,22 +1912,55 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#components" class="md-nav__link">
+  <a href="#2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Components
+        규칙 2: 컴포넌트에 파라미터 전달
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Components">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        규칙 3: 한 타입의 여러 컴포넌트 사용 (고급)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        규칙 4: 동일 컴포넌트에 다른 옵션 전달 (신규)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        규칙 5: |를 이용한 컴포넌트 파이프라인 구성
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="규칙 5: |를 이용한 컴포넌트 파이프라인 구성">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#roles" class="md-nav__link">
+  <a href="#compose" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Roles
+        Compose 작동 원리
       
     </span>
   </a>
@@ -1940,230 +1973,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#data-flow" class="md-nav__link">
+  <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Data Flow
+        관련 문서
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Data Flow">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-config-flow-server-worker" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Config Flow (Server → Worker)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-log-sync-flow-worker-server" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Log Sync Flow (Worker → Server)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-heartbeat-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Heartbeat Flow
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#hash-verification" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Hash Verification
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Hash Verification">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#usage" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#code-version-tracking" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Code Version Tracking
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#recovery-protocol" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Recovery Protocol
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Recovery Protocol">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#network-disconnection" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Network Disconnection
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#worker-crash" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Worker Crash
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#api-reference" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        API Reference
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="API Reference">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#sync-endpoints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Sync Endpoints
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#headers" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Headers
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#file-structure" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        File Structure
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#design-decisions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Design Decisions
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Design Decisions">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#why-xxhash3" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why xxhash3?
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#why-server-authoritative" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why Server-Authoritative?
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#why-json-for-daemon-state" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why JSON for Daemon State?
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -2187,247 +2003,172 @@
   
 
 
-<h1 id="synchronization-system-architecture">Synchronization System Architecture<a class="headerlink" href="#synchronization-system-architecture" title="Permanent link">&para;</a></h1>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>CVLab-Kit uses a distributed architecture where experiments can run on remote GPU servers (Workers) while being managed from a central server (Backend). This document describes the synchronization system that ensures data consistency between components.</p>
-<h2 id="components">Components<a class="headerlink" href="#components" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│    Frontend     │◄───────►│    Backend      │◄───────►│    Worker       │
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│  (React Web)    │   HTTP  │  (FastAPI)      │   HTTP  │  (Middleend)    │
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>└─────────────────┘         └─────────────────┘         └─────────────────┘
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                                   │                           │
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                                   ▼                           ▼
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                            ┌─────────────┐             ┌─────────────┐
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>                            │ web_helper/ │             │   logs_*/   │
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>                            │  - .db      │             │  (backup)   │
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>                            │  - queue_logs/           └─────────────┘
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>                            │  - logs/    │
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>                            └─────────────┘
-</code></pre></div>
-<h3 id="roles">Roles<a class="headerlink" href="#roles" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Component</th>
-<th>Role</th>
-<th>Responsibility</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Backend</strong></td>
-<td>Central Server</td>
-<td>Queue management, result storage, API</td>
-</tr>
-<tr>
-<td><strong>Worker</strong></td>
-<td>Execution Agent</td>
-<td>Run experiments, sync results</td>
-</tr>
-<tr>
-<td><strong>Frontend</strong></td>
-<td>User Interface</td>
-<td>Visualization, queue submission</td>
-</tr>
-</tbody>
-</table>
-<h2 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
-<h3 id="1-config-flow-server-worker">1. Config Flow (Server → Worker)<a class="headerlink" href="#1-config-flow-server-worker" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>User → Frontend → Backend → Worker
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>         │           │         │
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>         │  POST     │  GET    │
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>         │  /queue   │  /next  │
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>         └───────────┴─────────►
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>                               │
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>                    Config downloaded
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>                    to Worker local
-</code></pre></div>
-<ol>
-<li>User creates config via Frontend</li>
-<li>Backend saves to <code>web_helper/queue_logs/{uid}/config.yaml</code></li>
-<li>Worker polls <code>GET /api/queue/next_job</code></li>
-<li>Worker downloads config via <code>GET /api/configs/raw</code></li>
-</ol>
-<h3 id="2-log-sync-flow-worker-server">2. Log Sync Flow (Worker → Server)<a class="headerlink" href="#2-log-sync-flow-worker-server" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Worker execution          Backend storage
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>     │                         │
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>     ├─► terminal_log.log ────►│ queue_logs/{uid}/
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>     ├─► terminal_err.log ────►│
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>     │                         │
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>     ├─► run.csv ─────────────►│ logs/{project}/
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>     ├─► run.yaml ────────────►│
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>     └─► run.pt ──────────────►│
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>File Type</th>
-<th>Sync Method</th>
-<th>Verification</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>*.log</code></td>
-<td>Delta (append)</td>
-<td>diff</td>
-</tr>
-<tr>
-<td><code>*.csv</code></td>
-<td>Delta (append)</td>
-<td>diff</td>
-</tr>
-<tr>
-<td><code>*.yaml</code></td>
-<td>Full replace</td>
-<td>xxhash3</td>
-</tr>
-<tr>
-<td><code>*.pt</code></td>
-<td>Full replace</td>
-<td>xxhash3</td>
-</tr>
-</tbody>
-</table>
-<h3 id="3-heartbeat-flow">3. Heartbeat Flow<a class="headerlink" href="#3-heartbeat-flow" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Worker ──► Backend
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  │
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  ├─ host_id
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>  ├─ CPU/Memory/Disk stats
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>  ├─ GPU stats (multi-GPU support)
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>  ├─ torch_version, cuda_version
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>  └─ code_version (git hash, files hash, uv.lock hash)
-</code></pre></div>
-<h2 id="hash-verification">Hash Verification<a class="headerlink" href="#hash-verification" title="Permanent link">&para;</a></h2>
-<p>All file integrity checks use <strong>xxhash3</strong> for fast, non-cryptographic hashing.</p>
-<h3 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">xxhash</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># Single file</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nb">hash</span> <span class="o">=</span> <span class="n">xxhash</span><span class="o">.</span><span class="n">xxh3_64</span><span class="p">(</span><span class="n">file_content</span><span class="p">)</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="c1"># Content verification on upload</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">X</span><span class="o">-</span><span class="n">Content</span><span class="o">-</span><span class="n">Hash</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">xxhash3</span> <span class="n">of</span> <span class="n">content</span><span class="o">&gt;</span>
-</code></pre></div>
-<h3 id="code-version-tracking">Code Version Tracking<a class="headerlink" href="#code-version-tracking" title="Permanent link">&para;</a></h3>
-<p>For reproducibility, Workers report code version with each heartbeat:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;code_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nt">&quot;git_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;abc1234&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nt">&quot;git_dirty&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nt">&quot;branch&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;main&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="nt">&quot;files_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;def5678&quot;</span><span class="p">,</span><span class="w">  </span><span class="c1">// xxhash3 of cvlabkit/*.py</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nt">&quot;uv_lock_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ghi9012&quot;</span><span class="w">  </span><span class="c1">// xxhash3 of uv.lock</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">}</span>
-</code></pre></div>
-<h2 id="recovery-protocol">Recovery Protocol<a class="headerlink" href="#recovery-protocol" title="Permanent link">&para;</a></h2>
-<h3 id="network-disconnection">Network Disconnection<a class="headerlink" href="#network-disconnection" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Worker reconnects with exponential backoff (1s → 2s → 4s → max 60s)</li>
-<li>Worker queries <code>GET /api/sync/status/{uid}</code></li>
-<li>Server returns file states with hashes</li>
-<li>Worker compares local vs server hashes</li>
-<li>Re-sync missing or mismatched files</li>
-</ol>
-<h3 id="worker-crash">Worker Crash<a class="headerlink" href="#worker-crash" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Job status remains <code>running</code> in DB</li>
-<li>PID check fails on next poll</li>
-<li>Status transitions to <code>crashed</code></li>
-<li>Manual re-assignment available via Frontend</li>
-</ol>
-<h2 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h2>
-<h3 id="sync-endpoints">Sync Endpoints<a class="headerlink" href="#sync-endpoints" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Endpoint</th>
-<th>Method</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>/api/sync/experiment/{uid}/{file}</code></td>
-<td>POST</td>
-<td>Upload terminal logs</td>
-</tr>
-<tr>
-<td><code>/api/sync/run/{uid}/{file}</code></td>
-<td>POST</td>
-<td>Upload result files</td>
-</tr>
-<tr>
-<td><code>/api/sync/status/{uid}</code></td>
-<td>GET</td>
-<td>Query sync status</td>
-</tr>
-<tr>
-<td><code>/api/sync/checkpoint/{uid}</code></td>
-<td>POST</td>
-<td>Update recovery checkpoint</td>
-</tr>
-</tbody>
-</table>
-<h3 id="headers">Headers<a class="headerlink" href="#headers" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Header</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>X-Content-Hash</code></td>
-<td>xxhash3 of content (optional, for verification)</td>
-</tr>
-<tr>
-<td><code>Authorization</code></td>
-<td><code>Bearer &lt;api_key&gt;</code> (if authentication enabled)</td>
-</tr>
-</tbody>
-</table>
-<h2 id="file-structure">File Structure<a class="headerlink" href="#file-structure" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>web_helper/
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>├── web_helper.db          # SQLite DB (runs, queue, devices)
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>├── daemon_state.json      # Daemon PID tracking (JSON)
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>├── queue_logs/            # Experiment logs
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>│   └── {uid}/
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>│       ├── config.yaml
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>│       ├── terminal_log.log
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>│       └── terminal_err.log
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>└── queue_state.json       # Queue state backup
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>logs/                      # CVLab-Kit results (Server authoritative)
-<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>└── {project}/
-<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>    ├── {run_name}.csv
-<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    ├── {run_name}.yaml
-<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>    └── {run_name}.pt
-<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>
-<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>logs_{server}/             # Worker local backup
-<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>├── experiments/{uid}/     # Terminal logs backup
-<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>└── runs/{project}/        # Results backup
-</code></pre></div>
-<h2 id="design-decisions">Design Decisions<a class="headerlink" href="#design-decisions" title="Permanent link">&para;</a></h2>
-<h3 id="why-xxhash3">Why xxhash3?<a class="headerlink" href="#why-xxhash3" title="Permanent link">&para;</a></h3>
+<h1 id="_1">설정 가이드<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>YAML 기반 동적 컴포넌트 로딩 및 Grid Search 설정</p>
+</blockquote>
+<p><code>Creator</code>는 YAML 설정 파일을 기반으로 필요한 컴포넌트를 동적으로 로딩합니다. 사용자는 <code>import</code> 구문 없이 YAML 파일만 수정하여 실험 구성을 변경할 수 있습니다. 이를 위해 다음 설정 규칙을 따라야 합니다.</p>
+<h2 id="1"><strong>규칙 1: 기본 컴포넌트 로딩</strong><a class="headerlink" href="#1" title="Permanent link">&para;</a></h2>
+<p>가장 간단한 형태는 <code>{컴포넌트_타입}: {컴포넌트_이름}</code> 형식입니다. <code>컴포넌트_이름</code>은 <code>cvlabkit/component/{컴포넌트_타입}/</code> 디렉토리 안에 있는 구현체의 파이썬 파일명과 일치해야 합니다.</p>
 <ul>
-<li><strong>Speed</strong>: 10-100x faster than MD5/SHA</li>
-<li><strong>Purpose</strong>: Change detection, not cryptographic security</li>
-<li><strong>Collision resistance</strong>: Sufficient for file integrity</li>
+<li><strong><code>config.yaml</code> 예시:</strong>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">optimizer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">adam</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">loss</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cross_entropy</span>
+</code></pre></div></li>
+<li><strong>Agent 코드:</strong>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># cvlabkit/component/optimizer/adam.py 를 로드</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">opt</span> <span class="o">=</span> <span class="n">create</span><span class="o">.</span><span class="n">optimizer</span><span class="p">()</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># cvlabkit/component/loss/cross_entropy.py 를 로드</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">loss_fn</span> <span class="o">=</span> <span class="n">create</span><span class="o">.</span><span class="n">loss</span><span class="p">()</span>
+</code></pre></div></li>
 </ul>
-<h3 id="why-server-authoritative">Why Server-Authoritative?<a class="headerlink" href="#why-server-authoritative" title="Permanent link">&para;</a></h3>
+<h2 id="2"><strong>규칙 2: 컴포넌트에 파라미터 전달</strong><a class="headerlink" href="#2" title="Permanent link">&para;</a></h2>
+<p>컴포넌트 구현에 특정 파라미터가 필요한 경우, 해당 파라미터를 YAML 파일의 <strong>최상위 레벨</strong>에 정의합니다. <code>Creator</code>는 컴포넌트를 생성할 때 전체 설정 객체(<code>cfg</code>)를 주입하므로, 컴포넌트 내부에서 <code>cfg.파라미터_이름</code> 형태로 접근할 수 있습니다.</p>
 <ul>
-<li>Single source of truth for results</li>
-<li>Worker backups are for resilience, not querying</li>
-<li>Simplifies conflict resolution</li>
+<li><strong><code>config.yaml</code> 예시:</strong>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">model</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">resnet18</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">num_classes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span><span class="w">  </span><span class="c1"># resnet18 모델을 위한 파라미터</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nt">lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1e-3</span><span class="w">         </span><span class="c1"># adam 옵티마이저를 위한 파라미터</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nt">optimizer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">adam</span>
+</code></pre></div></li>
+<li><strong><code>resnet18.py</code> 구현 예시:</strong>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># cvlabkit/component/model/resnet18.py</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cvlabkit.component.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Model</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">torchvision.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">resnet18</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">ResNet18</span><span class="p">(</span><span class="n">Model</span><span class="p">):</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="c1"># YAML 최상위에 정의된 num_classes 값을 가져옴</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="n">num_classes</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_classes&quot;</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">resnet18</span><span class="p">(</span><span class="n">num_classes</span><span class="o">=</span><span class="n">num_classes</span><span class="p">)</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</code></pre></div></li>
 </ul>
-<h3 id="why-json-for-daemon-state">Why JSON for Daemon State?<a class="headerlink" href="#why-json-for-daemon-state" title="Permanent link">&para;</a></h3>
+<h2 id="3"><strong>규칙 3: 한 타입의 여러 컴포넌트 사용 (고급)</strong><a class="headerlink" href="#3" title="Permanent link">&para;</a></h2>
+<p>하나의 에이전트가 같은 타입의 여러 컴포넌트를 사용해야 할 경우 (예: GAN의 생성자/판별자 모델), YAML에서 논리적인 이름을 키로 사용하여 중첩 구조로 정의할 수 있습니다.</p>
 <ul>
-<li>Portable (no DB dependency for client-only mode)</li>
-<li>Human-readable</li>
-<li>Survives SSH disconnection</li>
+<li><strong><code>config.yaml</code> 예시 (중첩 구조):</strong>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">model</span><span class="p">:</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">generator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unet</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">discriminator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">patch_gan</span>
+</code></pre></div></li>
+<li><strong>Agent 코드:</strong>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># cvlabkit/component/model/unet.py 를 로드</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">gen_model</span> <span class="o">=</span> <span class="n">create</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">generator</span><span class="p">()</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># cvlabkit/component/model/patch_gan.py 를 로드</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">disc_model</span> <span class="o">=</span> <span class="n">create</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">discriminator</span><span class="p">()</span>
+</code></pre></div></li>
+</ul>
+<h2 id="4"><strong>규칙 4: 동일 컴포넌트에 다른 옵션 전달 (신규)</strong><a class="headerlink" href="#4" title="Permanent link">&para;</a></h2>
+<p>동일한 컴포넌트를 사용하지만, 인스턴스마다 다른 설정을 적용하고 싶을 때 (예: 학습용과 검증용 데이터로더에 각각 다른 설정을 적용) <code>이름(파라미터=값)</code> 형식을 사용할 수 있습니다. 이 형식은 <code>_type</code>과 <code>_params</code> 키를 가진 딕셔너리로 파싱되어 <code>Creator</code>에 의해 처리됩니다.</p>
+<ul>
+<li><strong><code>config.yaml</code> 예시:</strong>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">dataloader</span><span class="p">:</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">train</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cifar10(split=train, shuffle=true)</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">val</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cifar10(split=val, shuffle=false)</span>
+</code></pre></div></li>
+<li><strong>Agent 코드:</strong>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># cvlabkit/component/dataloader/cifar10.py 를 로드 (split=&#39;train&#39;, shuffle=True 설정으로)</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">train_loader</span> <span class="o">=</span> <span class="n">create</span><span class="o">.</span><span class="n">dataloader</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># cvlabkit/component/dataloader/cifar10.py 를 로드 (split=&#39;val&#39;, shuffle=False 설정으로)</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">val_loader</span> <span class="o">=</span> <span class="n">create</span><span class="o">.</span><span class="n">dataloader</span><span class="o">.</span><span class="n">val</span><span class="p">()</span>
+</code></pre></div></li>
+<li><strong>컴포넌트 구현 예시 (<code>cifar10.py</code>):</strong>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># cvlabkit/component/dataloader/cifar10.py</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">cvlabkit.component.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">CIFAR10Loader</span><span class="p">(</span><span class="n">DataLoader</span><span class="p">):</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="c1"># &#39;cifar10(split=train)&#39; 에서 파싱된 &#39;split&#39; 파라미터를 가져옴. 기본값은 &#39;train&#39;</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="n">split</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;split&quot;</span><span class="p">,</span> <span class="s2">&quot;train&quot;</span><span class="p">)</span> 
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="n">shuffle</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;shuffle&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>        <span class="c1"># ... 데이터로더 설정 ...</span>
+</code></pre></div></li>
+</ul>
+<h2 id="5"><strong>규칙 5: <code>|</code>를 이용한 컴포넌트 파이프라인 구성</strong><a class="headerlink" href="#5" title="Permanent link">&para;</a></h2>
+<p>여러 컴포넌트를 순차적으로 실행하는 파이프라인을 구성할 때 <code>|</code> (파이프) 문자를 사용할 수 있습니다. 이 DSL(Domain-Specific Language) 구문은 주로 <code>transform</code>이나 <code>metric</code>과 같이 여러 단계를 조합해야 하는 경우에 유용합니다.</p>
+<p><code>Creator</code>는 <code>|</code>로 연결된 문자열을 파싱하여 각 컴포넌트의 인스턴스를 생성한 뒤, 이들을 <code>cvlabkit/component/{컴포넌트_타입}/compose.py</code>에 정의된 <code>Compose</code> 컴포넌트로 감싸서 최종 객체를 반환합니다.</p>
+<ul>
+<li>
+<p><strong><code>config.yaml</code> 예시:</strong>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">transform</span><span class="p">:</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="c1"># 여러 트랜스폼을 파이프로 연결</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">strong</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;resize(size=128)</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">adaptive_rand_augment(magnitude_min=0,</span><span class="nv"> </span><span class="s">magnitude_max=15)</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">to_tensor</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">normalize&quot;</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="nt">metric</span><span class="p">:</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="c1"># 여러 메트릭을 파이프로 연결</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="nt">val</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;accuracy</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">f1(average=macro)&quot;</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Agent 코드:</strong>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># resize, adaptive_rand_augment, to_tensor, normalize 인스턴스가 담긴</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="c1"># Compose 객체가 생성됨</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">strong_transform</span> <span class="o">=</span> <span class="n">create</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">strong</span><span class="p">()</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="c1"># accuracy, f1 인스턴스가 담긴 Compose 객체가 생성됨</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">val_metric</span> <span class="o">=</span> <span class="n">create</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">val</span><span class="p">()</span>
+</code></pre></div></p>
+</li>
+</ul>
+<h3 id="compose">Compose 작동 원리<a class="headerlink" href="#compose" title="Permanent link">&para;</a></h3>
+<p><code>Compose</code> 컴포넌트는 여러 컴포넌트를 순차적으로 실행하는 컨테이너입니다. Creator가 <code>|</code>로 연결된 설정을 만나면 자동으로 각 컴포넌트를 인스턴스화한 뒤 <code>Compose</code>로 래핑합니다.</p>
+<p><strong>Transform Compose 예시:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># cvlabkit/component/transform/compose.py</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">Compose</span><span class="p">(</span><span class="n">Transform</span><span class="p">):</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">Config</span><span class="p">,</span> <span class="n">components</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Transform</span><span class="p">]):</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>        <span class="c1"># PRE-INSTANTIATED transform 리스트를 받음</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">(</span><span class="n">transforms</span><span class="o">=</span><span class="n">components</span><span class="p">)</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sample</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>        <span class="c1"># 각 transform을 순차 실행하며 kwargs 전달</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="o">.</span><span class="n">transforms</span><span class="p">:</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">Transform</span><span class="p">):</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>                <span class="n">sample</span> <span class="o">=</span> <span class="n">t</span><span class="p">(</span><span class="n">sample</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>  <span class="c1"># 커스텀 kwargs 전달</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>            <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>                <span class="n">sample</span> <span class="o">=</span> <span class="n">t</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>  <span class="c1"># torchvision 표준 transform</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>        <span class="k">return</span> <span class="n">sample</span>
+</code></pre></div></p>
+<p><strong>Metric Compose 예시:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># cvlabkit/component/metric/compose.py</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">Compose</span><span class="p">(</span><span class="n">Metric</span><span class="p">):</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">Config</span><span class="p">,</span> <span class="n">components</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]):</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span> <span class="o">=</span> <span class="n">components</span>  <span class="c1"># PRE-INSTANTIATED metric 리스트</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>        <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>            <span class="n">metric</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>  <span class="c1"># 모든 metric 업데이트</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">compute</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>        <span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>        <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>            <span class="n">results</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">compute</span><span class="p">())</span>  <span class="c1"># 결과 병합</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>        <span class="k">return</span> <span class="n">results</span>
+</code></pre></div></p>
+<p><strong>핵심 특징:</strong>
+- <code>Compose</code>는 이미 인스턴스화된 컴포넌트 리스트를 받음 (<code>components</code> 파라미터)
+- Transform: kwargs를 통한 추가 정보 전달 지원 (예: <code>difficulty_score</code>)
+- Metric: 여러 메트릭의 결과를 하나의 딕셔너리로 병합
+- 각 컴포넌트 타입은 자체 <code>compose.py</code> 구현 필요 (<code>transform/</code>, <code>metric/</code>)</p>
+<p><strong>실행 흐름:</strong>
+1. YAML: <code>transform: "resize(size=128) | to_tensor | normalize"</code>
+2. Creator: 각 컴포넌트 인스턴스화 → <code>[resize_obj, to_tensor_obj, normalize_obj]</code>
+3. Compose 생성: <code>Compose(cfg, components=[resize_obj, to_tensor_obj, normalize_obj])</code>
+4. 사용: <code>compose_obj(image)</code> → resize → to_tensor → normalize 순차 실행</p>
+<hr />
+<h2 id="_2">관련 문서<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="creator_workflow.md">Creator 워크플로우</a> - Creator의 동작 원리와 컴포넌트 로딩 메커니즘</li>
+<li><a href="extending_components.md">컴포넌트 확장</a> - 새로운 컴포넌트 추가 방법</li>
+<li><a href="build_concept_explained.md">Build 개념</a> - 설정 템플릿 자동 생성</li>
+<li><a href="troubleshooting.md">문제 해결</a> - Config 관련 일반적인 에러</li>
 </ul>
 
 
@@ -2451,7 +2192,7 @@
     <span class="md-icon" title="마지막 업데이트">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="2025년 11월 24일 15:23:25 UTC"><span class="timeago" datetime="2025-11-24T15:23:25+00:00" locale="ko"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="2025년 11월 24일 15:23:25 UTC">2025-11-24</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="2025년 11월 21일 19:14:03 UTC"><span class="timeago" datetime="2025-11-21T19:14:03+00:00" locale="ko"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="2025년 11월 21일 19:14:03 UTC">2025-11-21</span>
   </span>
 
     
@@ -2461,7 +2202,7 @@
     <span class="md-icon" title="작성일">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="2025년 11월 24일 15:23:25 UTC"><span class="timeago" datetime="2025-11-24T15:23:25+00:00" locale="ko"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="2025년 11월 24일 15:23:25 UTC">2025-11-24</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="2025년 7월 19일 11:23:44 UTC"><span class="timeago" datetime="2025-07-19T11:23:44+00:00" locale="ko"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="2025년 7월 19일 11:23:44 UTC">2025-07-19</span>
   </span>
 
     

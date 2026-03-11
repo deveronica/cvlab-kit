@@ -6,17 +6,17 @@
   :root {
     /* Nord Light Mode */
     --background: 219 28% 88%;    /* Nord0 - Snow Storm Light */
-    --foreground: 219 28% 18%;    /* Nord6 - Polar Night Dark */
+    --foreground: 220 20% 6%;     /* Nord6 - Polar Night Dark (contrast boosted) */
     --card: 220 13% 91%;          /* Slightly darker than background */
-    --card-foreground: 219 28% 18%;
+    --card-foreground: 220 20% 6%;
     --popover: 219 28% 88%;
     --popover-foreground: 219 28% 18%;
-    --primary: 213 32% 52%;       /* Nord10 - Frost Blue Dark */
+    --primary: 213 32% 40%;       /* Nord10 - Frost Blue Dark (adjusted for WCAG AA contrast 4.5:1) */
     --primary-foreground: 219 28% 88%;
-    --secondary: 220 16% 76%;     /* Nord1 - Snow Storm Light */
-    --secondary-foreground: 219 28% 18%;
+    --secondary: 220 16% 82%;     /* Nord1 - Snow Storm Light (contrast adjusted) */
+    --secondary-foreground: 220 18% 10%;
     --muted: 219 19% 65%;         /* Nord2 - Snow Storm Medium */
-    --muted-foreground: 220 16% 36%; /* Nord3 - Polar Night Light */
+    --muted-foreground: 220 16% 10%; /* Nord3 - Polar Night Light (adjusted for WCAG AA contrast 4.5:1) */
     --accent: 193 43% 67%;        /* Nord8 - Frost Blue Light */
     --accent-foreground: 219 28% 18%;
     --destructive: 354 42% 56%;   /* Nord11 - Aurora Red */
@@ -36,6 +36,13 @@
     --ag-cell-line-height: 1.5;          /* Line height multiplier */
     --ag-cell-padding-vertical: 4px;     /* Top + bottom padding per side (compact: 2px each) */
     --ag-cell-padding-horizontal: 12px;  /* Left + right padding per side */
+  }
+
+  .light {
+    --foreground: 220 20% 6%;
+    --card-foreground: 220 20% 6%;
+    --secondary-foreground: 220 18% 10%;
+    --muted-foreground: 220 16% 10%;
   }
 
   .dark {
@@ -313,6 +320,18 @@
   @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all duration-200;
 }
 
+.text-foreground {
+  color: hsl(220 20% 6%) !important;
+}
+
+.text-muted-foreground {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .text-slate-900 {
+  color: hsl(var(--foreground)) !important;
+}
+
 /* Research-specific gradient backgrounds */
 .research-gradient {
   background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--muted)/20) 100%);
@@ -341,6 +360,112 @@
   width: 100% !important;
   max-width: none !important;
   overflow: visible !important;
+}
+
+.cm-gutters {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  border-right: 1px solid hsl(var(--border)) !important;
+}
+
+.cm-gutterElement {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.cm-activeLineGutter {
+  color: hsl(var(--foreground)) !important;
+  background-color: hsl(var(--muted) / 0.35) !important;
+}
+
+/* AST Block Decorations - Visual separation for code blocks */
+.ast-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.375rem 0.75rem;
+  margin: 0.25rem 0;
+  background-color: hsl(var(--muted) / 0.5);
+  border-left: 3px solid hsl(var(--primary));
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  transition: all 200ms ease;
+}
+
+.ast-block-header:hover {
+  background-color: hsl(var(--muted) / 0.7);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ast-block-header-name {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-weight: 600;
+}
+
+.ast-block-header-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.375rem;
+  background-color: hsl(var(--primary) / 0.1);
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(var(--primary));
+}
+
+.ast-block-header-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.ast-block-header-button {
+  padding: 0.125rem 0.25rem;
+  background: transparent;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  color: hsl(var(--muted-foreground));
+  transition: all 200ms ease;
+}
+
+.ast-block-header-button:hover {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+.ast-block-separator {
+  border-bottom: 1px dashed hsl(var(--border));
+  margin: 0.5rem 0;
+  opacity: 0.5;
+}
+
+/* Uncovered code block styling */
+.ast-uncovered-block {
+  background-color: hsl(var(--destructive) / 0.05);
+  border-left: 2px solid hsl(var(--destructive) / 0.3);
+  padding-left: 0.5rem;
+}
+
+/* Collapsed block placeholder */
+.ast-block-collapsed {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background-color: hsl(var(--muted) / 0.3);
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.ast-block-collapsed:hover {
+  background-color: hsl(var(--muted) / 0.5);
+  color: hsl(var(--foreground));
 }
 
 /* AG Grid Custom Styling - Using Theming API v34+ */
@@ -594,4 +719,93 @@
 
 .select-no-clip > * {
   overflow: visible !important;
+}
+
+/* ============================================
+ * React Flow Node Handle Styling
+ * Override default hover animation to brightness only
+ * FIX: Completely disable all transforms to prevent flickering
+ * ============================================ */
+
+/* Base handle - lock position and disable all transform animations */
+.react-flow__handle {
+  /* Disable ALL transitions except opacity and box-shadow */
+  transition: opacity 200ms ease, box-shadow 200ms ease !important;
+  /* Lock transform to prevent any movement */
+  transform: translate(-50%, -50%) !important;
+  /* Prevent any transform changes */
+  will-change: opacity, box-shadow !important;
+}
+
+/* Hover state - brightness change only via box-shadow glow, NO transform */
+.react-flow__handle:hover {
+  opacity: 1 !important;
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.4) !important;
+  /* Explicitly keep transform locked */
+  transform: translate(-50%, -50%) !important;
+}
+
+/* Connecting/valid state */
+.react-flow__handle.connecting,
+.react-flow__handle.valid {
+  opacity: 1 !important;
+  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.6) !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+/* Invalid connection state */
+.react-flow__handle.invalid {
+  box-shadow: 0 0 0 3px hsl(var(--destructive) / 0.4) !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+/* Source handle specific (right side) */
+.react-flow__handle-right {
+  transform: translate(50%, -50%) !important;
+}
+.react-flow__handle-right:hover,
+.react-flow__handle-right.connecting,
+.react-flow__handle-right.valid {
+  transform: translate(50%, -50%) !important;
+}
+
+/* Target handle specific (left side) */
+.react-flow__handle-left {
+  transform: translate(-50%, -50%) !important;
+}
+.react-flow__handle-left:hover,
+.react-flow__handle-left.connecting,
+.react-flow__handle-left.valid {
+  transform: translate(-50%, -50%) !important;
+}
+
+/* Top/Bottom handles for vertical layout */
+.react-flow__handle-top {
+  transform: translate(-50%, -50%) !important;
+}
+.react-flow__handle-top:hover {
+  transform: translate(-50%, -50%) !important;
+}
+
+.react-flow__handle-bottom {
+  transform: translate(-50%, 50%) !important;
+}
+.react-flow__handle-bottom:hover {
+  transform: translate(-50%, 50%) !important;
+}
+
+/* Connection line styling */
+.react-flow__connection-line {
+  stroke-width: 2px;
+  stroke: hsl(var(--primary));
+}
+
+/* Edge hover */
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 3px;
+}
+
+/* Selected node styling */
+.react-flow__node.selected {
+  /* Box shadow removed as requested */
 }

@@ -7,17 +7,27 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      '@': path.resolve(__dirname, './src'),
+      '@app': path.resolve(__dirname, './src/app'),
+      '@pages': path.resolve(__dirname, './src/pages'),
+      '@widgets': path.resolve(__dirname, './src/widgets'),
+      '@features': path.resolve(__dirname, './src/features'),
+      '@entities': path.resolve(__dirname, './src/entities'),
+      '@shared': path.resolve(__dirname, './src/shared'),
     },
   },
   server: {
+    host: 'localhost',
+    port: 5173,
     proxy: {
-      // Proxy API requests to the backend server
-      '/api': 'http://127.0.0.1:8000',
-      '/configs': 'http://127.0.0.1:8000',
-      '/files': 'http://127.0.0.1:8000',
+      '/api': {
+        target: 'http://localhost:8000',
+        ws: true,
+      },
+      '/configs': 'http://localhost:8000',
+      '/files': 'http://localhost:8000',
       '/run': {
-        target: 'ws://127.0.0.1:8000',
+        target: 'ws://localhost:8000',
         ws: true,
       },
     }

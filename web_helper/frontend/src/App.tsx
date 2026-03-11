@@ -1,88 +1,43 @@
-import React from "react";
-import { Routes, Route } from 'react-router-dom';
-import { ThemeProvider } from './contexts/ThemeContext';
-import { ComparisonProvider } from './contexts/ComparisonContext';
-import { ChartInteractionProvider } from './contexts/ChartInteractionContext';
-import { ExecuteProvider } from './contexts/ExecuteContext';
-import { MainLayout } from './components/layout/MainLayout';
-import { ScrollToTop } from './components/ScrollToTop';
-import { ErrorBoundary } from './components/ui/error-boundary';
-import { useSSE } from './hooks/useSSE';
-import { DashboardView } from './components/views/DashboardView';
-import { MonitoringView } from './components/views/MonitoringView';
-import { QueueView } from './components/views/QueueView';
-import { ExecuteView } from './components/views/ExecuteView';
-import { ProjectsView } from './components/views/ProjectsView';
-import { ResultsView } from './components/views/ResultsView';
-import { ComponentsView } from './components/views/ComponentsView';
-import { devInfo, devWarn, devError } from './lib/dev-utils';
+import { AppProviders } from '@/app/ui/AppProviders';
+import { ScrollToTop } from '@/shared/ui/ScrollToTop';
+import { ErrorBoundary } from '@/shared/ui/error-boundary';
+import { useRealtime } from '@/shared/model/useRealtime';
+import { AppRoutes } from '@/app/router/AppRoutes';
+import { devInfo, devWarn, devError } from '@/shared/lib/utils';
+import { useEffect } from 'react';
+import { useBuilderStore } from '@/features/builder/model/builderStore';
 
 function App() {
-  // Initialize SSE connection for real-time updates
-  useSSE({
+  const setTypeColors = useBuilderStore(s => s.setTypeColors);
+
+  // 항목 2: 동적 타입 색상 로드
+  useEffect(() => {
+    fetch('/api/nodes/types')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setTypeColors(data.types);
+      })
+      .catch(err => devWarn('Failed to load type colors:', err));
+  }, [setTypeColors]);
+
+  // Initialize real-time connection (WebSocket with SSE fallback)
+  useRealtime({
+    channels: ['queue', 'devices', 'runs', 'nodes'],
     autoReconnect: true,
     reconnectDelay: 3000,
-    maxReconnectAttempts: 5,
-    onConnect: () => devInfo('📡 Real-time updates connected'),
-    onDisconnect: () => devWarn('📡 Real-time updates disconnected'),
+    maxReconnectAttempts: 3,
+    onConnect: (transport) => devInfo(`📡 Real-time updates connected via ${transport}`),
+    onDisconnect: (transport) => devWarn(`📡 Real-time updates disconnected (${transport})`),
     onError: (error) => devError('📡 Real-time update error:', error),
+    onTransportChange: (from, to) => devInfo(`📡 Transport fallback: ${from} → ${to}`),
   });
 
   return (
     <ErrorBoundary level="app">
-      <ThemeProvider>
-        <ChartInteractionProvider>
-          <ComparisonProvider>
-            <ExecuteProvider>
-              <ScrollToTop />
-              <Routes>
-                <Route path="/" element={<MainLayout />}>
-                  <Route index element={
-                    <ErrorBoundary level="view">
-                      <DashboardView />
-                    </ErrorBoundary>
-                  } />
-                  <Route path="monitoring" element={
-                    <ErrorBoundary level="view">
-                      <MonitoringView />
-                    </ErrorBoundary>
-                  } />
-                  <Route path="execute" element={
-                    <ErrorBoundary level="view">
-                      <ExecuteView />
-                    </ErrorBoundary>
-                  } />
-                  <Route path="queue" element={
-                    <ErrorBoundary level="view">
-                      <QueueView />
-                    </ErrorBoundary>
-                  } />
-                  <Route path="results" element={
-                    <ErrorBoundary level="view">
-                      <ResultsView />
-                    </ErrorBoundary>
-                  } />
-                  <Route path="projects" element={
-                    <ErrorBoundary level="view" resetKeys={['projects']}>
-                      <ProjectsView />
-                    </ErrorBoundary>
-                  } />
-                  <Route path="projects/:projectName" element={
-                    <ErrorBoundary level="view" resetKeys={['projects', ':projectName']}>
-                      <ProjectsView />
-                    </ErrorBoundary>
-                  } />
-                  <Route path="components" element={
-                    <ErrorBoundary level="view">
-                      <ComponentsView />
-                    </ErrorBoundary>
-                  } />
-                </Route>
-              </Routes>
-            </ExecuteProvider>
-          </ComparisonProvider>
-        </ChartInteractionProvider>
-      </ThemeProvider>
+      <AppProviders>
+        <ScrollToTop />
+        <AppRoutes />
+      </AppProviders>
     </ErrorBoundary>
   );
 }

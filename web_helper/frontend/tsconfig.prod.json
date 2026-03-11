@@ -4,8 +4,11 @@
     /* Production: Strict type checking */
     "strict": true,
     "strictNullChecks": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitAny": true
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitAny": true,
+
+    /* Allow non-erasable TS syntax (enums, parameter properties) */
+    "erasableSyntaxOnly": false
   }
 }

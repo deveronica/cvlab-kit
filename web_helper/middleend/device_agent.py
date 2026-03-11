@@ -95,8 +95,13 @@ class DeviceAgent:
         self.api_key = api_key or os.environ.get("CVLABKIT_API_KEY")
 
         # Workspace for logs
-        server_name = self._sanitize_server_name(server_url)
-        self.workspace = Path(f"logs_{server_name}")
+        # Local development (localhost/127.0.0.1) uses shared logs/ folder
+        # Remote servers use logs_{server_name}/ for isolation
+        if "localhost" in server_url or "127.0.0.1" in server_url:
+            self.workspace = Path("logs")
+        else:
+            server_name = self._sanitize_server_name(server_url)
+            self.workspace = Path(f"logs_{server_name}")
         self.workspace.mkdir(parents=True, exist_ok=True)
 
         # HTTP client with optional auth headers and configurable timeout

@@ -44,16 +44,17 @@ if [ "$AUTO_UPDATE" = "true" ] && [ -d ".git" ]; then
 
     if [ "$LOCAL" != "$REMOTE" ]; then
         echo "⬇️  Updating code from origin/main..."
-        git pull origin main --ff-only 2>/dev/null || {
+        if ! git pull origin main --ff-only 2>/dev/null; then
             echo "⚠️  Git pull failed, continuing with current version"
-        }
+        fi
 
         # Sync dependencies if uv.lock changed
         if git diff --name-only HEAD@{1} HEAD 2>/dev/null | grep -q "uv.lock"; then
             echo "📚 Dependencies changed, running uv sync..."
-            uv sync --frozen || echo "⚠️  uv sync failed"
+            if ! uv sync --frozen 2>/dev/null; then
+                echo "⚠️  uv sync failed, continuing with current version"
+            fi
         fi
-
         # Rebuild frontend if frontend code changed
         if git diff --name-only HEAD@{1} HEAD 2>/dev/null | grep -q "web_helper/frontend/src"; then
             echo "🎨 Frontend changed, rebuilding..."

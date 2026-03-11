@@ -15,6 +15,7 @@ from .sync import (
     SyncStatusRequest,
     SyncStatusResponse,
 )
+from .data_type import DataTypeColor
 from .component import (
     ComponentVersion,
     ExperimentComponentManifest,

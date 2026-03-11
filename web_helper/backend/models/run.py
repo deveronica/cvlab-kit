@@ -40,6 +40,9 @@ class Run(Base):
     notes = Column(String(2000), default="")  # User notes for this run
     tags = Column(JSON, default=list)  # List of tag strings
 
+    # Reproducibility metadata
+    reproducibility = Column(JSON, default=dict)  # Environment, git, seeds, etc.
+
     # Composite unique constraint: same run_name can exist in different projects
     __table_args__ = (
         UniqueConstraint("project", "run_name", name="uix_project_run_name"),

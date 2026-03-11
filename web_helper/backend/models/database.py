@@ -76,6 +76,12 @@ def init_database():
     migrate_state_files()
 
     # Import all models to ensure they're registered with Base
-    # Note: ProcessState moved to JSON file, no longer in DB
+    from .data_type import DataTypeColor
+    from .device import Device
+    from .run import Run
+    from .queue import QueueJob
+    from .queue_experiment import QueueExperiment
+    from .sync import SyncCheckpoint
+    from .component import ComponentVersion
 
     Base.metadata.create_all(bind=engine)
